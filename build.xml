@@ -21,7 +21,7 @@
 
   <!-- defines our runtime library dependencies -->
   <fileset dir="${libs.dir}" id="runtime.libs">
-    <!--<include name="google-collect.jar"/>-->
+    <include name="google-collect.jar"/>
     <include name="samskivert.jar"/>
   </fileset>
 
