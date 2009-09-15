@@ -60,7 +60,7 @@ public class Processor extends AbstractProcessor
         for (Element elem : roundEnv.getRootElements()) {
             JCCompilationUnit unit = toUnit(elem);
             RT.debug("Root elem " + elem, "unit", unit.getClass().getSimpleName());
-            unit.accept(new MutatorVisitor(_rootmaker.forToplevel(unit)));
+            unit.accept(new DetypingVisitor(_rootmaker.forToplevel(unit)));
         }
         return false;
     }
@@ -71,9 +71,9 @@ public class Processor extends AbstractProcessor
         return (path == null) ? null : (JCCompilationUnit)path.getCompilationUnit();
     }
 
-    protected static class MutatorVisitor extends TreeTranslator
+    protected static class DetypingVisitor extends TreeTranslator
     {
-        public MutatorVisitor (TreeMaker maker) {
+        public DetypingVisitor (TreeMaker maker) {
             _tmaker = maker;
         }
 
