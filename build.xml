@@ -1,0 +1,143 @@
+<?xml version="1.0"?>
+<project name="detyper" default="compile" basedir=".">
+  <!-- project metadata -->
+  <property name="lib.name"     value="detyper"/>
+  <property name="doc.packages" value="org.typelessj.detyper.*"/>
+  <property name="doc.overview" value="org/typelessj/detyper/overview.html"/>
+
+  <!-- various directories used when building things -->
+  <property name="src.dir"     value="src"/>
+  <property name="deploy.dir"  value="dist"/>
+  <property name="classes.dir" value="${deploy.dir}/classes"/>
+  <property name="exclass.dir" value="${deploy.dir}/exclass"/>
+  <property name="javadoc.dir" value="${deploy.dir}/docs"/>
+  <property name="libs.dir"    value="lib"/>
+
+  <!-- defines our classpath -->
+  <path id="classpath">
+    <pathelement location="${classes.dir}"/>
+    <fileset dir="${deploy.dir}/lib" includes="*.jar"/>
+  </path>
+
+  <!-- defines our runtime library dependencies -->
+  <fileset dir="${libs.dir}" id="runtime.libs">
+    <!--<include name="google-collect.jar"/>-->
+    <include name="samskivert.jar"/>
+  </fileset>
+
+  <!-- defines our build-time library dependencies -->
+  <fileset dir="${libs.dir}" id="build.libs">
+    <!--<include name="ant.jar"/>-->
+    <include name="junit4.jar"/>
+  </fileset>
+
+  <!-- prepares the application directories -->
+  <target name="prepare">
+    <mkdir dir="${deploy.dir}"/>
+    <mkdir dir="${deploy.dir}/lib"/>
+    <mkdir dir="${classes.dir}"/>
+    <mkdir dir="${exclass.dir}"/>
+    <mkdir dir="${javadoc.dir}"/>
+    <copy todir="${deploy.dir}/lib" flatten="true">
+      <fileset refid="build.libs"/>
+      <fileset refid="runtime.libs"/>
+      <fileset dir="${java.home}/../lib" includes="tools.jar"/>
+    </copy>
+  </target>
+
+  <!-- cleans out the intermediate build files -->
+  <target name="clean" description="Cleans out build results.">
+    <delete dir="${classes.dir}"/>
+    <delete dir="${exclass.dir}"/>
+    <delete dir="${deploy.dir}/docs"/>
+    <delete failonerror="false"><fileset dir="${deploy.dir}" includes="*.jar"/></delete>
+  </target>
+
+  <!-- wipes the entire build directory clean -->
+  <target name="distclean" description="Completely removes build result directory.">
+    <delete dir="${deploy.dir}"/>
+  </target>
+
+  <!-- builds the java class files -->
+  <target name="compile" depends="prepare" description="Compiles the code.">
+    <javac srcdir="${src.dir}" destdir="${classes.dir}" includeAntRuntime="false"
+           debug="on" optimize="${build.optimize}" source="1.6" target="1.6" encoding="utf-8">
+      <classpath refid="classpath"/>
+      <exclude name="org/typelessj/example/**"/>
+      <compilerarg value="-Xlint"/>
+      <compilerarg value="-Xlint:-serial"/>
+    </javac>
+  </target>
+
+  <!-- builds the javadoc documentation -->
+  <target name="javadoc" depends="prepare" description="Generates javadoc documentation.">
+    <javadoc windowtitle="${lib.name} API" doctitle="${lib.name} API"
+             overview="${src.dir}/${doc.overview}" destdir="${javadoc.dir}"
+             additionalparam="-breakiterator">
+      <packageset dir="${src.dir}">
+        <exclude name="org/typelessj/detyper/tests/**"/>
+      </packageset>
+      <classpath refid="classpath"/>
+      <link href="http://java.sun.com/javase/6/docs/api/"/>
+    </javadoc>
+  </target>
+
+  <!-- rebuilds everything -->
+  <target name="all" depends="clean,prepare,compile,javadoc,dist"
+          description="Cleans and rebuilds everything including documentation."/>
+
+  <!-- runs our unit tests -->
+  <target name="tests" depends="prepare,compile" description="Runs the unit tests.">
+    <taskdef name="unit" classpathref="classpath"
+      classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask"/>
+    <unit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
+      <classpath>
+        <pathelement location="${classes.dir}"/>
+        <fileset dir="${deploy.dir}/lib" includes="*.jar"/>
+      </classpath>
+      <sysproperty key="test_dir" value="${basedir}"/>
+      <formatter type="brief" usefile="false"/>
+      <batchtest>
+        <fileset dir="${src.dir}">
+          <include name="**/tests/**/*Test.java"/>
+        </fileset>
+      </batchtest>
+    </unit>
+  </target>
+
+  <!-- builds our distribution jar file -->
+  <target name="dist" depends="prepare,compile"
+          description="Compiles the code and builds our jar file.">
+    <jar destfile="${deploy.dir}/${lib.name}-bare.jar" basedir="${classes.dir}">
+      <exclude name="**/tests/**"/>
+    </jar>
+
+    <!-- use autojar to generate a jar file with all of our dependencies -->
+    <pathconvert targetos="unix" property="runtime.lpath" refid="runtime.libs"/>
+    <java jar="lib/autojar.jar" fork="true">
+      <arg value="-c"/>
+      <arg value="${runtime.lpath}"/>
+      <arg value="-o"/>
+      <arg value="${deploy.dir}/${lib.name}.jar"/>
+      <arg value="${deploy.dir}/${lib.name}-bare.jar"/>
+    </java>
+  </target>
+
+  <!-- runs the compiler on the example code with the detyper processor active -->
+  <target name="example" depends="prepare,compile"
+          description="Compiles the code and builds our jar file.">
+    <javac srcdir="${src.dir}" destdir="${exclass.dir}" includeAntRuntime="false"
+           debug="on" optimize="${build.optimize}" source="1.6" target="1.6" encoding="utf-8">
+      <classpath>
+        <path refid="classpath"/>
+        <pathelement location="${exclass.dir}"/>
+      </classpath>
+      <compilerarg value="-Xlint"/>
+      <compilerarg value="-Xlint:-serial"/>
+      <!--<compilerarg value="-XprintProcessorInfo"/>-->
+      <compilerarg value="-processor"/>
+      <compilerarg value="org.typelessj.detyper.Processor"/>
+      <include name="org/typelessj/example/**"/>
+    </javac>
+  </target>
+</project>
