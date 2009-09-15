@@ -36,7 +36,6 @@
     <mkdir dir="${deploy.dir}"/>
     <mkdir dir="${deploy.dir}/lib"/>
     <mkdir dir="${classes.dir}"/>
-    <mkdir dir="${exclass.dir}"/>
     <mkdir dir="${javadoc.dir}"/>
     <copy todir="${deploy.dir}/lib" flatten="true">
       <fileset refid="build.libs"/>
@@ -120,12 +119,18 @@
       <arg value="-o"/>
       <arg value="${deploy.dir}/${lib.name}.jar"/>
       <arg value="${deploy.dir}/${lib.name}-bare.jar"/>
+      <!-- TODO: enhance autojar to allow the com/sun/* files to be excluded so -->
+      <!-- that they don't result in a warning every time we run the tool -->
     </java>
   </target>
 
   <!-- runs the compiler on the example code with the detyper processor active -->
   <target name="example" depends="prepare,compile"
           description="Compiles the code and builds our jar file.">
+    <delete dir="${exclass.dir}"/>
+    <mkdir dir="${exclass.dir}"/>
+
+    <echo>--- Compiling example app with detyper:</echo>
     <javac srcdir="${src.dir}" destdir="${exclass.dir}" includeAntRuntime="false"
            debug="on" optimize="${build.optimize}" source="1.6" target="1.6" encoding="utf-8">
       <classpath>
@@ -139,5 +144,13 @@
       <compilerarg value="org.typelessj.detyper.Processor"/>
       <include name="org/typelessj/example/**"/>
     </javac>
+
+    <echo>--- Running example app:</echo>
+    <java fork="true" classname="org.typelessj.example.ExampleApp">
+      <classpath>
+        <path refid="classpath"/>
+        <pathelement location="${exclass.dir}"/>
+      </classpath>
+    </java>
   </target>
 </project>

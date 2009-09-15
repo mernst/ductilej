@@ -6,11 +6,24 @@ package org.typelessj.runtime;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
+import com.samskivert.util.LogBuilder;
+
 /**
  * Provides dynamic method dispatch, operator evaluation and other bits.
  */
 public class RT
 {
+    /**
+     * Emits a debug message.
+     *
+     * @param args key/value pairs, (e.g. "age", someAge, "size", someSize) which will be appended
+     * to the log message as [age=someAge, size=someSize].
+     */
+    public static void debug (String message, Object... args)
+    {
+        System.out.println(new LogBuilder(message, args));
+    }
+
     /**
      * Invokes the specified method via reflection, performing runtime type resolution and handling
      * the necessary name mangling to cope with de-typed overloads.
@@ -27,6 +40,7 @@ public class RT
         }
 
         try {
+            System.out.println("Invoking " + method + " on " + receiver + " with " + args);
             return method.invoke(receiver, args);
         } catch (IllegalAccessException iae) {
             throw new RuntimeException(iae);
@@ -40,10 +54,20 @@ public class RT
      */
     protected static Method findMethod (Class clazz, String mname, Object... args)
     {
+        // TODO: this needs to be much smarter :)
+      METHODS:
         for (Method method : clazz.getDeclaredMethods()) {
-            if (method.getName().equals(mname)) {
-                return method;
+            Class<?>[] ptypes = method.getParameterTypes();
+            if (!method.getName().equals(mname) || ptypes.length != args.length) {
+                continue METHODS;
             }
+            debug("Checking " + method.getName() + " for match", "ptypes", ptypes, "args", args);
+            for (int ii = 0; ii < args.length; ii++) {
+                if (args[ii] != null && !ptypes[ii].isAssignableFrom(args[ii].getClass())) {
+                    continue METHODS;
+                }
+            }
+            return method;
         }
         Class parent = clazz.getSuperclass();
         return (parent == null) ? null : findMethod(parent, mname, args);

@@ -17,11 +17,15 @@ import javax.tools.Diagnostic;
 
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
+import com.sun.tools.javac.code.TypeTags;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
+import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.tree.TreeTranslator;
+import com.sun.tools.javac.util.Name;
 
-import com.samskivert.util.LogBuilder;
+import org.typelessj.runtime.RT;
 
 /**
  * The main entry point for the detyping processor.
@@ -42,7 +46,8 @@ public class Processor extends AbstractProcessor
         }
 
         _trees = Trees.instance(procenv);
-        debug("Detyper running", "vers", procenv.getSourceVersion());
+        _rootmaker = TreeMaker.instance(((JavacProcessingEnvironment)procenv).getContext());
+        RT.debug("Detyper running", "vers", procenv.getSourceVersion());
     }
 
     @Override // from AbstractProcessor
@@ -53,38 +58,70 @@ public class Processor extends AbstractProcessor
         }
 
         for (Element elem : roundEnv.getRootElements()) {
-            JCTree.JCCompilationUnit unit = toUnit(elem);
-            debug("Root elem " + elem, "unit", unit.getClass().getSimpleName());
-            unit.accept(new MutatorVisitor());
+            JCCompilationUnit unit = toUnit(elem);
+            RT.debug("Root elem " + elem, "unit", unit.getClass().getSimpleName());
+            unit.accept(new MutatorVisitor(_rootmaker.forToplevel(unit)));
         }
         return false;
     }
 
-    protected JCTree.JCCompilationUnit toUnit (Element element)
+    protected JCCompilationUnit toUnit (Element element)
     {
         TreePath path = _trees.getPath(element);
-        return (path == null) ? null : (JCTree.JCCompilationUnit)path.getCompilationUnit();
+        return (path == null) ? null : (JCCompilationUnit)path.getCompilationUnit();
     }
 
     protected static class MutatorVisitor extends TreeTranslator
     {
-        @Override public void visitApply (JCTree.JCMethodInvocation that)
-        {
-            debug("Method invocation", "typeargs", that.typeargs, "method", that.meth,
-                  "mtype", that.meth.getClass().getSimpleName(),
-                  "args", that.args, "varargs", that.varargsElement);
-//             if (that.meth instanceof JCTree.JCIdent) {
-//                 JCTree.JCIdent mident = (JCTree.JCIdent)that.meth;
-//                 mident.name = mident.name.table.fromString(mident.name + "Oops");
-//             }
+        public MutatorVisitor (TreeMaker maker) {
+            _tmaker = maker;
+        }
+
+        @Override public void visitApply (JCMethodInvocation that) {
+            RT.debug("Method invocation", "typeargs", that.typeargs, "method", what(that.meth),
+                     "args", that.args, "varargs", that.varargsElement);
+
+            // TODO: we're only transforming methods that look like foo.bar for now, this misses
+            // method calls with implicit receivers for which that.meth is a JCIdent node
+            if (that.meth instanceof JCFieldAccess) {
+                JCFieldAccess mfacc = (JCFieldAccess)that.meth;
+                RT.debug("Decoded field access", "selected", what(mfacc.selected),
+                         "name", mfacc.name, "symbol", mfacc.sym);
+                // convert expr.method(args) into RT.invoke(expr, "method", args)
+                that.args = that.args.
+                    prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString())).
+                    prepend(mfacc.selected);
+                that.meth = mkRT(mfacc.name.table, "invoke");
+
+                RT.debug("Mutated", "typeargs", that.typeargs, "method", what(that.meth),
+                         "args", that.args, "varargs", that.varargsElement);
+            }
+
             super.visitApply(that);
         }
+
+        protected JCFieldAccess mkRT (Name.Table table, String method) {
+            return _tmaker.Select(mkFA(table, RT.class.getName()), table.fromString(method));
+        }
+
+        protected JCExpression mkFA (Name.Table table, String fqName) {
+            int didx = fqName.lastIndexOf(".");
+            if (didx == -1) {
+                return _tmaker.Ident(table.fromString(fqName)); // simple identifier
+            } else {
+                return _tmaker.Select(mkFA(table, fqName.substring(0, didx)), // nested FA expr
+                                      table.fromString(fqName.substring(didx+1)));
+            }
+        }
+
+        protected TreeMaker _tmaker;
     }
 
-    protected static void debug (String message, Object... args)
+    protected static String what (JCTree node)
     {
-        System.out.println(new LogBuilder(message, args));
+        return node.getClass().getSimpleName() + "[" + node + "]";
     }
 
     protected Trees _trees;
+    protected TreeMaker _rootmaker;
 }
