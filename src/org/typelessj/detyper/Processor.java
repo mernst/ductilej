@@ -87,10 +87,9 @@ public class Processor extends AbstractProcessor
                 JCFieldAccess mfacc = (JCFieldAccess)that.meth;
                 RT.debug("Decoded field access", "selected", what(mfacc.selected),
                          "name", mfacc.name, "symbol", mfacc.sym);
-                // convert expr.method(args) into RT.invoke(expr, "method", args)
-                that.args = that.args.
-                    prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString())).
-                    prepend(mfacc.selected);
+                // convert expr.method(args) into RT.invoke("method", expr, args)
+                that.args = that.args.prepend(mfacc.selected).
+                    prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString()));
                 that.meth = mkRT(mfacc.name.table, "invoke");
 
                 RT.debug("Mutated", "typeargs", that.typeargs, "method", what(that.meth),
