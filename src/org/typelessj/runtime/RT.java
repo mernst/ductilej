@@ -5,7 +5,9 @@ package org.typelessj.runtime;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Map;
 
+import com.google.common.collect.ImmutableMap;
 import com.samskivert.util.LogBuilder;
 
 /**
@@ -40,7 +42,6 @@ public class RT
         }
 
         try {
-            System.out.println("Invoking " + method + " on " + receiver + " with " + args);
             return method.invoke(receiver, args);
         } catch (IllegalAccessException iae) {
             throw new RuntimeException(iae);
@@ -61,9 +62,10 @@ public class RT
             if (!method.getName().equals(mname) || ptypes.length != args.length) {
                 continue METHODS;
             }
-            debug("Checking " + method.getName() + " for match", "ptypes", ptypes, "args", args);
+            // debug("Checking " + method.getName() + " for match", "ptypes", ptypes, "args", args);
             for (int ii = 0; ii < args.length; ii++) {
-                if (args[ii] != null && !ptypes[ii].isAssignableFrom(args[ii].getClass())) {
+                Class<?> ptype = ptypes[ii].isPrimitive() ? WRAPPERS.get(ptypes[ii]) : ptypes[ii];
+                if (args[ii] != null && !ptype.isAssignableFrom(args[ii].getClass())) {
                     continue METHODS;
                 }
             }
@@ -72,4 +74,16 @@ public class RT
         Class parent = clazz.getSuperclass();
         return (parent == null) ? null : findMethod(mname, parent, args);
     }
+
+    protected static final Map<Class<?>, Class<?>> WRAPPERS =
+        ImmutableMap.<Class<?>, Class<?>>builder().
+        put(Boolean.TYPE, Boolean.class).
+        put(Byte.TYPE, Byte.class).
+        put(Character.TYPE, Character.class).
+        put(Short.TYPE, Short.class).
+        put(Integer.TYPE, Integer.class).
+        put(Long.TYPE, Long.class).
+        put(Float.TYPE, Float.class).
+        put(Double.TYPE, Double.class).
+        build();
 }
