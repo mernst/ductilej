@@ -28,13 +28,13 @@ public class RT
      * Invokes the specified method via reflection, performing runtime type resolution and handling
      * the necessary name mangling to cope with de-typed overloads.
      */
-    public static Object invoke (Object receiver, String mname, Object... args)
+    public static Object invoke (String mname, Object receiver, Object... args)
     {
         if (receiver == null) {
             throw new NullPointerException();
         }
 
-        Method method = findMethod(receiver.getClass(), mname, args);
+        Method method = findMethod(mname, receiver.getClass(), args);
         if (method == null) {
             throw new NoSuchMethodError(); // TODO
         }
@@ -52,7 +52,7 @@ public class RT
     /**
      * A helper for {@link #invoke}.
      */
-    protected static Method findMethod (Class clazz, String mname, Object... args)
+    protected static Method findMethod (String mname, Class clazz, Object... args)
     {
         // TODO: this needs to be much smarter :)
       METHODS:
@@ -70,6 +70,6 @@ public class RT
             return method;
         }
         Class parent = clazz.getSuperclass();
-        return (parent == null) ? null : findMethod(parent, mname, args);
+        return (parent == null) ? null : findMethod(mname, parent, args);
     }
 }
