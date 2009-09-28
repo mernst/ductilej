@@ -87,17 +87,48 @@ public class Processor extends AbstractProcessor
             RT.debug("Entering class " + tree.name);
             super.visitClassDef(tree);
             RT.debug("Leaving class " + tree.name);
+            RT.debug(""+tree);
         }
 
         @Override public void visitVarDef (JCVariableDecl tree) {
-            RT.debug("Variable def", "mods", tree.mods, "name", tree.name,
+            RT.debug("Transforming vardef", "mods", tree.mods, "name", tree.name,
                      "vtype", what(tree.vartype), "init", tree.init,
                      "sym", ASTUtil.expand(tree.sym));
 
-            // TODO: do we ever want to not transform?
+            // TODO: don't do this if we're in a library method
             tree.vartype = _tmaker.Ident(_names.fromString("Object"));
 
             super.visitVarDef(tree);
+        }
+
+        @Override public void visitMethodDef (JCMethodDecl tree) {
+            // no call to super, as we need more control over what is transformed
+
+            RT.debug("Method decl", "name", tree.getName(), "sym", tree.sym,
+                     "isOverride", ASTUtil.isOverrider(_types, tree.sym),
+                     "restype", what(tree.restype), "params", tree.params);
+
+            boolean mainHack = tree.getName().toString().equals("main");
+
+            // TODO: also check whether this method implements a library interface
+            if (!mainHack && !ASTUtil.isOverrider(_types, tree.sym)) {
+                // transform the return type if it is not void
+                if (tree.restype != null && !ASTUtil.isVoid(tree.restype)){
+                    RT.debug("Transforming return type", "name", tree.getName(),
+                             "rtype", tree.restype);
+                    tree.restype = _tmaker.Ident(_names.fromString("Object"));
+                }
+
+                // transform the method parameters
+                tree.params = translateVarDefs(tree.params);
+            }
+
+            // we always translate these bits
+            tree.mods = translate(tree.mods);
+            tree.typarams = translateTypeParams(tree.typarams);
+            tree.thrown = translate(tree.thrown);
+            tree.body = translate(tree.body);
+            result = tree;
         }
 
         @Override public void visitBinary (JCBinary tree) {
@@ -112,15 +143,13 @@ public class Processor extends AbstractProcessor
         }
 
         @Override public void visitApply (JCMethodInvocation that) {
-            RT.debug("Method invocation", "typeargs", that.typeargs, "method", what(that.meth),
-                     "args", that.args, "varargs", that.varargsElement);
+//             RT.debug("Method invocation", "typeargs", that.typeargs, "method", what(that.meth),
+//                      "args", that.args, "varargs", that.varargsElement);
 
             // TODO: we're only transforming methods that look like foo.bar for now, this misses
             // method calls with implicit receivers for which that.meth is a JCIdent node
             if (that.meth instanceof JCFieldAccess) {
                 JCFieldAccess mfacc = (JCFieldAccess)that.meth;
-                RT.debug("Decoded field access", "selected", what(mfacc.selected),
-                         "name", mfacc.name, "symbol", mfacc.sym);
                 // convert expr.method(args) into RT.invoke("method", expr, args)
                 that.args = that.args.prepend(mfacc.selected).
                     prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString()));
@@ -152,7 +181,9 @@ public class Processor extends AbstractProcessor
 
     protected static String what (JCTree node)
     {
-        if (node instanceof JCIdent) {
+        if (node == null) {
+            return "null";
+        } else if (node instanceof JCIdent) {
             return node.getClass().getSimpleName() + "[" + node + "/" + ((JCIdent)node).sym + "]";
         } else {
             return node.getClass().getSimpleName() + "[" + node + "]";

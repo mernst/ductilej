@@ -3,11 +3,14 @@
 
 package org.typelessj.util;
 
+import javax.lang.model.type.TypeKind;
+
 import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.tree.JCTree.*;
 
 /**
  * AST related utility methods.
@@ -58,6 +61,16 @@ public class ASTUtil
         // TODO: we need to annotate classes that have been transformed in a way that we can detect
         // that information in the Type or TypeSymbol for the class (a class annotation?)
         return csym.fullname.toString().startsWith("java.");
+    }
+
+    /**
+     * Returns true if the supplied expression represents the void type (only shows up as the
+     * declared return type for a method).
+     */
+    public static boolean isVoid (JCExpression expr)
+    {
+        return (expr instanceof JCPrimitiveTypeTree) &&
+            ((JCPrimitiveTypeTree)expr).getPrimitiveTypeKind() == TypeKind.VOID;
     }
 
     /**
