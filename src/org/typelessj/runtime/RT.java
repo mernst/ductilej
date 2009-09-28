@@ -9,6 +9,7 @@ import java.util.Map;
 
 import com.google.common.collect.ImmutableMap;
 import com.samskivert.util.LogBuilder;
+import com.sun.tools.javac.code.Symbol;
 
 /**
  * Provides dynamic method dispatch, operator evaluation and other bits.

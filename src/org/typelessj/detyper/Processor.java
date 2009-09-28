@@ -26,6 +26,7 @@ import com.sun.tools.javac.tree.TreeTranslator;
 import com.sun.tools.javac.util.Name;
 
 import org.typelessj.runtime.RT;
+import org.typelessj.util.ASTUtil;
 
 /**
  * The main entry point for the detyping processor.
@@ -59,7 +60,8 @@ public class Processor extends AbstractProcessor
 
         for (Element elem : roundEnv.getRootElements()) {
             JCCompilationUnit unit = toUnit(elem);
-            RT.debug("Root elem " + elem, "unit", unit.getClass().getSimpleName());
+            RT.debug("Root elem " + elem, "unit", unit.getClass().getSimpleName(),
+                     "sym.mems", ASTUtil.expand(unit.packge.members_field.elems.sym));
             unit.accept(new DetypingVisitor(_rootmaker.forToplevel(unit)));
         }
         return false;
@@ -75,6 +77,12 @@ public class Processor extends AbstractProcessor
     {
         public DetypingVisitor (TreeMaker maker) {
             _tmaker = maker;
+        }
+
+        @Override public void visitClassDef (JCClassDecl tree) {
+            RT.debug("Entering class " + tree.name);
+            super.visitClassDef(tree);
+            RT.debug("Leaving class " + tree.name);
         }
 
         @Override public void visitApply (JCMethodInvocation that) {
@@ -118,7 +126,11 @@ public class Processor extends AbstractProcessor
 
     protected static String what (JCTree node)
     {
-        return node.getClass().getSimpleName() + "[" + node + "]";
+        if (node instanceof JCIdent) {
+            return node.getClass().getSimpleName() + "[" + node + "/" + ((JCIdent)node).sym + "]";
+        } else {
+            return node.getClass().getSimpleName() + "[" + node + "]";
+        }
     }
 
     protected Trees _trees;
