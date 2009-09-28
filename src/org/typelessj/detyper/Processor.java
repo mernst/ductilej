@@ -18,12 +18,14 @@ import javax.tools.Diagnostic;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.TypeTags;
+import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.tree.TreeTranslator;
-import com.sun.tools.javac.util.Name;
+import com.sun.tools.javac.util.List;
+import com.sun.tools.javac.util.Name; // Name.Table -> Names in OpenJDK
 
 import org.typelessj.runtime.RT;
 import org.typelessj.util.ASTUtil;
@@ -47,6 +49,8 @@ public class Processor extends AbstractProcessor
         }
 
         _trees = Trees.instance(procenv);
+        _types = Types.instance(((JavacProcessingEnvironment)procenv).getContext());
+        _names = Name.Table.instance(((JavacProcessingEnvironment)procenv).getContext());
         _rootmaker = TreeMaker.instance(((JavacProcessingEnvironment)procenv).getContext());
         RT.debug("Detyper running", "vers", procenv.getSourceVersion());
     }
@@ -73,7 +77,7 @@ public class Processor extends AbstractProcessor
         return (path == null) ? null : (JCCompilationUnit)path.getCompilationUnit();
     }
 
-    protected static class DetypingVisitor extends TreeTranslator
+    protected class DetypingVisitor extends TreeTranslator
     {
         public DetypingVisitor (TreeMaker maker) {
             _tmaker = maker;
@@ -83,6 +87,28 @@ public class Processor extends AbstractProcessor
             RT.debug("Entering class " + tree.name);
             super.visitClassDef(tree);
             RT.debug("Leaving class " + tree.name);
+        }
+
+        @Override public void visitVarDef (JCVariableDecl tree) {
+            RT.debug("Variable def", "mods", tree.mods, "name", tree.name,
+                     "vtype", what(tree.vartype), "init", tree.init,
+                     "sym", ASTUtil.expand(tree.sym));
+
+            // TODO: do we ever want to not transform?
+            tree.vartype = _tmaker.Ident(_names.fromString("Object"));
+
+            super.visitVarDef(tree);
+        }
+
+        @Override public void visitBinary (JCBinary tree) {
+            super.visitBinary(tree);
+
+            JCLiteral opcode = _tmaker.Literal(TypeTags.CLASS, tree.getKind().toString());
+            JCMethodInvocation apply = _tmaker.Apply(
+                null, mkRT("op"), List.<JCExpression>of(opcode, tree.lhs, tree.rhs));
+            apply.pos = tree.pos;
+            RT.debug("Rewrote binop", "kind", tree.getKind(), "pos", tree.pos, "apos", apply.pos);
+            result = apply;
         }
 
         @Override public void visitApply (JCMethodInvocation that) {
@@ -98,7 +124,7 @@ public class Processor extends AbstractProcessor
                 // convert expr.method(args) into RT.invoke("method", expr, args)
                 that.args = that.args.prepend(mfacc.selected).
                     prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString()));
-                that.meth = mkRT(mfacc.name.table, "invoke");
+                that.meth = mkRT("invoke");
 
                 RT.debug("Mutated", "typeargs", that.typeargs, "method", what(that.meth),
                          "args", that.args, "varargs", that.varargsElement);
@@ -107,17 +133,17 @@ public class Processor extends AbstractProcessor
             super.visitApply(that);
         }
 
-        protected JCFieldAccess mkRT (Name.Table table, String method) {
-            return _tmaker.Select(mkFA(table, RT.class.getName()), table.fromString(method));
+        protected JCFieldAccess mkRT (String method) {
+            return _tmaker.Select(mkFA(RT.class.getName()), _names.fromString(method));
         }
 
-        protected JCExpression mkFA (Name.Table table, String fqName) {
+        protected JCExpression mkFA (String fqName) {
             int didx = fqName.lastIndexOf(".");
             if (didx == -1) {
-                return _tmaker.Ident(table.fromString(fqName)); // simple identifier
+                return _tmaker.Ident(_names.fromString(fqName)); // simple identifier
             } else {
-                return _tmaker.Select(mkFA(table, fqName.substring(0, didx)), // nested FA expr
-                                      table.fromString(fqName.substring(didx+1)));
+                return _tmaker.Select(mkFA(fqName.substring(0, didx)), // nested FA expr
+                                      _names.fromString(fqName.substring(didx+1)));
             }
         }
 
@@ -134,5 +160,7 @@ public class Processor extends AbstractProcessor
     }
 
     protected Trees _trees;
+    protected Types _types;
+    protected Name.Table _names;
     protected TreeMaker _rootmaker;
 }
