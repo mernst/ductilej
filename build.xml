@@ -126,7 +126,7 @@
 
   <!-- runs the compiler on the example code with the detyper processor active -->
   <target name="example" depends="prepare,compile"
-          description="Compiles the code and builds our jar file.">
+          description="Runs the detyping processor on the example code.">
     <delete dir="${exclass.dir}"/>
     <mkdir dir="${exclass.dir}"/>
 
@@ -152,5 +152,27 @@
         <pathelement location="${exclass.dir}"/>
       </classpath>
     </java>
+  </target>
+
+  <!-- runs the compiler on the example code with the astviz processor active -->
+  <target name="astviz" depends="prepare,compile"
+          description="Compiles the example code with the astviz processor.">
+    <delete dir="${exclass.dir}"/>
+    <mkdir dir="${exclass.dir}"/>
+
+    <echo>--- Compiling example app with astviz:</echo>
+    <javac srcdir="${src.dir}" destdir="${exclass.dir}" includeAntRuntime="false"
+           debug="on" optimize="${build.optimize}" source="1.6" target="1.6" encoding="utf-8">
+      <classpath>
+        <path refid="classpath"/>
+        <pathelement location="${exclass.dir}"/>
+      </classpath>
+      <compilerarg value="-Xlint"/>
+      <compilerarg value="-Xlint:-serial"/>
+      <!--<compilerarg value="-XprintProcessorInfo"/>-->
+      <compilerarg value="-processor"/>
+      <compilerarg value="org.typelessj.astviz.Processor"/>
+      <include name="org/typelessj/example/**"/>
+    </javac>
   </target>
 </project>

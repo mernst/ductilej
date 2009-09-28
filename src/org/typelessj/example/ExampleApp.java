@@ -4,7 +4,7 @@
 package org.typelessj.example;
 
 /**
- * An example app on which we demonstrate the untyper.
+ * An example app on which we demonstrate the detyper.
  */
 public class ExampleApp
 {
@@ -12,6 +12,11 @@ public class ExampleApp
     {
         public int compute (int value) {
             return value * 2 + 5;
+        }
+
+        @Override
+        public String toString () {
+            return "Tester";
         }
     }
 
