@@ -7,9 +7,11 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
 
+import com.sun.source.tree.Tree;
+import com.sun.tools.javac.code.Symbol;
+
 import com.google.common.collect.ImmutableMap;
 import com.samskivert.util.LogBuilder;
-import com.sun.tools.javac.code.Symbol;
 
 /**
  * Provides dynamic method dispatch, operator evaluation and other bits.
@@ -80,6 +82,18 @@ public class RT
      */
     public static Object op (String opcode, Object lhs, Object rhs)
     {
+        Tree.Kind kind = Enum.valueOf(Tree.Kind.class, opcode);
+        switch (kind) {
+        // TODO: this all needs to be much more sophisticated
+        case PLUS:
+            if (lhs instanceof String || rhs instanceof String) {
+                return String.valueOf(lhs) + String.valueOf(rhs);
+            }
+            return ((Integer)lhs).intValue() + ((Integer)rhs).intValue();
+        case MULTIPLY:
+            return ((Integer)lhs).intValue() * ((Integer)rhs).intValue();
+        }
+
 // TODO: implement
 //         POSTFIX_INCREMENT(UnaryTree.class),
 //         POSTFIX_DECREMENT(UnaryTree.class),

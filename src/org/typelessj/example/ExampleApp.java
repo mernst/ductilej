@@ -25,7 +25,7 @@ public class ExampleApp
         Tester tester = new Tester();
 
         int age = 25;
-        Object value = tester.compute(age);
+        int value = tester.compute(age);
         System.out.println("Value " + value);
 
         String name = "Phineas P. Gage";
