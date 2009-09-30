@@ -95,7 +95,8 @@ public class Processor extends AbstractProcessor
                      "vtype", what(tree.vartype), "init", tree.init,
                      "sym", ASTUtil.expand(tree.sym));
 
-            // TODO: don't do this if we're in a library method
+            // TODO: is not calling translate(tree.params) all we need to do to ensure that we
+            // don't detype parameters to library method overriders and implementers?
             tree.vartype = _tmaker.Ident(_names.fromString("Object"));
 
             super.visitVarDef(tree);
@@ -108,6 +109,8 @@ public class Processor extends AbstractProcessor
                      "isOverride", ASTUtil.isOverrider(_types, tree.sym),
                      "restype", what(tree.restype), "params", tree.params);
 
+            // TODO: extract this into an ASTUtil method, use a tree traverser to make it correct:
+            // only match public static methods named 'main' with a single String[] argument
             boolean mainHack = tree.getName().toString().equals("main");
 
             // TODO: also check whether this method implements a library interface
