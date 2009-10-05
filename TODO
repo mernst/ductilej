@@ -2,7 +2,6 @@ TypelessJ TODO
 --------------
 
 Detyper
-- Detect that a method implements a library interface, avoid transform
 - Transform method calls with implicit receivers (which are JCIdent rather than
 JCFieldAccess)
 - Transform constructor invocations (JCNewClass)
