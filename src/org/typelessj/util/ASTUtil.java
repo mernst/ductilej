@@ -23,7 +23,7 @@ public class ASTUtil
      */
     public static boolean isOverrider (Types types, Symbol s)
     {
-        if (s.kind != Kinds.MTH || s.isStatic()) {
+        if (s == null || s.kind != Kinds.MTH || s.isStatic()) {
             return false;
         }
         Symbol.MethodSymbol m = (Symbol.MethodSymbol)s;

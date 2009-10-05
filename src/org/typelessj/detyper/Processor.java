@@ -17,17 +17,23 @@ import javax.tools.Diagnostic;
 
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
+import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.TypeTags;
 import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.comp.Annotate;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.tree.TreeTranslator;
+import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
-import com.sun.tools.javac.util.Name; // Name.Table -> Names in OpenJDK
+// import com.sun.tools.javac.util.Name; // Name.Table -> Names in OpenJDK
+import com.sun.tools.javac.util.Names;
 
 import org.typelessj.runtime.RT;
+import org.typelessj.runtime.Transformed;
 import org.typelessj.util.ASTUtil;
 
 /**
@@ -48,10 +54,13 @@ public class Processor extends AbstractProcessor
             return;
         }
 
+        Context ctx = ((JavacProcessingEnvironment)procenv).getContext();
         _trees = Trees.instance(procenv);
-        _types = Types.instance(((JavacProcessingEnvironment)procenv).getContext());
-        _names = Name.Table.instance(((JavacProcessingEnvironment)procenv).getContext());
-        _rootmaker = TreeMaker.instance(((JavacProcessingEnvironment)procenv).getContext());
+        _types = Types.instance(ctx);
+        _names = Names.instance(ctx);
+        _syms = Symtab.instance(ctx);
+        _annotate = Annotate.instance(ctx);
+        _rootmaker = TreeMaker.instance(ctx);
         RT.debug("Detyper running", "vers", procenv.getSourceVersion());
     }
 
@@ -64,8 +73,8 @@ public class Processor extends AbstractProcessor
 
         for (Element elem : roundEnv.getRootElements()) {
             JCCompilationUnit unit = toUnit(elem);
-            RT.debug("Root elem " + elem, "unit", unit.getClass().getSimpleName(),
-                     "sym.mems", ASTUtil.expand(unit.packge.members_field.elems.sym));
+//             RT.debug("Root elem " + elem, "unit", unit.getClass().getSimpleName(),
+//                      "sym.mems", ASTUtil.expand(unit.packge.members_field.elems.sym));
             unit.accept(new DetypingVisitor(_rootmaker.forToplevel(unit)));
         }
         return false;
@@ -84,7 +93,26 @@ public class Processor extends AbstractProcessor
         }
 
         @Override public void visitClassDef (JCClassDecl tree) {
-            RT.debug("Entering class " + tree.name);
+
+            // add our @Transformed annotation to the AST
+            JCAnnotation a = _tmaker.Annotation(
+                _tmaker.Ident(_names.fromString(Transformed.class.getName())),
+                List.<JCExpression>nil());
+            tree.mods.annotations = tree.mods.annotations.prepend(a);
+
+//             // since the annotations AST has already been resolved into type symbols, we have to
+//             // manually add a type symbol for annotation to the ClassSymbol
+//             tree.sym.attributes_field = tree.sym.attributes_field.prepend(
+//                 annotation.enterAnnotation(a, _syms.annotationType, env));
+
+//             RT.debug("ANNS " + tree.mods.annotations);
+
+//             for (List<Attribute.Compound> anns = tree.sym.getAnnotationMirrors();
+//                  !anns.isEmpty(); anns = anns.tail) {
+//                 RT.debug("- Annotation " + anns.head);
+//             }
+
+            RT.debug("Entering class '" + tree.name + "'");
             super.visitClassDef(tree);
             RT.debug("Leaving class " + tree.name);
             RT.debug(""+tree);
@@ -104,6 +132,10 @@ public class Processor extends AbstractProcessor
 
         @Override public void visitMethodDef (JCMethodDecl tree) {
             // no call to super, as we need more control over what is transformed
+
+            if (tree.sym == null) {
+                RT.debug("Zoiks, no symbol", "tree", tree); // TODO: is anonymous inner class?
+            }
 
             RT.debug("Method decl", "name", tree.getName(), "sym", tree.sym,
                      "isOverride", ASTUtil.isOverrider(_types, tree.sym),
@@ -195,6 +227,8 @@ public class Processor extends AbstractProcessor
 
     protected Trees _trees;
     protected Types _types;
-    protected Name.Table _names;
+    protected Names _names;
+    protected Symtab _syms;
+    protected Annotate _annotate;
     protected TreeMaker _rootmaker;
 }

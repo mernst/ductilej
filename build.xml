@@ -13,6 +13,12 @@
   <property name="javadoc.dir" value="${deploy.dir}/docs"/>
   <property name="libs.dir"    value="lib"/>
 
+  <!-- used to build against the stock javac or a langtools version -->
+  <!-- <property name="javac.home"  value="${java.home}/.."/> -->
+  <!-- <property name="javac.jar"  value="tools.jar"/> -->
+  <property name="javac.home"  value="../../langtools/dist"/>
+  <property name="javac.jar"  value="javac.jar"/>
+
   <!-- defines our classpath -->
   <path id="classpath">
     <pathelement location="${classes.dir}"/>
@@ -40,7 +46,7 @@
     <copy todir="${deploy.dir}/lib" flatten="true">
       <fileset refid="build.libs"/>
       <fileset refid="runtime.libs"/>
-      <fileset dir="${java.home}/../lib" includes="tools.jar"/>
+      <fileset dir="${javac.home}/lib" includes="${javac.jar}"/>
     </copy>
   </target>
 
