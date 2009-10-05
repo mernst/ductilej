@@ -5,17 +5,15 @@ Detyper
 - Detect that a method implements a library interface, avoid transform
 - Transform method calls with implicit receivers (which are JCIdent rather than
 JCFieldAccess)
-- Record original type information when detyping JCVariableDecl, somehow pass
-that along to all runtime methods so that they can provide better feedback
+- Transform constructor invocations (JCNewClass)
 - Extract main() detection into ASTUtil, make it correct
-- Record original type information when detyping JCMethodDecl and store that in
-annotations preserved at runtime for use by RT.invoke()
-- Add a compile-time visible annotation to classes that have been detyped, use
-that in ASTUtil.isLibrary() to determine library class status
-- Detype constructor invocations (JCNewClass)
+- Record original type information when transforming JCVariableDecl, somehow
+pass that along to all runtime methods so that they can provide better feedback
+- Record original type information when transforming JCMethodDecl and store
+that in annotations preserved at runtime for use by RT.invoke()
 
 Runtime
 - Implement RT.compare()
 - Finish implementation of RT.op()
 - Make use of type information everywhere possible to validate types before
-calling typed library methods (or detyped methods as well)
+calling typed library methods (transformed methods as well)
