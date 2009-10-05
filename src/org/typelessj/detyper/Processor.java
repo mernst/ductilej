@@ -22,6 +22,7 @@ import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.TypeTags;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.comp.Annotate;
+import com.sun.tools.javac.comp.Enter;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.JCTree;
@@ -57,6 +58,7 @@ public class Processor extends AbstractProcessor
         Context ctx = ((JavacProcessingEnvironment)procenv).getContext();
         _trees = Trees.instance(procenv);
         _types = Types.instance(ctx);
+        _enter = Enter.instance(ctx);
         _names = Names.instance(ctx);
         _syms = Symtab.instance(ctx);
         _annotate = Annotate.instance(ctx);
@@ -96,21 +98,15 @@ public class Processor extends AbstractProcessor
 
             // add our @Transformed annotation to the AST
             JCAnnotation a = _tmaker.Annotation(
-                _tmaker.Ident(_names.fromString(Transformed.class.getName())),
-                List.<JCExpression>nil());
+                mkFA(Transformed.class.getName()), List.<JCExpression>nil());
+            // a.pos = tree.pos; // maybe we want to provide a fake source position?
             tree.mods.annotations = tree.mods.annotations.prepend(a);
 
-//             // since the annotations AST has already been resolved into type symbols, we have to
-//             // manually add a type symbol for annotation to the ClassSymbol
-//             tree.sym.attributes_field = tree.sym.attributes_field.prepend(
-//                 annotation.enterAnnotation(a, _syms.annotationType, env));
-
-//             RT.debug("ANNS " + tree.mods.annotations);
-
-//             for (List<Attribute.Compound> anns = tree.sym.getAnnotationMirrors();
-//                  !anns.isEmpty(); anns = anns.tail) {
-//                 RT.debug("- Annotation " + anns.head);
-//             }
+            // since the annotations AST has already been resolved into type symbols, we have to
+            // manually add a type symbol for annotation to the ClassSymbol
+            tree.sym.attributes_field = tree.sym.attributes_field.prepend(
+                _annotate.enterAnnotation(a, _syms.annotationType, _enter.getEnv(tree.sym)));
+            // TODO: Annotate.enterAnnotation is non-public, whee!
 
             RT.debug("Entering class '" + tree.name + "'");
             super.visitClassDef(tree);
@@ -228,6 +224,7 @@ public class Processor extends AbstractProcessor
     protected Trees _trees;
     protected Types _types;
     protected Names _names;
+    protected Enter _enter;
     protected Symtab _syms;
     protected Annotate _annotate;
     protected TreeMaker _rootmaker;
