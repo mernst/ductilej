@@ -20,6 +20,13 @@ public class ExampleApp
         }
     }
 
+    public static class MoreTester extends Tester
+    {
+        @Override public int compute (int value) {
+            return value * 2 + 3;
+        }
+    }
+
     public static void main (String[] args)
     {
         Tester tester = new Tester();
