@@ -25,7 +25,7 @@ public class ASTUtil
      * Returns true if s is a method symbol that overrides a method in an untransformed superclass.
      * Adapted from javac's Check class.
      */
-    public static boolean isOverrider (Types types, Symbol s)
+    public static boolean isLibraryOverrider (Types types, Symbol s)
     {
         if (s == null || s.kind != Kinds.MTH || s.isStatic()) {
             return false;

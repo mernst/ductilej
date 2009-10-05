@@ -134,15 +134,14 @@ public class Processor extends AbstractProcessor
             }
 
             RT.debug("Method decl", "name", tree.getName(), "sym", tree.sym,
-                     "isOverride", ASTUtil.isOverrider(_types, tree.sym),
+                     "isOverride", ASTUtil.isLibraryOverrider(_types, tree.sym),
                      "restype", what(tree.restype), "params", tree.params);
 
             // TODO: extract this into an ASTUtil method, use a tree traverser to make it correct:
             // only match public static methods named 'main' with a single String[] argument
             boolean mainHack = tree.getName().toString().equals("main");
 
-            // TODO: also check whether this method implements a library interface
-            if (!mainHack && !ASTUtil.isOverrider(_types, tree.sym)) {
+            if (!mainHack && !ASTUtil.isLibraryOverrider(_types, tree.sym)) {
                 // transform the return type if it is not void
                 if (tree.restype != null && !ASTUtil.isVoid(tree.restype)){
                     RT.debug("Transforming return type", "name", tree.getName(),

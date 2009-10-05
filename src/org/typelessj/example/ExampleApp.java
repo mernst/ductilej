@@ -21,9 +21,15 @@ public class ExampleApp
     }
 
     public static class MoreTester extends Tester
+        implements Comparable<MoreTester>
     {
         @Override public int compute (int value) {
             return value * 2 + 3;
+        }
+
+        // from interface Comparable<MoreTester>
+        public int compareTo (MoreTester o) {
+            return 0;
         }
     }
 
