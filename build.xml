@@ -16,7 +16,7 @@
   <!-- used to build against the stock javac or a langtools version -->
   <!-- <property name="javac.home"  value="${java.home}/.."/> -->
   <!-- <property name="javac.jar"  value="tools.jar"/> -->
-  <property name="javac.home"  value="../../langtools/dist"/>
+  <property name="javac.home"  value="../../langtools/dist/bootstrap"/>
   <property name="javac.jar"  value="javac.jar"/>
 
   <!-- defines our classpath -->
