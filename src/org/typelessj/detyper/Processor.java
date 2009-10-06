@@ -111,13 +111,13 @@ public class Processor extends AbstractProcessor
             RT.debug("Entering class '" + tree.name + "'");
             super.visitClassDef(tree);
             RT.debug("Leaving class " + tree.name);
-            RT.debug(""+tree);
+//             RT.debug(""+tree);
         }
 
         @Override public void visitVarDef (JCVariableDecl tree) {
-            RT.debug("Transforming vardef", "mods", tree.mods, "name", tree.name,
-                     "vtype", what(tree.vartype), "init", tree.init,
-                     "sym", ASTUtil.expand(tree.sym));
+//             RT.debug("Transforming vardef", "mods", tree.mods, "name", tree.name,
+//                      "vtype", what(tree.vartype), "init", tree.init,
+//                      "sym", ASTUtil.expand(tree.sym));
 
             // TODO: is not calling translate(tree.params) all we need to do to ensure that we
             // don't detype parameters to library method overriders and implementers?
@@ -133,9 +133,9 @@ public class Processor extends AbstractProcessor
                 RT.debug("Zoiks, no symbol", "tree", tree); // TODO: is anonymous inner class?
             }
 
-            RT.debug("Method decl", "name", tree.getName(), "sym", tree.sym,
-                     "isOverride", ASTUtil.isLibraryOverrider(_types, tree.sym),
-                     "restype", what(tree.restype), "params", tree.params);
+//             RT.debug("Method decl", "name", tree.getName(), "sym", tree.sym,
+//                      "isOverride", ASTUtil.isLibraryOverrider(_types, tree.sym),
+//                      "restype", what(tree.restype), "params", tree.params);
 
             // TODO: extract this into an ASTUtil method, use a tree traverser to make it correct:
             // only match public static methods named 'main' with a single String[] argument
@@ -144,8 +144,8 @@ public class Processor extends AbstractProcessor
             if (!mainHack && !ASTUtil.isLibraryOverrider(_types, tree.sym)) {
                 // transform the return type if it is not void
                 if (tree.restype != null && !ASTUtil.isVoid(tree.restype)){
-                    RT.debug("Transforming return type", "name", tree.getName(),
-                             "rtype", tree.restype);
+//                     RT.debug("Transforming return type", "name", tree.getName(),
+//                              "rtype", tree.restype);
                     tree.restype = _tmaker.Ident(_names.fromString("Object"));
                 }
 
@@ -168,25 +168,34 @@ public class Processor extends AbstractProcessor
             JCMethodInvocation apply = _tmaker.Apply(
                 null, mkRT("op"), List.<JCExpression>of(opcode, tree.lhs, tree.rhs));
             apply.pos = tree.pos;
-            RT.debug("Rewrote binop", "kind", tree.getKind(), "pos", tree.pos, "apos", apply.pos);
+//             RT.debug("Rewrote binop", "kind", tree.getKind(), "pos", tree.pos, "apos", apply.pos);
             result = apply;
         }
 
         @Override public void visitApply (JCMethodInvocation that) {
-//             RT.debug("Method invocation", "typeargs", that.typeargs, "method", what(that.meth),
-//                      "args", that.args, "varargs", that.varargsElement);
+            RT.debug("Method invocation", "typeargs", that.typeargs, "method", what(that.meth),
+                     "args", that.args, "varargs", that.varargsElement);
 
-            // TODO: we're only transforming methods that look like foo.bar for now, this misses
-            // method calls with implicit receivers for which that.meth is a JCIdent node
+            // convert expr.method(args) into RT.invoke("method", expr, args)
             if (that.meth instanceof JCFieldAccess) {
                 JCFieldAccess mfacc = (JCFieldAccess)that.meth;
-                // convert expr.method(args) into RT.invoke("method", expr, args)
                 that.args = that.args.prepend(mfacc.selected).
                     prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString()));
                 that.meth = mkRT("invoke");
 
                 RT.debug("Mutated", "typeargs", that.typeargs, "method", what(that.meth),
                          "args", that.args, "varargs", that.varargsElement);
+
+            // convert method(args) into RT.invoke("method", this, args)
+            } else if (that.meth instanceof JCIdent) {
+                RT.debug("Did not mutate", "typeargs", that.typeargs, "method", what(that.meth),
+                         "args", that.args, "varargs", that.varargsElement);
+
+            // are there other types of invocations?
+            } else {
+                RT.debug("Unknown invocation?", "typeargs", that.typeargs,
+                         "method", what(that.meth), "args", that.args,
+                         "varargs", that.varargsElement);
             }
 
             super.visitApply(that);
