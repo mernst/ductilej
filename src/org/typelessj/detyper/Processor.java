@@ -111,7 +111,7 @@ public class Processor extends AbstractProcessor
             RT.debug("Entering class '" + tree.name + "'");
             super.visitClassDef(tree);
             RT.debug("Leaving class " + tree.name);
-//             RT.debug(""+tree);
+            RT.debug(""+tree);
         }
 
         @Override public void visitVarDef (JCVariableDecl tree) {
@@ -166,7 +166,7 @@ public class Processor extends AbstractProcessor
 
             JCLiteral opcode = _tmaker.Literal(TypeTags.CLASS, tree.getKind().toString());
             JCMethodInvocation apply = _tmaker.Apply(
-                null, mkRT("op"), List.<JCExpression>of(opcode, tree.lhs, tree.rhs));
+                null, mkRT("op", opcode.pos), List.<JCExpression>of(opcode, tree.lhs, tree.rhs));
             apply.pos = tree.pos;
 //             RT.debug("Rewrote binop", "kind", tree.getKind(), "pos", tree.pos, "apos", apply.pos);
             result = apply;
@@ -181,15 +181,25 @@ public class Processor extends AbstractProcessor
                 JCFieldAccess mfacc = (JCFieldAccess)that.meth;
                 that.args = that.args.prepend(mfacc.selected).
                     prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString()));
-                that.meth = mkRT("invoke");
+                that.meth = mkRT("invoke", mfacc.pos);
 
                 RT.debug("Mutated", "typeargs", that.typeargs, "method", what(that.meth),
                          "args", that.args, "varargs", that.varargsElement);
 
             // convert method(args) into RT.invoke("method", this, args)
             } else if (that.meth instanceof JCIdent) {
-                RT.debug("Did not mutate", "typeargs", that.typeargs, "method", what(that.meth),
-                         "args", that.args, "varargs", that.varargsElement);
+                JCIdent mfid = (JCIdent)that.meth;
+                if ("super".equals(mfid.toString())) {
+                    RT.debug("Leaving super alone");
+                } else {
+                    JCIdent recid = _tmaker.Ident(_names.fromString("this"));
+                    recid.pos = mfid.pos;
+                    that.args = that.args.prepend(recid).
+                        prepend(_tmaker.Literal(TypeTags.CLASS, mfid.toString()));
+                    that.meth = mkRT("invoke", mfid.pos);
+                    RT.debug("Mutated", "typeargs", that.typeargs, "method", what(that.meth),
+                             "args", that.args, "varargs", that.varargsElement);
+                }
 
             // are there other types of invocations?
             } else {
@@ -201,8 +211,10 @@ public class Processor extends AbstractProcessor
             super.visitApply(that);
         }
 
-        protected JCFieldAccess mkRT (String method) {
-            return _tmaker.Select(mkFA(RT.class.getName()), _names.fromString(method));
+        protected JCFieldAccess mkRT (String method, int pos) {
+            JCFieldAccess fa = _tmaker.Select(mkFA(RT.class.getName()), _names.fromString(method));
+            fa.pos = pos;
+            return fa;
         }
 
         protected JCExpression mkFA (String fqName) {
