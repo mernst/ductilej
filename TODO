@@ -2,15 +2,11 @@ TypelessJ TODO
 --------------
 
 Detyper
-- Transform method calls with implicit receivers (which are JCIdent rather than
-JCFieldAccess)
-- Need to determine what to do for super() invocations (can't invoke them
-  through RT)
 - Need to determine whether a method with an implicit receiver is a static or
   not (might be statically imported, yay!)
 - Need to determine what happens when we see a normal static method invocation
   (Foo.bar())
-
+- Implement signature mangling
 - Transform constructor invocations (JCNewClass)
 - Extract main() detection into ASTUtil, make it correct
 - Record original type information when transforming JCVariableDecl, somehow
