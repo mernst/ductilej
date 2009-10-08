@@ -3,6 +3,7 @@
 
 package org.typelessj.runtime;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -39,7 +40,23 @@ public class RT
      */
     public static Object newInstance (Class<?> clazz, Object encl, Object... args)
     {
-        return null; // TODO
+        Constructor ctor = findConstructor(clazz, args);
+        if (ctor == null) {
+            throw new NoSuchMethodError(); // TODO
+        }
+
+        try {
+            ctor.setAccessible(true);
+            // TODO: if this is a non-static inner class we need to shift the enclosing instance
+            // into position zero of the arguments (I think)
+            return ctor.newInstance(args);
+        } catch (InstantiationException ie) {
+            throw new RuntimeException(ie);
+        } catch (IllegalAccessException iae) {
+            throw new RuntimeException(iae);
+        } catch (InvocationTargetException ite) {
+            throw new RuntimeException(ite);
+        }
     }
 
     /**
@@ -165,9 +182,9 @@ public class RT
     }
 
     /**
-     * A helper for {@link #invoke}.
+     * A helper for {@link #invoke} and {@link #invokeStatic}.
      */
-    protected static Method findMethod (String mname, Class clazz, Object... args)
+    protected static Method findMethod (String mname, Class<?> clazz, Object... args)
     {
         // TODO: this needs to be much smarter :)
       METHODS:
@@ -185,8 +202,33 @@ public class RT
             }
             return method;
         }
-        Class parent = clazz.getSuperclass();
+        Class<?> parent = clazz.getSuperclass();
         return (parent == null) ? null : findMethod(mname, parent, args);
+    }
+
+    /**
+     * A helper for {@link #newInstance}.
+     */
+    protected static Constructor findConstructor (Class<?> clazz, Object... args)
+    {
+        // TODO: this needs to be smarter :)
+      CTORS:
+        for (Constructor ctor : clazz.getDeclaredConstructors()) {
+            Class<?>[] ptypes = ctor.getParameterTypes();
+            if (ptypes.length != args.length) {
+                continue CTORS;
+            }
+            // debug("Checking " + method.getName() + " for match", "ptypes", ptypes, "args", args);
+            for (int ii = 0; ii < args.length; ii++) {
+                Class<?> ptype = ptypes[ii].isPrimitive() ? WRAPPERS.get(ptypes[ii]) : ptypes[ii];
+                if (args[ii] != null && !ptype.isAssignableFrom(args[ii].getClass())) {
+                    continue CTORS;
+                }
+            }
+            return ctor;
+        }
+        Class<?> parent = clazz.getSuperclass();
+        return (parent == null) ? null : findConstructor(parent, args);
     }
 
     protected static final Map<Class<?>, Class<?>> WRAPPERS =
