@@ -20,6 +20,7 @@ import com.sun.source.util.Trees;
 
 // import com.sun.tools.javac.util.Name; // Name.Table -> Names in OpenJDK
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTags;
@@ -84,7 +85,7 @@ public class Processor extends AbstractProcessor
             JCCompilationUnit unit = toUnit(elem);
 //             RT.debug("Root elem " + elem, "unit", unit.getClass().getSimpleName(),
 //                      "sym.mems", ASTUtil.expand(unit.packge.members_field.elems.sym));
-            unit.accept(new DetypingVisitor(_rootmaker.forToplevel(unit)));
+            unit.accept(new DetypingVisitor(unit));
         }
         return false;
     }
@@ -97,12 +98,15 @@ public class Processor extends AbstractProcessor
 
     protected class DetypingVisitor extends TreeTranslator
     {
-        public DetypingVisitor (TreeMaker maker) {
-            _tmaker = maker;
+        public DetypingVisitor (JCCompilationUnit unit) {
+            _unit = unit;
+            _tmaker = _rootmaker.forToplevel(unit);
+            _vizcls = ASTUtil.enumVisibleClassNames(unit);
+
+            System.out.println("Visible classes " + _vizcls);
         }
 
         @Override public void visitClassDef (JCClassDecl tree) {
-
             // add our @Transformed annotation to the AST
             JCAnnotation a = _tmaker.Annotation(
                 mkFA(Transformed.class.getName()), List.<JCExpression>nil());
@@ -115,11 +119,12 @@ public class Processor extends AbstractProcessor
                 _annotate.enterAnnotation(a, _syms.annotationType, _enter.getEnv(tree.sym)));
             // TODO: Annotate.enterAnnotation is non-public, whee!
 
-            JCClassDecl oclass = _curclass;
-            _curclass = tree;
             RT.debug("Entering class '" + tree.name + "'");
+
+            _clstack = _clstack.prepend(tree);
             super.visitClassDef(tree);
-            _curclass = oclass;
+            _clstack = _clstack.tail;
+
             RT.debug("Leaving class " + tree.name);
             RT.debug(""+tree);
         }
@@ -138,6 +143,8 @@ public class Processor extends AbstractProcessor
 
         @Override public void visitMethodDef (JCMethodDecl tree) {
             // no call to super, as we need more control over what is transformed
+
+            _curmeth = tree; // note the current method being processed
 
             if (tree.sym == null) {
                 RT.debug("Zoiks, no symbol", "tree", tree); // TODO: is anonymous inner class?
@@ -169,6 +176,8 @@ public class Processor extends AbstractProcessor
             tree.thrown = translate(tree.thrown);
             tree.body = translate(tree.body);
             result = tree;
+
+            _curmeth = null; // we're no longer processing this method
         }
 
         @Override public void visitBinary (JCBinary tree) {
@@ -188,24 +197,68 @@ public class Processor extends AbstractProcessor
 
 // freaks out: possibly wrong environment; possibly wrong compiler state
 //             RT.debug("Method type", "meth", _attr.attribExpr(
-//                          that.meth, _enter.getEnv(_curclass.sym)));
+//                          that.meth, _enter.getEnv(_curclass.sym), Type.noType));
 
-            // convert expr.method(args) into RT.invoke("method", expr, args)
+            // note whether we're currently in a static or non-static method definition
+            boolean inStatic = (_curmeth == null) ||
+                (_curmeth.mods != null && (_curmeth.mods.flags & Flags.STATIC) != 0);
+
+            // transform expr.method(args)
             if (that.meth instanceof JCFieldAccess) {
                 JCFieldAccess mfacc = (JCFieldAccess)that.meth;
-                that.args = that.args.prepend(mfacc.selected).
-                    prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString()));
-                that.meth = mkRT("invoke", mfacc.pos);
+
+                // we need to determine if 'expr' identifies a class in which case we need to make
+                // a static method invocation on that class; because we have no concept of scope
+                // and names at this point we have to fake things as best we can
+                if (_vizcls.contains(mfacc.selected.toString())) {
+                    // convert to RT.invokeStatic("method", mfacc.selected.class, args)
+                    that.args = that.args.
+                        prepend(_tmaker.Select(mfacc.selected, _names._class)).
+                        prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString()));
+                    that.meth = mkRT("invokeStatic", mfacc.pos);
+                } else {
+                    // convert to RT.invoke("method", expr, args)
+                    that.args = that.args.prepend(mfacc.selected).
+                        prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString()));
+                    that.meth = mkRT("invoke", mfacc.pos);
+                }
 
                 RT.debug("Mutated", "typeargs", that.typeargs, "method", what(that.meth),
                          "type", that.type, "args", that.args, "varargs", that.varargsElement);
 
-            // convert method(args) into RT.invoke("method", this, args)
+            // transform method(args)
             } else if (that.meth instanceof JCIdent) {
+                // TODO: all of the following needs to handle static imports
                 JCIdent mfid = (JCIdent)that.meth;
                 if ("super".equals(mfid.toString())) {
-                    RT.debug("Leaving super alone");
+                    // super() cannot be transformed so we leave it alone
+
+                // we're in a static method, so a receiverless method invocation must also be a
+                // static method, but we need to find out what class to call it on
+                } else if (inStatic) {
+                    // find the closest class that defines this method
+                    JCClassDecl decl = null;
+                    for (List<JCClassDecl> cl = _clstack; !cl.isEmpty(); cl = cl.tail) {
+                        if (ASTUtil.definesStaticMethod(cl.head, that)) {
+                            decl = cl.head;
+                            break;
+                        }
+                    }
+                    if (decl == null) {
+                        RT.debug("Cannot find declaration of static method call?",
+                                 "method", what(that.meth));
+                    } else {
+                        // convert to RT.invokeStatic("method", decl.class, args)
+                        that.args = that.args.
+                            prepend(_tmaker.Select(_tmaker.Ident(decl.name), _names._class)).
+                            prepend(_tmaker.Literal(TypeTags.CLASS, mfid.toString()));
+                        that.meth = mkRT("invokeStatic", mfid.pos);
+                    }
+
                 } else {
+                    // we're not in a static so we get RT.invoke("method", this, args) and at
+                    // runtime we'll sort out whether they meant to call a static or non-static
+                    // method (in the latter case we just ignore this)
                     JCIdent recid = _tmaker.Ident(_names._this);
                     recid.pos = mfid.pos;
                     that.args = that.args.prepend(recid).
@@ -241,8 +294,12 @@ public class Processor extends AbstractProcessor
             }
         }
 
+        protected JCCompilationUnit _unit;
         protected TreeMaker _tmaker;
-        protected JCClassDecl _curclass;
+        protected Set<String> _vizcls;
+
+        protected List<JCClassDecl> _clstack = List.nil();
+        protected JCMethodDecl _curmeth;
     }
 
     protected static String what (JCTree node)
