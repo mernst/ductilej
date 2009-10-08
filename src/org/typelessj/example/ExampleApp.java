@@ -18,6 +18,10 @@ public class ExampleApp
         public String toString () {
             return "Tester";
         }
+
+        public static int computeStatic (int value) {
+            return value * 3 + 2;
+        }
     }
 
     public static class MoreTester extends Tester
@@ -40,6 +44,9 @@ public class ExampleApp
         int age = 25;
         int value = tester.compute(age);
         System.out.println("Value " + value);
+
+        value = Tester.computeStatic(age);
+        System.out.println("Static value " + value);
 
         String name = "Phineas P. Gage";
         String text = append(name);

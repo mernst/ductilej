@@ -17,20 +17,26 @@ import javax.tools.Diagnostic;
 
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
+
+// import com.sun.tools.javac.util.Name; // Name.Table -> Names in OpenJDK
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symtab;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTags;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.comp.Annotate;
+import com.sun.tools.javac.comp.Attr;
+import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Enter;
+import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.tree.TreeTranslator;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
-// import com.sun.tools.javac.util.Name; // Name.Table -> Names in OpenJDK
 import com.sun.tools.javac.util.Names;
 
 import org.typelessj.runtime.RT;
@@ -59,6 +65,7 @@ public class Processor extends AbstractProcessor
         _trees = Trees.instance(procenv);
         _types = Types.instance(ctx);
         _enter = Enter.instance(ctx);
+        _attr = Attr.instance(ctx);
         _names = Names.instance(ctx);
         _syms = Symtab.instance(ctx);
         _annotate = Annotate.instance(ctx);
@@ -108,8 +115,11 @@ public class Processor extends AbstractProcessor
                 _annotate.enterAnnotation(a, _syms.annotationType, _enter.getEnv(tree.sym)));
             // TODO: Annotate.enterAnnotation is non-public, whee!
 
+            JCClassDecl oclass = _curclass;
+            _curclass = tree;
             RT.debug("Entering class '" + tree.name + "'");
             super.visitClassDef(tree);
+            _curclass = oclass;
             RT.debug("Leaving class " + tree.name);
             RT.debug(""+tree);
         }
@@ -176,6 +186,10 @@ public class Processor extends AbstractProcessor
             RT.debug("Method invocation", "typeargs", that.typeargs, "method", what(that.meth),
                      "args", that.args, "varargs", that.varargsElement);
 
+// freaks out: possibly wrong environment; possibly wrong compiler state
+//             RT.debug("Method type", "meth", _attr.attribExpr(
+//                          that.meth, _enter.getEnv(_curclass.sym)));
+
             // convert expr.method(args) into RT.invoke("method", expr, args)
             if (that.meth instanceof JCFieldAccess) {
                 JCFieldAccess mfacc = (JCFieldAccess)that.meth;
@@ -184,7 +198,7 @@ public class Processor extends AbstractProcessor
                 that.meth = mkRT("invoke", mfacc.pos);
 
                 RT.debug("Mutated", "typeargs", that.typeargs, "method", what(that.meth),
-                         "args", that.args, "varargs", that.varargsElement);
+                         "type", that.type, "args", that.args, "varargs", that.varargsElement);
 
             // convert method(args) into RT.invoke("method", this, args)
             } else if (that.meth instanceof JCIdent) {
@@ -192,7 +206,7 @@ public class Processor extends AbstractProcessor
                 if ("super".equals(mfid.toString())) {
                     RT.debug("Leaving super alone");
                 } else {
-                    JCIdent recid = _tmaker.Ident(_names.fromString("this"));
+                    JCIdent recid = _tmaker.Ident(_names._this);
                     recid.pos = mfid.pos;
                     that.args = that.args.prepend(recid).
                         prepend(_tmaker.Literal(TypeTags.CLASS, mfid.toString()));
@@ -228,6 +242,7 @@ public class Processor extends AbstractProcessor
         }
 
         protected TreeMaker _tmaker;
+        protected JCClassDecl _curclass;
     }
 
     protected static String what (JCTree node)
@@ -245,6 +260,7 @@ public class Processor extends AbstractProcessor
     protected Types _types;
     protected Names _names;
     protected Enter _enter;
+    protected Attr _attr;
     protected Symtab _syms;
     protected Annotate _annotate;
     protected TreeMaker _rootmaker;
