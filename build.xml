@@ -142,6 +142,7 @@
         <pathelement location="${exclass.dir}"/>
         <path refid="build.classpath"/>
       </classpath>
+      <jvmarg value="-Dshowclass=${showclass}"/>
       <arg value="-sourcepath"/><arg value="${src.dir}"/>
       <arg value="-d"/><arg value="${exclass.dir}"/>
       <arg value="-source"/><arg value="1.6"/>
