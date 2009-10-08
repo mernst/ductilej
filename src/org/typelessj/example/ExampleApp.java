@@ -12,8 +12,12 @@ public class ExampleApp
 {
     public static class Tester
     {
+        public Tester (String unused, int multiplier) {
+            _multiplier = multiplier;
+        }
+
         public int compute (int value) {
-            return value * 2 + 5;
+            return value * _multiplier + 5;
         }
 
         @Override
@@ -24,11 +28,17 @@ public class ExampleApp
         public static int computeStatic (int value) {
             return value * 3 + 2;
         }
+
+        protected int _multiplier;
     }
 
     public static class MoreTester extends Tester
         implements Comparable<MoreTester>
     {
+        public MoreTester (int multiplier) {
+            super("", multiplier);
+        }
+
         @Override public int compute (int value) {
             return value * 2 + 3;
         }
@@ -41,7 +51,7 @@ public class ExampleApp
 
     public static void main (String[] args)
     {
-        Tester tester = new Tester();
+        Tester tester = new Tester("", 2);
 
         int age = 25;
         int value = tester.compute(age);
