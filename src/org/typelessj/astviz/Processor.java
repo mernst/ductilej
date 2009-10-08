@@ -113,7 +113,7 @@ public class Processor extends AbstractProcessor
 
         public void visitMethodDef (JCMethodDecl tree) {
             println("Method decl: " + tree.getName() + " " + what(tree.sym) +
-                    " " + ASTUtil.isOverrider(_types, tree.sym));
+                    " " + ASTUtil.isLibraryOverrider(_types, tree.sym));
             super.visitMethodDef(tree);
 //             scan(tree.mods);
 //             scan(tree.restype);

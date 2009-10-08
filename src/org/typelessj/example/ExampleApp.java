@@ -3,6 +3,8 @@
 
 package org.typelessj.example;
 
+import java.util.Collections;
+
 /**
  * An example app on which we demonstrate the detyper.
  */

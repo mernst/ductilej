@@ -31,7 +31,7 @@ public class RT
 
     /**
      * Invokes the specified method via reflection, performing runtime type resolution and handling
-     * the necessary name mangling to cope with de-typed overloads.
+     * the necessary signature de-mangling.
      */
     public static Object invoke (String mname, Object receiver, Object... args)
     {
@@ -45,7 +45,29 @@ public class RT
         }
 
         try {
+            method.setAccessible(true); // TODO: cache which methods we've toggled if slow
             return method.invoke(receiver, args);
+        } catch (IllegalAccessException iae) {
+            throw new RuntimeException(iae);
+        } catch (InvocationTargetException ite) {
+            throw new RuntimeException(ite);
+        }
+    }
+
+    /**
+     * Invokes the specified static method via reflection, performing runtime type resolution and
+     * handling the necessary de-signature mangling.
+     */
+    public static Object invokeStatic (String mname, Class<?> clazz, Object... args)
+    {
+        Method method = findMethod(mname, clazz, args);
+        if (method == null) {
+            throw new NoSuchMethodError(); // TODO
+        }
+
+        try {
+            method.setAccessible(true); // TODO: cache which methods we've toggled if slow
+            return method.invoke(null, args);
         } catch (IllegalAccessException iae) {
             throw new RuntimeException(iae);
         } catch (InvocationTargetException ite) {
