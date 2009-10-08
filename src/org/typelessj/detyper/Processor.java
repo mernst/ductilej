@@ -126,7 +126,9 @@ public class Processor extends AbstractProcessor
             _clstack = _clstack.tail;
 
             RT.debug("Leaving class " + tree.name);
-            RT.debug(""+tree);
+            if (Boolean.getBoolean("showclass")) {
+                RT.debug(""+tree);
+            }
         }
 
         @Override public void visitVarDef (JCVariableDecl tree) {
@@ -191,6 +193,32 @@ public class Processor extends AbstractProcessor
             result = apply;
         }
 
+        @Override public void visitNewClass (JCNewClass that) {
+            super.visitNewClass(that);
+
+            RT.debug("Class instantiation", "typeargs", that.typeargs, "class", what(that.clazz),
+                     "args", that.args);
+
+            // if there is a specific enclosing instance provided, use that, otherwise use this
+            // unless we're in a static context in which case use nothing
+            List<JCExpression> args;
+            if (that.encl != null) {
+                args = that.args.prepend(that.encl);
+            } else if (inStatic()) {
+                args = that.args.prepend(_tmaker.Literal(TypeTags.BOT, null));
+            } else {
+                args = that.args.prepend(_tmaker.Ident(_names._this));
+            }
+            args = args.prepend(_tmaker.Select(that.clazz, _names._class));
+
+            JCMethodInvocation invoke = _tmaker.Apply(
+                List.<JCExpression>nil(), mkRT("newInstance", that.pos), args);
+            invoke.varargsElement = that.varargsElement;
+            invoke.pos = that.pos;
+
+            result = invoke;
+        }
+
         @Override public void visitApply (JCMethodInvocation that) {
             RT.debug("Method invocation", "typeargs", that.typeargs, "method", what(that.meth),
                      "args", that.args, "varargs", that.varargsElement);
@@ -198,10 +226,6 @@ public class Processor extends AbstractProcessor
 // freaks out: possibly wrong environment; possibly wrong compiler state
 //             RT.debug("Method type", "meth", _attr.attribExpr(
 //                          that.meth, _enter.getEnv(_curclass.sym), Type.noType));
-
-            // note whether we're currently in a static or non-static method definition
-            boolean inStatic = (_curmeth == null) ||
-                (_curmeth.mods != null && (_curmeth.mods.flags & Flags.STATIC) != 0);
 
             // transform expr.method(args)
             if (that.meth instanceof JCFieldAccess) {
@@ -235,7 +259,7 @@ public class Processor extends AbstractProcessor
 
                 // we're in a static method, so a receiverless method invocation must also be a
                 // static method, but we need to find out what class to call it on
-                } else if (inStatic) {
+                } else if (inStatic()) {
                     // find the closest class that defines this method
                     JCClassDecl decl = null;
                     for (List<JCClassDecl> cl = _clstack; !cl.isEmpty(); cl = cl.tail) {
@@ -276,6 +300,11 @@ public class Processor extends AbstractProcessor
             }
 
             super.visitApply(that);
+        }
+
+        protected boolean inStatic () {
+            return (_curmeth == null) ||
+                (_curmeth.mods != null && (_curmeth.mods.flags & Flags.STATIC) != 0);
         }
 
         protected JCFieldAccess mkRT (String method, int pos) {

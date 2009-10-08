@@ -30,6 +30,19 @@ public class RT
     }
 
     /**
+     * Invokes the constructor of the supplied class, with the specified arguments and returns the
+     * newly created instance.
+     *
+     * @param clazz the class to be instantiated.
+     * @param encl the enclosing instance to use in the case of a non-static inner class.
+     * @param args the arguments to be supplied to the constructor, if any.
+     */
+    public static Object newInstance (Class<?> clazz, Object encl, Object... args)
+    {
+        return null; // TODO
+    }
+
+    /**
      * Invokes the specified method via reflection, performing runtime type resolution and handling
      * the necessary signature de-mangling.
      */
