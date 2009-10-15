@@ -3,6 +3,7 @@
 
 package org.typelessj.detyper;
 
+import java.lang.reflect.Method;
 import java.util.Set;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -18,7 +19,7 @@ import javax.tools.Diagnostic;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 
-// import com.sun.tools.javac.util.Name; // Name.Table -> Names in OpenJDK
+import com.sun.tools.javac.util.Name; // Name.Table -> Names in OpenJDK
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symtab;
@@ -38,7 +39,7 @@ import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.tree.TreeTranslator;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
-import com.sun.tools.javac.util.Names;
+// import com.sun.tools.javac.util.Names;
 
 import org.typelessj.runtime.RT;
 import org.typelessj.runtime.Transformed;
@@ -62,12 +63,32 @@ public class Processor extends AbstractProcessor
             return;
         }
 
+        try {
+            for (Method m : Annotate.class.getDeclaredMethods()) {
+                if (m.getName().equals("enterAnnotation")) {
+                    _enterAnnotation = m;
+                }
+            }
+            if (_enterAnnotation == null) {
+                procenv.getMessager().printMessage(
+                    Diagnostic.Kind.WARNING, "Unable to locate Annotate.enterAnnotation method.");
+                return;
+            }
+            _enterAnnotation.setAccessible(true);
+        } catch (Exception e) {
+            e.printStackTrace();
+            procenv.getMessager().printMessage(
+                Diagnostic.Kind.WARNING, "Unable to access Annotate.enterAnnotation method.");
+            return;
+        }
+
         Context ctx = ((JavacProcessingEnvironment)procenv).getContext();
         _trees = Trees.instance(procenv);
         _types = Types.instance(ctx);
         _enter = Enter.instance(ctx);
         _attr = Attr.instance(ctx);
-        _names = Names.instance(ctx);
+        _names = Name.Table.instance(ctx);
+        // _names = Names.instance(ctx);
         _syms = Symtab.instance(ctx);
         _annotate = Annotate.instance(ctx);
         _rootmaker = TreeMaker.instance(ctx);
@@ -116,8 +137,7 @@ public class Processor extends AbstractProcessor
             // since the annotations AST has already been resolved into type symbols, we have to
             // manually add a type symbol for annotation to the ClassSymbol
             tree.sym.attributes_field = tree.sym.attributes_field.prepend(
-                _annotate.enterAnnotation(a, _syms.annotationType, _enter.getEnv(tree.sym)));
-            // TODO: Annotate.enterAnnotation is non-public, whee!
+                enterAnnotation(a, _syms.annotationType, _enter.getEnv(tree.sym)));
 
             RT.debug("Entering class '" + tree.name + "'");
 
@@ -331,6 +351,17 @@ public class Processor extends AbstractProcessor
         protected JCMethodDecl _curmeth;
     }
 
+    // Annotate.enterAnnotation is non-public so we have to be sneaky
+    protected Attribute.Compound enterAnnotation (
+        JCAnnotation a, Type expected, Env<AttrContext> env)
+    {
+        try {
+            return (Attribute.Compound)_enterAnnotation.invoke(_annotate, a, expected, env);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     protected static String what (JCTree node)
     {
         if (node == null) {
@@ -344,10 +375,13 @@ public class Processor extends AbstractProcessor
 
     protected Trees _trees;
     protected Types _types;
-    protected Names _names;
+    protected Name.Table _names;
+    // protected Names _names;
     protected Enter _enter;
     protected Attr _attr;
     protected Symtab _syms;
     protected Annotate _annotate;
     protected TreeMaker _rootmaker;
+
+    protected Method _enterAnnotation;
 }
