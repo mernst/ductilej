@@ -128,18 +128,20 @@ public class Processor extends AbstractProcessor
         }
 
         @Override public void visitClassDef (JCClassDecl tree) {
-            // add our @Transformed annotation to the AST
-            JCAnnotation a = _tmaker.Annotation(
-                mkFA(Transformed.class.getName()), List.<JCExpression>nil());
-            // a.pos = tree.pos; // maybe we want to provide a fake source position?
-            tree.mods.annotations = tree.mods.annotations.prepend(a);
-
-            // since the annotations AST has already been resolved into type symbols, we have to
-            // manually add a type symbol for annotation to the ClassSymbol
-            tree.sym.attributes_field = tree.sym.attributes_field.prepend(
-                enterAnnotation(a, _syms.annotationType, _enter.getEnv(tree.sym)));
-
             RT.debug("Entering class '" + tree.name + "'");
+
+            if (tree.name != _names.empty) {
+                // add our @Transformed annotation to the AST
+                JCAnnotation a = _tmaker.Annotation(
+                    mkFA(Transformed.class.getName()), List.<JCExpression>nil());
+                // a.pos = tree.pos; // maybe we want to provide a fake source position?
+                tree.mods.annotations = tree.mods.annotations.prepend(a);
+
+                // since the annotations AST has already been resolved into type symbols, we have to
+                // manually add a type symbol for annotation to the ClassSymbol
+                tree.sym.attributes_field = tree.sym.attributes_field.prepend(
+                    enterAnnotation(a, _syms.annotationType, _enter.getEnv(tree.sym)));
+            }
 
             _clstack = _clstack.prepend(tree);
             super.visitClassDef(tree);
