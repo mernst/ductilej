@@ -2,7 +2,16 @@ TypelessJ TODO
 --------------
 
 Detyper
-- Transform constructor invocations (JCNewClass)
+- Transform if (expr) into if ((Boolean)expr)
+- Transform expr ? e1 : e1 into (Boolean)expr ? e1 : e2
+- Transform unary operators: if (!expr) -> if (!(Boolean)RT.unop(expr))
+  + prefix and postfix as well (++i, i++, etc.)
+- Handle all java.lang classes in static detection
+- Handle foreach loops (?)
+- Handle array dereference (foo[expr] -> RT.atIndex(foo, expr)
+- Handle array creation (new type[expr] -> new type[(Integer)expr])
+- Handle switch statements switch (expr) -> switch ((Integer)expr)
+- I think we don't need to annotate anonymous inner classes, confirm this
 - Implement signature mangling
 - Need to handle static imports (hopefully we won't need to differentiate
 between members and methods)
