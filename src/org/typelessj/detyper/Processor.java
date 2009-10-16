@@ -343,6 +343,15 @@ public class Processor extends AbstractProcessor
             tree.cond = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Boolean")), tree.cond);
         }
 
+        @Override public void visitForeachLoop (JCEnhancedForLoop tree) {
+            super.visitForeachLoop(tree);
+
+            JCMethodInvocation apply = _tmaker.Apply(
+                null, mkRT("asIterable", tree.expr.pos), List.<JCExpression>of(tree.expr));
+            apply.pos = tree.pos;
+            tree.expr = apply;
+        }
+
         protected boolean inStatic () {
             return (_curmeth == null) ||
                 (_curmeth.mods != null && (_curmeth.mods.flags & Flags.STATIC) != 0);
