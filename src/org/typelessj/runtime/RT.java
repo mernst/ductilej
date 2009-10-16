@@ -108,18 +108,6 @@ public class RT
     }
 
     /**
-     * Executes the specified comparison operation on the supplied left- and right-hand-sides.
-     *
-     * @param opcode the string value of com.sun.source.tree.Tree.Kind for the comparison operator
-     * in question.
-     */
-    public static boolean compare (String opcode, Object lhs, Object rhs)
-    {
-
-        return false;
-    }
-
-    /**
      * Executes the specified operation on the supplied argument.
      *
      * @param opcode the string value of com.sun.source.tree.Tree.Kind for the operator in
@@ -205,10 +193,16 @@ public class RT
             if (lhs instanceof String || rhs instanceof String) {
                 return String.valueOf(lhs) + String.valueOf(rhs);
             }
-            return ((Integer)lhs).intValue() + ((Integer)rhs).intValue();
+            return OPS.get(promote((Number)lhs, (Number)rhs)).plus((Number)lhs, (Number)rhs);
+
+        case MINUS:
+            return OPS.get(promote((Number)lhs, (Number)rhs)).minus((Number)lhs, (Number)rhs);
 
         case MULTIPLY:
-            return ((Integer)lhs).intValue() * ((Integer)rhs).intValue();
+            return OPS.get(promote((Number)lhs, (Number)rhs)).multiply((Number)lhs, (Number)rhs);
+
+        case DIVIDE:
+            return OPS.get(promote((Number)lhs, (Number)rhs)).divide((Number)lhs, (Number)rhs);
 
         case LESS_THAN:
             return ((Number)lhs).doubleValue() < ((Number)rhs).doubleValue();
@@ -228,8 +222,11 @@ public class RT
         case NOT_EQUAL_TO:
             return !isEqualTo(lhs, rhs);
 
-//         CONDITIONAL_AND(BinaryTree.class),
-//         CONDITIONAL_OR(BinaryTree.class),
+        case CONDITIONAL_AND:
+            return !((Boolean)lhs).booleanValue() ? false : ((Boolean)rhs).booleanValue();
+
+        case CONDITIONAL_OR:
+            return ((Boolean)lhs).booleanValue() ? true : ((Boolean)rhs).booleanValue();
         }
 
 // TODO: implement
@@ -342,6 +339,52 @@ public class RT
         }
     }
 
+    /**
+     * Returns the class to which to promote both sides of a numeric operation involving the
+     * supplied left- and right-hand-sides.
+     */
+    protected static Class<?> promote (Number lhs, Number rhs)
+    {
+        // if either is a double, we promote to double
+        Class<?> lhc = lhs.getClass(), rhc = rhs.getClass();
+        if (lhc == Double.class || rhc == Double.class) {
+            return Double.class;
+        }
+
+        // if one side is a float, then we promote to float unless the other side is a long in
+        // which case we promote to double
+        if (lhc == Float.class) {
+            return promoteFloat(rhc);
+        }
+        if (rhc == Float.class) {
+            return promoteFloat(lhc);
+        }
+
+        // otherwise we promote to the widest integer
+        for (Class<?> clazz : PROMOTE_ORDER) {
+            if (clazz == lhc || clazz == rhc) {
+                return clazz;
+            }
+        }
+
+        // we're not dealing with primitive types, so rightfully we should fail (we could do fun
+        // things like support addition on BigDecimal and BigInteger and friends, but that's for
+        // another day)
+        throw new IllegalArgumentException("Unable to promote " + lhc + " and " + rhc);
+    }
+
+    protected static Class<?> promoteFloat (Class<?> other)
+    {
+        return (other == Long.class) ? Double.class : Float.class;
+    }
+
+    protected static interface MathOps {
+        public Object plus (Number lhs, Number rhs);
+        public Object minus (Number lhs, Number rhs);
+        public Object multiply (Number lhs, Number rhs);
+        public Object divide (Number lhs, Number rhs);
+    };
+
     protected static final Map<Class<?>, Class<?>> WRAPPERS =
         ImmutableMap.<Class<?>, Class<?>>builder().
         put(Boolean.TYPE, Boolean.class).
@@ -352,5 +395,96 @@ public class RT
         put(Long.TYPE, Long.class).
         put(Float.TYPE, Float.class).
         put(Double.TYPE, Double.class).
+        build();
+
+    protected static final Class<?>[] PROMOTE_ORDER = {
+        Long.class, Integer.class, Short.class, Byte.class };
+
+    protected static final Map<Class<?>, MathOps> OPS =
+        ImmutableMap.<Class<?>, MathOps>builder().
+        put(Byte.class, new MathOps() {
+            public Object plus (Number lhs, Number rhs) {
+                return lhs.byteValue() + rhs.byteValue();
+            }
+            public Object minus (Number lhs, Number rhs) {
+                return lhs.byteValue() - rhs.byteValue();
+            }
+            public Object multiply (Number lhs, Number rhs) {
+                return lhs.byteValue() * rhs.byteValue();
+            }
+            public Object divide (Number lhs, Number rhs) {
+                return lhs.byteValue() / rhs.byteValue();
+            }
+        }).
+        put(Short.class, new MathOps() {
+            public Object plus (Number lhs, Number rhs) {
+                return lhs.shortValue() + rhs.shortValue();
+            }
+            public Object minus (Number lhs, Number rhs) {
+                return lhs.shortValue() - rhs.shortValue();
+            }
+            public Object multiply (Number lhs, Number rhs) {
+                return lhs.shortValue() * rhs.shortValue();
+            }
+            public Object divide (Number lhs, Number rhs) {
+                return lhs.shortValue() / rhs.shortValue();
+            }
+        }).
+        put(Integer.class, new MathOps() {
+            public Object plus (Number lhs, Number rhs) {
+                return lhs.intValue() + rhs.intValue();
+            }
+            public Object minus (Number lhs, Number rhs) {
+                return lhs.intValue() - rhs.intValue();
+            }
+            public Object multiply (Number lhs, Number rhs) {
+                return lhs.intValue() * rhs.intValue();
+            }
+            public Object divide (Number lhs, Number rhs) {
+                return lhs.intValue() / rhs.intValue();
+            }
+        }).
+        put(Long.class, new MathOps() {
+            public Object plus (Number lhs, Number rhs) {
+                return lhs.longValue() + rhs.longValue();
+            }
+            public Object minus (Number lhs, Number rhs) {
+                return lhs.longValue() - rhs.longValue();
+            }
+            public Object multiply (Number lhs, Number rhs) {
+                return lhs.longValue() * rhs.longValue();
+            }
+            public Object divide (Number lhs, Number rhs) {
+                return lhs.longValue() / rhs.longValue();
+            }
+        }).
+        put(Float.class, new MathOps() {
+            public Object plus (Number lhs, Number rhs) {
+                return lhs.floatValue() + rhs.floatValue();
+            }
+            public Object minus (Number lhs, Number rhs) {
+                return lhs.floatValue() - rhs.floatValue();
+            }
+            public Object multiply (Number lhs, Number rhs) {
+                return lhs.floatValue() * rhs.floatValue();
+            }
+            public Object divide (Number lhs, Number rhs) {
+                return lhs.floatValue() / rhs.floatValue();
+            }
+        }).
+        put(Double.class, new MathOps() {
+            public Object plus (Number lhs, Number rhs) {
+                return lhs.doubleValue() + rhs.doubleValue();
+            }
+            public Object minus (Number lhs, Number rhs) {
+                return lhs.doubleValue() - rhs.doubleValue();
+            }
+            public Object multiply (Number lhs, Number rhs) {
+                return lhs.doubleValue() * rhs.doubleValue();
+            }
+            public Object divide (Number lhs, Number rhs) {
+                return lhs.doubleValue() / rhs.doubleValue();
+            }
+        }).
         build();
 }

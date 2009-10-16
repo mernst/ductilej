@@ -4,6 +4,7 @@ TypelessJ TODO
 Open issues;
 - How to handle switch for enums?
 - How to handle assignment operators (++, +=, etc.)?
+- What math ops are legal for Character (+ and -, but * and /?)
 
 Detyper
 - Handle all java.lang classes in static detection
@@ -20,7 +21,6 @@ pass that along to all runtime methods so that they can provide better feedback
 that in annotations preserved at runtime for use by RT.invoke()
 
 Runtime
-- Implement RT.compare()
-- Finish implementation of RT.op()
+- Finish implementation of RT.unop(), RT.binop()
 - Make use of type information everywhere possible to validate types before
 calling typed library methods (transformed methods as well)
