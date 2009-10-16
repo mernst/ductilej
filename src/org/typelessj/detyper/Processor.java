@@ -343,6 +343,13 @@ public class Processor extends AbstractProcessor
             tree.cond = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Boolean")), tree.cond);
         }
 
+        @Override public void visitConditional (JCConditional tree) {
+            super.visitConditional(tree);
+
+            // we need to wrap the if expression in a type-cast to boolean
+            tree.cond = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Boolean")), tree.cond);
+        }
+
         @Override public void visitForLoop (JCForLoop tree) {
             super.visitForLoop(tree);
 
