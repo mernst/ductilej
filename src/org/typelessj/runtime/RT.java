@@ -6,6 +6,7 @@ package org.typelessj.runtime;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.Map;
 
 import com.sun.source.tree.Tree;
@@ -253,6 +254,19 @@ public class RT
 //         OR_ASSIGNMENT(CompoundAssignmentTree.class),
 
         return null;
+    }
+
+    /**
+     * Casts an object to an iterable over objects. Used to massage foreach expressions.
+     */
+    public static Iterable<Object> asIterable (Object arg)
+    {
+        if (arg instanceof Object[]) {
+            return Arrays.asList((Object[])arg);
+        } else {
+            @SuppressWarnings("unchecked") Iterable<Object> casted = (Iterable<Object>)arg;
+            return casted;
+        }
     }
 
     /**

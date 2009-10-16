@@ -65,6 +65,10 @@ public class ExampleApp
         String name = "Phineas P. Gage";
         String text = append(name);
         System.out.println("Text " + text);
+
+        for (String arg : args) {
+            System.out.println("Arg " + arg);
+        }
     }
 
     protected static String append (String value)

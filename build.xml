@@ -161,6 +161,8 @@
         <pathelement location="${exclass.dir}"/>
         <path refid="build.classpath"/>
       </classpath>
+      <arg value="one"/>
+      <arg value="two"/>
     </java>
   </target>
 
