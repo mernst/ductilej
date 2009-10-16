@@ -1,6 +1,10 @@
 TypelessJ TODO
 --------------
 
+Open issues;
+- How to handle switch for enums?
+- How to handle assignment operators (++, +=, etc.)?
+
 Detyper
 - Transform if (expr) into if ((Boolean)expr)
 - Transform expr ? e1 : e1 into (Boolean)expr ? e1 : e2
@@ -11,6 +15,7 @@ Detyper
 - Handle array dereference (foo[expr] -> RT.atIndex(foo, expr)
 - Handle array creation (new type[expr] -> new type[(Integer)expr])
 - Handle switch statements switch (expr) -> switch ((Integer)expr)
+- Handle updating operators (pre- and postfix ++, += etc.)
 - I think we don't need to annotate anonymous inner classes, confirm this
 - Implement signature mangling
 - Need to handle static imports (hopefully we won't need to differentiate

@@ -204,12 +204,24 @@ public class Processor extends AbstractProcessor
             _curmeth = null; // we're no longer processing this method
         }
 
+        @Override public void visitUnary (JCUnary tree) {
+            super.visitUnary(tree);
+
+            JCLiteral opcode = _tmaker.Literal(TypeTags.CLASS, tree.getKind().toString());
+            JCMethodInvocation apply = _tmaker.Apply(
+                null, mkRT("unop", opcode.pos), List.<JCExpression>of(opcode, tree.arg));
+            apply.pos = tree.pos;
+//             RT.debug("Rewrote unop", "kind", tree.getKind(), "pos", tree.pos, "apos", apply.pos);
+
+            result = apply;
+        }
+
         @Override public void visitBinary (JCBinary tree) {
             super.visitBinary(tree);
 
             JCLiteral opcode = _tmaker.Literal(TypeTags.CLASS, tree.getKind().toString());
             JCMethodInvocation apply = _tmaker.Apply(
-                null, mkRT("op", opcode.pos), List.<JCExpression>of(opcode, tree.lhs, tree.rhs));
+                null, mkRT("binop", opcode.pos), List.<JCExpression>of(opcode, tree.lhs, tree.rhs));
             apply.pos = tree.pos;
 //             RT.debug("Rewrote binop", "kind", tree.getKind(), "pos", tree.pos, "apos", apply.pos);
             result = apply;
@@ -322,6 +334,13 @@ public class Processor extends AbstractProcessor
             }
 
             super.visitApply(that);
+        }
+
+        @Override public void visitIf (JCIf tree) {
+            super.visitIf(tree);
+
+            // we need to wrap the contents of all if expressions in a type-cast to boolean
+            tree.cond = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Boolean")), tree.cond);
         }
 
         protected boolean inStatic () {
