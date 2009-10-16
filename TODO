@@ -8,7 +8,6 @@ Open issues;
 Detyper
 - Transform expr ? e1 : e1 into (Boolean)expr ? e1 : e2
 - Handle all java.lang classes in static detection
-- Handle array dereference (foo[expr] -> RT.atIndex(foo, expr)
 - Handle array creation (new type[expr] -> new type[(Integer)expr])
 - Handle switch statements switch (expr) -> switch ((Integer)expr)
 - I think we don't need to annotate anonymous inner classes, confirm this

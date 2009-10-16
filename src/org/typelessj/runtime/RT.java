@@ -3,6 +3,7 @@
 
 package org.typelessj.runtime;
 
+import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -267,6 +268,14 @@ public class RT
             @SuppressWarnings("unchecked") Iterable<Object> casted = (Iterable<Object>)arg;
             return casted;
         }
+    }
+
+    /**
+     * Returns the element of the supplied array at the specified index.
+     */
+    public static Object atIndex (Object array, Object index)
+    {
+        return Array.get(array, ((Number)index).intValue());
     }
 
     /**

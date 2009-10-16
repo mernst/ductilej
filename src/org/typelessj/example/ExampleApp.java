@@ -69,6 +69,10 @@ public class ExampleApp
         for (String arg : args) {
             System.out.println("Arg " + arg);
         }
+
+        for (int ii = 0; ii < args.length; ii++) {
+            System.out.println("Arg " + args[ii]);
+        }
     }
 
     protected static String append (String value)

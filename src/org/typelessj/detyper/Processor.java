@@ -339,7 +339,14 @@ public class Processor extends AbstractProcessor
         @Override public void visitIf (JCIf tree) {
             super.visitIf(tree);
 
-            // we need to wrap the contents of all if expressions in a type-cast to boolean
+            // we need to wrap the if expression in a type-cast to boolean
+            tree.cond = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Boolean")), tree.cond);
+        }
+
+        @Override public void visitForLoop (JCForLoop tree) {
+            super.visitForLoop(tree);
+
+            // we need to wrap the for condition expression in a type-cast to boolean
             tree.cond = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Boolean")), tree.cond);
         }
 
@@ -350,6 +357,15 @@ public class Processor extends AbstractProcessor
                 null, mkRT("asIterable", tree.expr.pos), List.<JCExpression>of(tree.expr));
             apply.pos = tree.pos;
             tree.expr = apply;
+        }
+
+        @Override public void visitIndexed (JCArrayAccess tree) {
+            super.visitIndexed(tree);
+
+            JCMethodInvocation apply = _tmaker.Apply(
+                null, mkRT("atIndex", tree.pos), List.<JCExpression>of(tree.indexed, tree.index));
+            apply.pos = tree.pos;
+            result = apply;
         }
 
         protected boolean inStatic () {
