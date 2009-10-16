@@ -57,8 +57,10 @@ public class ExampleApp
         int value = tester.compute(age);
         System.out.println("Value " + value);
 
-        value = Tester.computeStatic(age);
-        System.out.println("Static value " + value);
+        if (value > 25) {
+            value = Tester.computeStatic(age);
+            System.out.println("Static value " + value);
+        }
 
         String name = "Phineas P. Gage";
         String text = append(name);

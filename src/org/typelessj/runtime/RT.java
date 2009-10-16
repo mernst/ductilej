@@ -113,17 +113,79 @@ public class RT
      */
     public static boolean compare (String opcode, Object lhs, Object rhs)
     {
-// TODO: we need to detect these in the AST and cast back to a boolean expression
-//         LESS_THAN(BinaryTree.class),
-//         GREATER_THAN(BinaryTree.class),
-//         LESS_THAN_EQUAL(BinaryTree.class),
-//         GREATER_THAN_EQUAL(BinaryTree.class),
-//         EQUAL_TO(BinaryTree.class),
-//         NOT_EQUAL_TO(BinaryTree.class),
-//         CONDITIONAL_AND(BinaryTree.class),
-//         CONDITIONAL_OR(BinaryTree.class),
 
         return false;
+    }
+
+    /**
+     * Executes the specified operation on the supplied argument.
+     *
+     * @param opcode the string value of com.sun.source.tree.Tree.Kind for the operator in
+     * question.
+     */
+    public static Object unop (String opcode, Object arg)
+    {
+        Tree.Kind kind = Enum.valueOf(Tree.Kind.class, opcode);
+        switch (kind) {
+        case UNARY_MINUS:
+            if (arg instanceof Byte) {
+                return -((Byte)arg).byteValue();
+            } else if (arg instanceof Short) {
+                return -((Short)arg).shortValue();
+            } else if (arg instanceof Integer) {
+                return -((Integer)arg).intValue();
+            } else if (arg instanceof Long) {
+                return -((Long)arg).longValue();
+            } else if (arg instanceof Float) {
+                return -((Float)arg).floatValue();
+            } else if (arg instanceof Double) {
+                return -((Double)arg).doubleValue();
+            } else {
+                throw new IllegalArgumentException("Non-numeric type passed to unary minus.");
+            }
+
+        case BITWISE_COMPLEMENT:
+            if (arg instanceof Byte) {
+                return ~((Byte)arg).byteValue();
+            } else if (arg instanceof Short) {
+                return ~((Short)arg).shortValue();
+            } else if (arg instanceof Integer) {
+                return ~((Integer)arg).intValue();
+            } else if (arg instanceof Long) {
+                return ~((Long)arg).longValue();
+            } else if (arg instanceof Float) {
+                return -((Float)arg).floatValue();
+            } else if (arg instanceof Double) {
+                return -((Double)arg).doubleValue();
+            } else {
+                throw new IllegalArgumentException(
+                    "Non-numeric type passed to bitwise complement.");
+            }
+
+        case LOGICAL_COMPLEMENT:
+            if (arg instanceof Boolean) {
+                return !((Boolean)arg).booleanValue();
+            } else {
+                throw new IllegalArgumentException(
+                    "Non-boolean type passed to logical complement.");
+            }
+
+        case UNARY_PLUS:
+            return arg;
+
+// these must be handled with inline code generation
+//         case POSTFIX_INCREMENT:
+//             return null; // TODO
+//         case POSTFIX_DECREMENT:
+//             return null; // TODO
+//         case PREFIX_INCREMENT:
+//             return null; // TODO
+//         case PREFIX_DECREMENT:
+//             return null; // TODO
+
+        default:
+            throw new IllegalArgumentException("Unknown unary operator: " + kind);
+        }
     }
 
     /**
@@ -132,33 +194,45 @@ public class RT
      * @param opcode the string value of com.sun.source.tree.Tree.Kind for the operator in
      * question.
      */
-    public static Object op (String opcode, Object lhs, Object rhs)
+    public static Object binop (String opcode, Object lhs, Object rhs)
     {
         Tree.Kind kind = Enum.valueOf(Tree.Kind.class, opcode);
-        switch (kind) {
         // TODO: this all needs to be much more sophisticated
+        switch (kind) {
         case PLUS:
             if (lhs instanceof String || rhs instanceof String) {
                 return String.valueOf(lhs) + String.valueOf(rhs);
             }
             return ((Integer)lhs).intValue() + ((Integer)rhs).intValue();
+
         case MULTIPLY:
             return ((Integer)lhs).intValue() * ((Integer)rhs).intValue();
+
+        case LESS_THAN:
+            return ((Number)lhs).doubleValue() < ((Number)rhs).doubleValue();
+
+        case GREATER_THAN:
+            return ((Number)lhs).doubleValue() > ((Number)rhs).doubleValue();
+
+        case LESS_THAN_EQUAL:
+            return ((Number)lhs).doubleValue() <= ((Number)rhs).doubleValue();
+
+        case GREATER_THAN_EQUAL:
+            return ((Number)lhs).doubleValue() >= ((Number)rhs).doubleValue();
+
+        case EQUAL_TO:
+            return isEqualTo(lhs, rhs);
+
+        case NOT_EQUAL_TO:
+            return !isEqualTo(lhs, rhs);
+
+//         CONDITIONAL_AND(BinaryTree.class),
+//         CONDITIONAL_OR(BinaryTree.class),
         }
 
 // TODO: implement
-//         POSTFIX_INCREMENT(UnaryTree.class),
-//         POSTFIX_DECREMENT(UnaryTree.class),
-//         PREFIX_INCREMENT(UnaryTree.class),
-//         PREFIX_DECREMENT(UnaryTree.class),
-//         UNARY_PLUS(UnaryTree.class),
-//         UNARY_MINUS(UnaryTree.class),
-//         BITWISE_COMPLEMENT(UnaryTree.class),
-//         LOGICAL_COMPLEMENT(UnaryTree.class),
-//         MULTIPLY(BinaryTree.class),
 //         DIVIDE(BinaryTree.class),
 //         REMAINDER(BinaryTree.class),
-//         PLUS(BinaryTree.class),
 //         MINUS(BinaryTree.class),
 //         LEFT_SHIFT(BinaryTree.class),
 //         RIGHT_SHIFT(BinaryTree.class),
@@ -229,6 +303,20 @@ public class RT
         }
         Class<?> parent = clazz.getSuperclass();
         return (parent == null) ? null : findConstructor(parent, args);
+    }
+
+    protected static boolean isEqualTo (Object lhs, Object rhs)
+    {
+        // TODO: if the original code had Integer == Integer it would have done reference
+        // equality, but we don't (can't?) differentiate between that and two Integer objects
+        // that we promoted from ints and so we always do equals() equality on them as long as
+        // both sides are non-null
+        if (lhs instanceof Number && rhs instanceof Number) {
+            // TODO: handle promotion because Integer.equals(Byte) does not work
+            return lhs.equals(rhs);
+        } else {
+            return lhs == rhs;
+        }
     }
 
     protected static final Map<Class<?>, Class<?>> WRAPPERS =
