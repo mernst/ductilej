@@ -6,7 +6,6 @@ Open issues;
 - How to handle assignment operators (++, +=, etc.)?
 
 Detyper
-- Transform expr ? e1 : e1 into (Boolean)expr ? e1 : e2
 - Handle all java.lang classes in static detection
 - Handle array creation (new type[expr] -> new type[(Integer)expr])
 - Handle switch statements switch (expr) -> switch ((Integer)expr)
