@@ -248,6 +248,14 @@ public class Processor extends AbstractProcessor
             // TODO
         }
 
+// TODO: this is fiddlier
+//         @Override public void visitThrow (JCThrow tree) {
+//             super.visitThrow(tree);
+
+//             // add a cast to Throwable on the expression being thrown since we will have detyped it
+//             tree.expr = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Throwable")), tree.expr);
+//         }
+
         @Override public void visitApply (JCMethodInvocation that) {
             RT.debug("Method invocation", "typeargs", that.typeargs, "method", what(that.meth),
                      "args", that.args, "varargs", that.varargsElement);

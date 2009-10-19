@@ -79,4 +79,9 @@ public class ExampleApp
     {
         return value + " was.";
     }
+
+    protected static void fail ()
+    {
+        throw new RuntimeException("Fail!");
+    }
 }
