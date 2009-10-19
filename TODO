@@ -6,7 +6,7 @@ Open issues;
 -- Transform into a for{} and some if()s?
 - How to handle post-fix assignment operators (++, +=, etc.)?
 -- Implement mutable boxes, ensure that all "initially primitive" variables
-contain mutable boxes and preserve mutable boxes through operations
+reference mutable boxes and preserve mutable boxes through operations
 - What math ops are legal for Character (+ and -, but * and /?)
 
 Detyper
