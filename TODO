@@ -8,6 +8,17 @@ Open issues;
 -- Implement mutable boxes, ensure that all "initially primitive" variables
 reference mutable boxes and preserve mutable boxes through operations
 - What math ops are legal for Character (+ and -, but * and /?)
+- What to do about exceptions?
+-- We either don't detype them (but then throwing the result of a function call breaks)
+-- If we cast them to Exception (or Throwable) then the method has to declare
+that it throws that exception (we could adjust all method declarations to throw
+Exception but that won't work for library overriders)
+-- We could wrap the exception in RuntimeException but that breaks semantics
+and will also anger javac if it sees a try/catch on a checked exception that is
+not thrown
+-- Maybe we don't detype them (or rather we immediately cast back to the type
+provided in the new expression), and we don't detype the return value of any
+method that returns an Exception subclass?
 
 Detyper
 - Handle field dereference (foo.bar)
