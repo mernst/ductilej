@@ -276,6 +276,36 @@ public class RT
     }
 
     /**
+     * Casts the supplied value to a boolean, failing if not possible. We could coerce integers to
+     * booleans if we wanted to introduce extra sloppiness into TJ programming.
+     */
+    public static boolean asBoolean (Object value)
+    {
+        if (value instanceof Boolean) {
+            return ((Boolean)value).booleanValue();
+        } else {
+            String type = (value == null) ? null : value.getClass().getSimpleName();
+            throw new ClassCastException("Needed Boolean, got " + type);
+        }
+    }
+
+    /**
+     * "Casts" the supplied value to an int. If it is a boxed primitive type (either Java's boxes
+     * or TJ's mutable boxes), it will first be unboxed and then cast to int which may result in
+     * loss of precision. Supplying any non-numeric type will result in a runtime failure.
+     */
+    public static int asInt (Object value)
+    {
+        if (value instanceof Number) {
+            return ((Number)value).intValue();
+        } /* TODO: else if (value instanceof Boxed) {
+        } */ else {
+            String type = (value == null) ? null : value.getClass().getSimpleName();
+            throw new ClassCastException("Needed numeric type, got " + type);
+        }
+    }
+
+    /**
      * A helper for {@link #invoke} and {@link #invokeStatic}.
      */
     protected static Method findMethod (String mname, Class<?> clazz, Object... args)

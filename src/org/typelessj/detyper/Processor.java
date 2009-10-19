@@ -208,23 +208,16 @@ public class Processor extends AbstractProcessor
             super.visitUnary(tree);
 
             JCLiteral opcode = _tmaker.Literal(TypeTags.CLASS, tree.getKind().toString());
-            JCMethodInvocation apply = _tmaker.Apply(
-                null, mkRT("unop", opcode.pos), List.<JCExpression>of(opcode, tree.arg));
-            apply.pos = tree.pos;
-//             RT.debug("Rewrote unop", "kind", tree.getKind(), "pos", tree.pos, "apos", apply.pos);
-
-            result = apply;
+            result = callRT("unop", opcode.pos, opcode, tree.arg);
+            // RT.debug("Rewrote unop", "kind", tree.getKind(), "tp", tree.pos, "ap", opcode.pos);
         }
 
         @Override public void visitBinary (JCBinary tree) {
             super.visitBinary(tree);
 
             JCLiteral opcode = _tmaker.Literal(TypeTags.CLASS, tree.getKind().toString());
-            JCMethodInvocation apply = _tmaker.Apply(
-                null, mkRT("binop", opcode.pos), List.<JCExpression>of(opcode, tree.lhs, tree.rhs));
-            apply.pos = tree.pos;
-//             RT.debug("Rewrote binop", "kind", tree.getKind(), "pos", tree.pos, "apos", apply.pos);
-            result = apply;
+            result = callRT("binop", opcode.pos, opcode, tree.lhs, tree.rhs);
+            // RT.debug("Rewrote binop", "kind", tree.getKind(), "tp", tree.pos, "ap", opcode.pos);
         }
 
         @Override public void visitNewClass (JCNewClass that) {
@@ -245,12 +238,14 @@ public class Processor extends AbstractProcessor
             }
             args = args.prepend(_tmaker.Select(that.clazz, _names._class));
 
-            JCMethodInvocation invoke = _tmaker.Apply(
-                List.<JCExpression>nil(), mkRT("newInstance", that.pos), args);
+            JCMethodInvocation invoke = callRT("newInstance", that.pos, args);
             invoke.varargsElement = that.varargsElement;
-            invoke.pos = that.pos;
-
             result = invoke;
+        }
+
+        @Override public void visitNewArray (JCNewArray tree) {
+            super.visitNewArray(tree);
+            // TODO
         }
 
         @Override public void visitApply (JCMethodInvocation that) {
@@ -339,40 +334,36 @@ public class Processor extends AbstractProcessor
         @Override public void visitIf (JCIf tree) {
             super.visitIf(tree);
 
-            // we need to wrap the if expression in a type-cast to boolean
-            tree.cond = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Boolean")), tree.cond);
+            // we need to cast the if expression to boolean
+            tree.cond = callRT("asBoolean", tree.cond.pos, tree.cond);
         }
 
         @Override public void visitConditional (JCConditional tree) {
             super.visitConditional(tree);
 
-            // we need to wrap the if expression in a type-cast to boolean
-            tree.cond = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Boolean")), tree.cond);
+            // we need to cast the if expression to boolean
+            tree.cond = callRT("asBoolean", tree.cond.pos, tree.cond);
         }
 
         @Override public void visitForLoop (JCForLoop tree) {
             super.visitForLoop(tree);
 
-            // we need to wrap the for condition expression in a type-cast to boolean
-            tree.cond = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Boolean")), tree.cond);
+            // we need to cast the for condition expression to boolean
+            tree.cond = callRT("asBoolean", tree.cond.pos, tree.cond);
         }
 
         @Override public void visitForeachLoop (JCEnhancedForLoop tree) {
             super.visitForeachLoop(tree);
 
-            JCMethodInvocation apply = _tmaker.Apply(
-                null, mkRT("asIterable", tree.expr.pos), List.<JCExpression>of(tree.expr));
-            apply.pos = tree.pos;
-            tree.expr = apply;
+            // rewrite the foreach loop as: foreach (iter : RT.asIterable(expr))
+            tree.expr = callRT("asIterable", tree.expr.pos, tree.expr);
         }
 
         @Override public void visitIndexed (JCArrayAccess tree) {
             super.visitIndexed(tree);
 
-            JCMethodInvocation apply = _tmaker.Apply(
-                null, mkRT("atIndex", tree.pos), List.<JCExpression>of(tree.indexed, tree.index));
-            apply.pos = tree.pos;
-            result = apply;
+            // rewrite the array dereference as: RT.atIndex(array, index)
+            result = callRT("atIndex", tree.pos, tree.indexed, tree.index);
         }
 
         protected boolean inStatic () {
@@ -380,10 +371,16 @@ public class Processor extends AbstractProcessor
                 (_curmeth.mods != null && (_curmeth.mods.flags & Flags.STATIC) != 0);
         }
 
+        protected JCMethodInvocation callRT (String method, int pos, JCExpression... args) {
+            return setPos(_tmaker.Apply(null, mkRT(method, pos), List.from(args)), pos);
+        }
+
+        protected JCMethodInvocation callRT (String method, int pos, List<JCExpression> args) {
+            return setPos(_tmaker.Apply(null, mkRT(method, pos), args), pos);
+        }
+
         protected JCFieldAccess mkRT (String method, int pos) {
-            JCFieldAccess fa = _tmaker.Select(mkFA(RT.class.getName()), _names.fromString(method));
-            fa.pos = pos;
-            return fa;
+            return setPos(_tmaker.Select(mkFA(RT.class.getName()), _names.fromString(method)), pos);
         }
 
         protected JCExpression mkFA (String fqName) {
@@ -424,6 +421,12 @@ public class Processor extends AbstractProcessor
         } else {
             return node.getClass().getSimpleName() + "[" + node + "]";
         }
+    }
+
+    protected static <T extends JCTree> T setPos (T tree, int pos)
+    {
+        tree.pos = pos;
+        return tree;
     }
 
     protected Trees _trees;
