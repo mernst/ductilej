@@ -3,6 +3,7 @@
 
 package org.typelessj.util;
 
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import javax.lang.model.type.TypeKind;
@@ -154,7 +155,7 @@ public class ASTUtil
      */
     public static Set<String> enumVisibleClassNames (JCCompilationUnit unit)
     {
-        final Set<String> names = new HashSet<String>();
+        final Set<String> names = new HashSet<String>(Arrays.asList(JAVA_LANG));
         unit.accept(new TreeScanner() {
             @Override public void visitImport (JCImport tree) {
                 addImportNames(tree.qualid, List.<Name>nil());
@@ -210,4 +211,16 @@ public class ASTUtil
         return type + "/" + type.tsym + "/" + isLibrary(type.tsym) +
             ((stype == null) ? "" : (" <- " + extype(types, stype)));
     }
+
+    protected static final String[] JAVA_LANG = {
+        "AssertionError", "Boolean", "Byte", "ClassCircularityError", "ClassLoader",
+        "ClassNotFoundException", "Compiler", "Double", "Enum", "EnumConstantNotPresentException",
+        "Error", "Exception", "ExceptionInInitializerError", "Float", "IllegalAccessError",
+        "IllegalAccessException", "IllegalThreadStateException", "InheritableThreadLocal",
+        "Integer", "Long", "Math", "NoSuchFieldException", "Number", "Object", "Package",
+        "Process", "ProcessBuilder", "Runtime", "RuntimeException", "RuntimePermission",
+        "SecurityException", "Short", "StackTraceElement", "StrictMath", "String", "StringBuffer",
+        "StringBuilder", "System", "ThreadDeath", "ThreadLocal", "Throwable",
+        "TypeNotPresentException", "UnsupportedOperationException",
+   };
 }
