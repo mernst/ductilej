@@ -124,7 +124,22 @@ public class Processor extends AbstractProcessor
             _tmaker = _rootmaker.forToplevel(unit);
             _vizcls = ASTUtil.enumVisibleClassNames(unit);
 
-            System.out.println("Visible classes " + _vizcls);
+            // RT.debug("Visible classes " + _vizcls);
+        }
+
+        @Override public void visitTopLevel (JCCompilationUnit tree) {
+            // we don't call super because we need to inject select transformation toggling
+            _transformingSelect = false;
+            tree.pid = translate(tree.pid);
+            _transformingSelect = true;
+            tree.defs = translate(tree.defs);
+            result = tree;
+        }
+
+        @Override public void visitImport (JCImport tree) {
+            _transformingSelect = false;
+            super.visitImport(tree);
+            _transformingSelect = true;
         }
 
         @Override public void visitClassDef (JCClassDecl tree) {
@@ -245,6 +260,8 @@ public class Processor extends AbstractProcessor
 
         @Override public void visitNewArray (JCNewArray tree) {
             super.visitNewArray(tree);
+
+            RT.debug("Array creation", "dims", tree.dims, "elems", tree.elems);
             // TODO
         }
 
@@ -256,64 +273,77 @@ public class Processor extends AbstractProcessor
 //             tree.expr = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Throwable")), tree.expr);
 //         }
 
-        @Override public void visitApply (JCMethodInvocation that) {
-            RT.debug("Method invocation", "typeargs", that.typeargs, "method", what(that.meth),
-                     "args", that.args, "varargs", that.varargsElement);
+        @Override public void visitSelect (JCFieldAccess tree) {
+
+            // TODO: more is needed here, what about "new java.util.HashMap" for example?
+            if (_transformingSelect && !_vizcls.contains(tree.selected.toString())) {
+                // transform obj.field into RT.select(obj, "field")
+                result = callRT("select", tree.pos, translate(tree.selected),
+                                _tmaker.Literal(TypeTags.CLASS, tree.name));
+                RT.debug("Transformed select " + result);
+            } else {
+                super.visitSelect(tree);
+            }
+        }
+
+        @Override public void visitApply (JCMethodInvocation tree) {
+            RT.debug("Method invocation", "typeargs", tree.typeargs, "method", what(tree.meth),
+                     "args", tree.args, "varargs", tree.varargsElement);
 
 // freaks out: possibly wrong environment; possibly wrong compiler state
 //             RT.debug("Method type", "meth", _attr.attribExpr(
-//                          that.meth, _enter.getEnv(_curclass.sym), Type.noType));
+//                          tree.meth, _enter.getEnv(_curclass.sym), Type.noType));
 
             // transform expr.method(args)
-            if (that.meth instanceof JCFieldAccess) {
-                JCFieldAccess mfacc = (JCFieldAccess)that.meth;
+            if (tree.meth instanceof JCFieldAccess) {
+                JCFieldAccess mfacc = (JCFieldAccess)tree.meth;
 
                 // we need to determine if 'expr' identifies a class in which case we need to make
-                // a static method invocation on that class; because we have no concept of scope
+                // a static method invocation on tree class; because we have no concept of scope
                 // and names at this point we have to fake things as best we can
                 if (_vizcls.contains(mfacc.selected.toString())) {
                     // convert to RT.invokeStatic("method", mfacc.selected.class, args)
-                    that.args = that.args.
+                    tree.args = tree.args.
                         prepend(_tmaker.Select(mfacc.selected, _names._class)).
                         prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString()));
-                    that.meth = mkRT("invokeStatic", mfacc.pos);
+                    tree.meth = mkRT("invokeStatic", mfacc.pos);
                 } else {
                     // convert to RT.invoke("method", expr, args)
-                    that.args = that.args.prepend(mfacc.selected).
+                    tree.args = tree.args.prepend(mfacc.selected).
                         prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString()));
-                    that.meth = mkRT("invoke", mfacc.pos);
+                    tree.meth = mkRT("invoke", mfacc.pos);
                 }
 
-                RT.debug("Mutated", "typeargs", that.typeargs, "method", what(that.meth),
-                         "type", that.type, "args", that.args, "varargs", that.varargsElement);
+                RT.debug("Mutated", "typeargs", tree.typeargs, "method", what(tree.meth),
+                         "type", tree.type, "args", tree.args, "varargs", tree.varargsElement);
 
             // transform method(args)
-            } else if (that.meth instanceof JCIdent) {
+            } else if (tree.meth instanceof JCIdent) {
                 // TODO: all of the following needs to handle static imports
-                JCIdent mfid = (JCIdent)that.meth;
+                JCIdent mfid = (JCIdent)tree.meth;
                 if ("super".equals(mfid.toString())) {
                     // super() cannot be transformed so we leave it alone
 
                 // we're in a static method, so a receiverless method invocation must also be a
                 // static method, but we need to find out what class to call it on
                 } else if (inStatic()) {
-                    // find the closest class that defines this method
+                    // find the closest class tree defines this method
                     JCClassDecl decl = null;
                     for (List<JCClassDecl> cl = _clstack; !cl.isEmpty(); cl = cl.tail) {
-                        if (ASTUtil.definesStaticMethod(cl.head, that)) {
+                        if (ASTUtil.definesStaticMethod(cl.head, tree)) {
                             decl = cl.head;
                             break;
                         }
                     }
                     if (decl == null) {
                         RT.debug("Cannot find declaration of static method call?",
-                                 "method", what(that.meth));
+                                 "method", what(tree.meth));
                     } else {
                         // convert to RT.invokeStatic("method", decl.class, args)
-                        that.args = that.args.
+                        tree.args = tree.args.
                             prepend(_tmaker.Select(_tmaker.Ident(decl.name), _names._class)).
                             prepend(_tmaker.Literal(TypeTags.CLASS, mfid.toString()));
-                        that.meth = mkRT("invokeStatic", mfid.pos);
+                        tree.meth = mkRT("invokeStatic", mfid.pos);
                     }
 
                 } else {
@@ -322,21 +352,26 @@ public class Processor extends AbstractProcessor
                     // method (in the latter case we just ignore this)
                     JCIdent recid = _tmaker.Ident(_names._this);
                     recid.pos = mfid.pos;
-                    that.args = that.args.prepend(recid).
+                    tree.args = tree.args.prepend(recid).
                         prepend(_tmaker.Literal(TypeTags.CLASS, mfid.toString()));
-                    that.meth = mkRT("invoke", mfid.pos);
-                    RT.debug("Mutated", "typeargs", that.typeargs, "method", what(that.meth),
-                             "args", that.args, "varargs", that.varargsElement);
+                    tree.meth = mkRT("invoke", mfid.pos);
+                    RT.debug("Mutated", "typeargs", tree.typeargs, "method", what(tree.meth),
+                             "args", tree.args, "varargs", tree.varargsElement);
                 }
 
             // are there other types of invocations?
             } else {
-                RT.debug("Unknown invocation?", "typeargs", that.typeargs,
-                         "method", what(that.meth), "args", that.args,
-                         "varargs", that.varargsElement);
+                RT.debug("Unknown invocation?", "typeargs", tree.typeargs,
+                         "method", what(tree.meth), "args", tree.args,
+                         "varargs", tree.varargsElement);
             }
 
-            super.visitApply(that);
+            // we don't call super because we need to inject select transformation toggling
+            _transformingSelect = false;
+            tree.meth = translate(tree.meth);
+            _transformingSelect = true;
+            tree.args = translate(tree.args);
+            result = tree;
         }
 
         @Override public void visitIf (JCIf tree) {
@@ -372,6 +407,25 @@ public class Processor extends AbstractProcessor
 
             // rewrite the array dereference as: RT.atIndex(array, index)
             result = callRT("atIndex", tree.pos, tree.indexed, tree.index);
+        }
+
+        @Override public void visitAssign (JCAssign tree) {
+
+            // TODO: do we need to crawl down into parenthesized expressions?
+            if (tree.lhs instanceof JCArrayAccess) {
+                JCArrayAccess aa = (JCArrayAccess)tree.lhs;
+                result = callRT("assignAt", tree.pos, translate(aa.indexed), translate(aa.index),
+                                translate(tree.rhs));
+
+            } else {
+                super.visitAssign(tree);
+            }
+        }
+
+        @Override public void visitAnnotation (JCAnnotation tree) {
+            _transformingSelect = false;
+            super.visitAnnotation(tree);
+            _transformingSelect = true;
         }
 
         protected boolean inStatic () {
@@ -448,4 +502,5 @@ public class Processor extends AbstractProcessor
     protected TreeMaker _rootmaker;
 
     protected Method _enterAnnotation;
+    protected boolean _transformingSelect = true;
 }

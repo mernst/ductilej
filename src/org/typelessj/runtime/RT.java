@@ -108,6 +108,33 @@ public class RT
     }
 
     /**
+     * Returns the value of the field with the specified name in the specified target object. Also
+     * handles the necessary magic to perform <code>someArray.length</code>.
+     */
+    public static Object select (Object target, String fname)
+    {
+        if (target == null) {
+            throw new NullPointerException("Requested field access on null target.");
+        }
+
+        Class<?> clazz = target.getClass();
+        if (clazz.isArray()) {
+            if (!fname.equals("length")) {
+                throw new RuntimeException("Arrays have no fields other than 'length'");
+            }
+            return Array.getLength(target);
+        }
+
+        try {
+            return clazz.getField(fname).get(target);
+        } catch (NoSuchFieldException nsfe) {
+            throw new RuntimeException(nsfe);
+        } catch (IllegalAccessException iae) {
+            throw new RuntimeException(iae);
+        }
+    }
+
+    /**
      * Executes the specified operation on the supplied argument.
      *
      * @param opcode the string value of com.sun.source.tree.Tree.Kind for the operator in
@@ -265,6 +292,16 @@ public class RT
             @SuppressWarnings("unchecked") Iterable<Object> casted = (Iterable<Object>)arg;
             return casted;
         }
+    }
+
+    /**
+     * Performs assignment of the specified value into the specified array at the specified index.
+     * Returns the assigned value.
+     */
+    public static Object assignAt (Object array, Object index, Object value)
+    {
+        Array.set(array, asInt(index), value);
+        return value;
     }
 
     /**
