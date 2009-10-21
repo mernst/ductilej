@@ -39,3 +39,10 @@ Runtime
 - Finish implementation of RT.unop(), RT.binop()
 - Make use of type information everywhere possible to validate types before
 calling typed library methods (transformed methods as well)
+
+Later
+- Maybe implement rudimentary scoping:
+-- track all names visible at each scope and use that to determine if global
+names are shadowed
+-- if we want to get crazy we can also keep some unresolved type information
+around for the names
