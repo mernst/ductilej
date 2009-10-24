@@ -42,7 +42,7 @@ public class RT
      */
     public static Object newInstance (Class<?> clazz, Object encl, Object... args)
     {
-        Constructor ctor = findConstructor(clazz, args);
+        Constructor<?> ctor = findConstructor(clazz, args);
         if (ctor == null) {
             throw new NoSuchMethodError(); // TODO
         }
@@ -370,11 +370,11 @@ public class RT
     /**
      * A helper for {@link #newInstance}.
      */
-    protected static Constructor findConstructor (Class<?> clazz, Object... args)
+    protected static Constructor<?> findConstructor (Class<?> clazz, Object... args)
     {
         // TODO: this needs to be smarter :)
       CTORS:
-        for (Constructor ctor : clazz.getDeclaredConstructors()) {
+        for (Constructor<?> ctor : clazz.getDeclaredConstructors()) {
             Class<?>[] ptypes = ctor.getParameterTypes();
             if (ptypes.length != args.length) {
                 continue CTORS;
