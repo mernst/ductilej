@@ -13,11 +13,11 @@
   <property name="javadoc.dir" value="${deploy.dir}/docs"/>
   <property name="libs.dir"    value="lib"/>
 
-  <!-- used to build against the stock javac or a langtools version -->
+  <!-- read in the desired configuration local configuration -->
+  <property file="build.properties"/>
+  <!-- if build.properties does not specify javac.home we provide a default -->
   <property name="javac.home"  value="${java.home}/.."/>
   <property name="javac.jar"  value="tools.jar"/>
-  <!--<property name="javac.home"  value="../../langtools/dist/bootstrap"/>
-  <property name="javac.jar"  value="javac.jar"/>-->
 
   <!-- defines our classpath -->
   <path id="base.classpath">
@@ -26,7 +26,6 @@
   </path>
   <path id="build.classpath">
     <path refid="base.classpath"/>
-    <fileset dir="${javac.home}/lib" includes="${javac.jar}"/>
   </path>
 
   <!-- defines our runtime library dependencies -->
@@ -68,8 +67,9 @@
 
   <!-- builds the java class files -->
   <target name="compile" depends="prepare" description="Compiles the code.">
-    <javac srcdir="${src.dir}" destdir="${classes.dir}" includeAntRuntime="false"
-           debug="on" optimize="${build.optimize}" source="1.6" target="1.6" encoding="utf-8">
+    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
+           source="1.6" target="1.6" encoding="utf-8"
+           srcdir="${src.dir}" destdir="${classes.dir}">
       <classpath refid="build.classpath"/>
       <exclude name="org/typelessj/example/**"/>
       <compilerarg value="-Xlint"/>
@@ -137,23 +137,21 @@
     <mkdir dir="${exclass.dir}"/>
 
     <echo>--- Compiling example app with detyper:</echo>
-    <java fork="true" classname="com.sun.tools.javac.Main">
+    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
+           source="1.6" target="1.6" encoding="utf-8"
+           srcdir="${src.dir}" destdir="${exclass.dir}">
       <classpath>
         <pathelement location="${exclass.dir}"/>
         <path refid="build.classpath"/>
       </classpath>
-      <jvmarg value="-Dshowclass=${showclass}"/>
-      <arg value="-sourcepath"/><arg value="${src.dir}"/>
-      <arg value="-d"/><arg value="${exclass.dir}"/>
-      <arg value="-source"/><arg value="1.6"/>
-      <arg value="-target"/><arg value="1.6"/>
-      <arg value="-encoding"/><arg value="utf-8"/>
-      <arg value="-g"/>
-      <!--<arg value="-XprintProcessorInfo"/>-->
-      <arg value="-Xlint"/><arg value="-Xlint:-serial"/>
-      <arg value="-processor"/><arg value="org.typelessj.detyper.Processor"/>
-      <arg value="${src.dir}/org/typelessj/example/ExampleApp.java"/>
-    </java>
+      <!--<compilerarg value="-Dshowclass=${showclass}"/>-->
+      <compilerarg value="-Xlint"/>
+      <compilerarg value="-Xlint:-serial"/>
+      <!--<compilerarg value="-XprintProcessorInfo"/>-->
+      <compilerarg value="-processor"/>
+      <compilerarg value="org.typelessj.detyper.Processor"/>
+      <include name="org/typelessj/example/ExampleApp.java"/>
+    </javac>
 
     <echo>--- Running example app:</echo>
     <java fork="true" classname="org.typelessj.example.ExampleApp">
@@ -171,9 +169,10 @@
     <delete dir="${exclass.dir}"/>
     <mkdir dir="${exclass.dir}"/>
 
-    <echo>--- Compiling example app with stock javac:</echo>
-    <javac srcdir="${src.dir}" destdir="${exclass.dir}" includeAntRuntime="false"
-           debug="on" optimize="${build.optimize}" source="1.6" target="1.6" encoding="utf-8">
+    <echo>--- Compiling example app with desired javac:</echo>
+    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
+           source="1.6" target="1.6" encoding="utf-8"
+           srcdir="${src.dir}" destdir="${classes.dir}">
       <classpath>
         <pathelement location="${exclass.dir}"/>
       </classpath>
@@ -197,8 +196,9 @@
     <mkdir dir="${exclass.dir}"/>
 
     <echo>--- Compiling example app with astviz:</echo>
-    <javac srcdir="${src.dir}" destdir="${exclass.dir}" includeAntRuntime="false"
-           debug="on" optimize="${build.optimize}" source="1.6" target="1.6" encoding="utf-8">
+    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
+           source="1.6" target="1.6" encoding="utf-8"
+           srcdir="${src.dir}" destdir="${classes.dir}">
       <classpath>
         <path refid="classpath"/>
         <pathelement location="${exclass.dir}"/>

@@ -11,7 +11,6 @@ import java.util.Arrays;
 import java.util.Map;
 
 import com.sun.source.tree.Tree;
-import com.sun.tools.javac.code.Symbol;
 
 import com.google.common.collect.ImmutableMap;
 import com.samskivert.util.LogBuilder;
