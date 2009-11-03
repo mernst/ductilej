@@ -1,7 +1,11 @@
 TypelessJ TODO
 --------------
 
-Open issues;
+- Create a PathedTreeTranslator which keeps the path around and provides
+  methods for querying path structure; use that to determine whether or not we
+  should transform a JCFieldAccess
+
+Open issues
 - How to handle switch (can't just switch ((Integer)exp) because of enums)?
 -- Transform into a for{} and some if()s?
 - How to handle post-fix assignment operators (++, +=, etc.)?
