@@ -18,6 +18,8 @@ public class ExampleApp
     public static class Tester
         implements ExampleApp.ITest
     {
+        public int five = 5;
+
         public Tester (String unused, int multiplier) {
             _multiplier = multiplier;
         }
@@ -69,7 +71,7 @@ public class ExampleApp
     {
         Tester tester = new Tester("", 2);
 
-        int age = 25;
+        int age = tester.five;
         int value = tester.compute(age);
         System.out.println("Value " + value);
 
