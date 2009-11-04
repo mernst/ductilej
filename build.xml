@@ -157,6 +157,8 @@
     <java fork="true" classname="org.typelessj.example.ExampleApp">
       <classpath>
         <pathelement location="${exclass.dir}"/>
+        <!-- TODO: remove dependency on javac.jar classes -->
+        <pathelement location="${javac.home}/lib/${javac.jar}"/>
         <path refid="build.classpath"/>
       </classpath>
       <arg value="one"/>
