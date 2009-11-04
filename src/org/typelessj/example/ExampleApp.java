@@ -10,7 +10,13 @@ import java.util.Collections;
  */
 public class ExampleApp
 {
+    public static interface ITest
+    {
+        public int testAdd (int value);
+    }
+
     public static class Tester
+        implements ExampleApp.ITest
     {
         public Tester (String unused, int multiplier) {
             _multiplier = multiplier;
@@ -20,9 +26,19 @@ public class ExampleApp
             return value * _multiplier + 5;
         }
 
+        // from interface ITest
+        public int testAdd (int value) {
+            return value + 25;
+        }
+
         @Override
         public String toString () {
             return "Tester";
+        }
+
+        @Override
+        public int hashCode () {
+            return _multiplier ^ 42;
         }
 
         public static int computeStatic (int value) {
@@ -81,9 +97,10 @@ public class ExampleApp
             System.out.println("Arg " + arg);
         }
 
-        for (int ii = 0; ii < args.length; ii++) {
-            System.out.println("Arg " + args[ii]);
-        }
+// Something about how we're transforming this crashes the compiler. Whee!
+//         for (int ii = 0; ii < args.length; ii++) {
+//             System.out.println("Arg " + args[ii]);
+//         }
     }
 
 //     protected static void testArrayCreate ()
