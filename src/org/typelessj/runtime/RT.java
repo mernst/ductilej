@@ -10,6 +10,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Map;
 
+// TODO: remove dependency on Tree.Kind from runtime
 import com.sun.source.tree.Tree;
 
 import com.google.common.collect.ImmutableMap;
@@ -309,6 +310,15 @@ public class RT
     public static Object atIndex (Object array, Object index)
     {
         return Array.get(array, ((Number)index).intValue());
+    }
+
+    /**
+     * Casts the supplied value to the specified type. Triggers full context dump if the cast will
+     * fail and we are forced to abort execution with a ClassCastException.
+     */
+    public static <T> T checkedCast (Class<T> clazz, Object value)
+    {
+        return clazz.cast(value); // TODO: catch CCE and trigger context dump
     }
 
     /**
