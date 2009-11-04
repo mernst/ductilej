@@ -44,6 +44,7 @@ import com.sun.tools.javac.util.Names;
 import org.typelessj.runtime.RT;
 import org.typelessj.runtime.Transformed;
 import org.typelessj.util.ASTUtil;
+import org.typelessj.util.PathedTreeVisitor;
 
 /**
  * The main entry point for the detyping processor.
@@ -106,7 +107,7 @@ public class Processor extends AbstractProcessor
             JCCompilationUnit unit = toUnit(elem);
 //             RT.debug("Root elem " + elem, "unit", unit.getClass().getSimpleName(),
 //                      "sym.mems", ASTUtil.expand(unit.packge.members_field.elems.sym));
-            unit.accept(new DetypingVisitor(unit));
+            unit.accept(new PathedTreeVisitor(new DetypingVisitor(unit)));
         }
         return false;
     }
@@ -117,7 +118,7 @@ public class Processor extends AbstractProcessor
         return (path == null) ? null : (JCCompilationUnit)path.getCompilationUnit();
     }
 
-    protected class DetypingVisitor extends TreeTranslator
+    protected class DetypingVisitor extends PathedTreeVisitor.TreeTranslatorDelegate
     {
         public DetypingVisitor (JCCompilationUnit unit) {
             _unit = unit;
@@ -163,7 +164,7 @@ public class Processor extends AbstractProcessor
             _clstack = _clstack.tail;
 
             RT.debug("Leaving class " + tree.name);
-            if (Boolean.getBoolean("showclass")) {
+            if (true || Boolean.getBoolean("showclass")) {
                 RT.debug(""+tree);
             }
         }
@@ -280,7 +281,7 @@ public class Processor extends AbstractProcessor
                 // transform obj.field into RT.select(obj, "field")
                 result = callRT("select", tree.pos, translate(tree.selected),
                                 _tmaker.Literal(TypeTags.CLASS, tree.name));
-                RT.debug("Transformed select " + result);
+                RT.debug("Transformed select " + result + " (" + _path + ")");
             } else {
                 super.visitSelect(tree);
             }
