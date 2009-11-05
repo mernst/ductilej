@@ -84,8 +84,8 @@ public class ExampleApp
         String text = append(name);
         System.out.println("Text " + text);
 
-//         testArrayAccess(args);
-//         testArrayCreate();
+//        testArrayAccess(args);
+        testArrayCreate();
     }
 
     protected static String append (String value)
@@ -104,14 +104,17 @@ public class ExampleApp
         }
     }
 
-//     protected static void testArrayCreate ()
-//     {
-//         String[] test1 = new String[] { "zero", "one", "two" };
-//         String[] test2 = new String[3];
-//         test2[0] = "0";
-//         test2[1] = "1";
-//         test2[2] = "2";
-//     }
+    protected static void testArrayCreate ()
+    {
+        String[] test1 = new String[] { "zero", "one", "two" };
+        System.out.println("One: " + test1[0] + " " + test1[1] + " " + test1[2]);
+        String[] test2 = new String[3];
+        System.out.println("Two: " + test2[0] + " " + test2[1] + " " + test2[2]);
+        test2[0] = "0";
+        test2[1] = "1";
+        test2[2] = "2";
+        System.out.println("New two: " + test2[0] + " " + test2[1] + " " + test2[2]);
+    }
 
 //     protected static void fail ()
 //     {
