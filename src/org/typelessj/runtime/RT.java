@@ -94,7 +94,8 @@ public class RT
     {
         Method method = findMethod(mname, clazz, args);
         if (method == null) {
-            throw new NoSuchMethodError(); // TODO
+            throw new NoSuchMethodError("Unable to find method " + mname +
+                                        " (" + Arrays.asList(args) + ")"); // TODO
         }
 
         try {

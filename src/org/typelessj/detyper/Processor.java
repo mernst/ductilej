@@ -283,10 +283,15 @@ public class Processor extends AbstractProcessor
             wantXform = wantXform && !path.contains(".Apply.meth");
             wantXform = wantXform && !path.contains(".VarDef.vartype");
             wantXform = wantXform && !path.contains(".NewClass.clazz");
+            // TODO: this is pesky, better to say we must be in ClassDef.defs but then we need to
+            // deal with inner classes... blah
+            wantXform = wantXform && !path.contains(".ClassDef.typarams");
+            wantXform = wantXform && !path.contains(".ClassDef.extending");
+            wantXform = wantXform && !path.contains(".ClassDef.implementing");
 
             if (wantXform && !_vizcls.contains(tree.selected.toString())) {
                 // transform obj.field into RT.select(obj, "field")
-                result = callRT("select", tree.pos, translate(tree.selected),
+                result = callRT("select", tree.pos, tree.selected,
                                 _tmaker.Literal(TypeTags.CLASS, tree.name.toString()));
                 RT.debug("Transformed select " + tree + " (" + path + ")");
             }
@@ -312,7 +317,7 @@ public class Processor extends AbstractProcessor
                 if (_vizcls.contains(mfacc.selected.toString())) {
                     // convert to RT.invokeStatic("method", mfacc.selected.class, args)
                     tree.args = tree.args.
-                        prepend(_tmaker.Select(mfacc.selected, _names._class)).
+                        prepend(classLiteral(mfacc.selected, mfacc.selected.pos)).
                         prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString()));
                     tree.meth = mkRT("invokeStatic", mfacc.pos);
                 } else {
@@ -348,8 +353,8 @@ public class Processor extends AbstractProcessor
                                  "method", what(tree.meth));
                     } else {
                         // convert to RT.invokeStatic("method", decl.class, args)
-                        tree.args = tree.args.
-                            prepend(_tmaker.Select(_tmaker.Ident(decl.name), _names._class)).
+                        tree.args = tree.args. // TODO: better pos than tree.pos
+                            prepend(classLiteral(_tmaker.Ident(decl.name), tree.pos)).
                             prepend(_tmaker.Literal(TypeTags.CLASS, mfid.toString()));
                         tree.meth = mkRT("invokeStatic", mfid.pos);
                     }
@@ -406,18 +411,21 @@ public class Processor extends AbstractProcessor
         @Override public void visitIndexed (JCArrayAccess tree) {
             super.visitIndexed(tree);
 
-            // rewrite the array dereference as: RT.atIndex(array, index)
-            result = callRT("atIndex", tree.pos, tree.indexed, tree.index);
+            String path = path();
+            // TODO: this is not quite correct because we need to handle: foo[bar[ii]] = 1
+            if (!path.contains(".Assign.lhs")) {
+                // rewrite the array dereference as: RT.atIndex(array, index)
+                result = callRT("atIndex", tree.pos, tree.indexed, tree.index);
+            }
         }
 
         @Override public void visitAssign (JCAssign tree) {
             super.visitAssign(tree);
 
-            // TODO: do we need to crawl down into parenthesized expressions?
+            // TODO: we need to handle (foo[ii]) = 1 and maybe (a ? foo[ii] : bar[ii]) = 1
             if (tree.lhs instanceof JCArrayAccess) {
                 JCArrayAccess aa = (JCArrayAccess)tree.lhs;
-                result = callRT("assignAt", tree.pos, translate(aa.indexed), translate(aa.index),
-                                translate(tree.rhs));
+                result = callRT("assignAt", tree.pos, aa.indexed, aa.index, tree.rhs);
             }
         }
 

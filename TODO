@@ -1,10 +1,6 @@
 TypelessJ TODO
 --------------
 
-- Create a PathedTreeTranslator which keeps the path around and provides
-  methods for querying path structure; use that to determine whether or not we
-  should transform a JCFieldAccess
-
 Open issues
 - How to handle switch (can't just switch ((Integer)exp) because of enums)?
 -- Transform into a for{} and some if()s?
@@ -23,9 +19,13 @@ not thrown
 -- Maybe we don't detype them (or rather we immediately cast back to the type
 provided in the new expression), and we don't detype the return value of any
 method that returns an Exception subclass?
+- Need to avoid passing array as sole final argument to RT.invoke and
+RT.invokeStatic, can happen when passing an argument in an untransformed method
+and for literals:
+-- main(String[] args) { foo(args); }
+-- foo(new String[] { ... })
 
 Detyper
-- Handle field dereference (foo.bar)
 - Handle array creation (new type[expr] -> new type[(Integer)expr])
 - Handle array cell assignment (foo[bar] = baz)
 - Insert cast to proper return type for overridden library methods

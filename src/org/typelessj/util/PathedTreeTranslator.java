@@ -53,9 +53,15 @@ public class PathedTreeTranslator extends TreeTranslator
     @Override public void visitClassDef (JCClassDecl tree) {
         push("ClassDef");
         tree.mods = translate(tree.mods);
+        push("typarams");
         tree.typarams = translateTypeParams(tree.typarams);
+        pop();
+        push("extending");
         tree.extending = translate(tree.extending);
+        pop();
+        push("implementing");
         tree.implementing = translate(tree.implementing);
+        pop();
         tree.defs = translate(tree.defs);
         result = tree;
         pop();
