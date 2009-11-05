@@ -174,7 +174,7 @@
     <echo>--- Compiling example app with desired javac:</echo>
     <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
            source="1.6" target="1.6" encoding="utf-8"
-           srcdir="${src.dir}" destdir="${classes.dir}">
+           srcdir="${src.dir}" destdir="${exclass.dir}">
       <classpath>
         <pathelement location="${exclass.dir}"/>
       </classpath>
@@ -200,9 +200,9 @@
     <echo>--- Compiling example app with astviz:</echo>
     <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
            source="1.6" target="1.6" encoding="utf-8"
-           srcdir="${src.dir}" destdir="${classes.dir}">
+           srcdir="${src.dir}" destdir="${exclass.dir}">
       <classpath>
-        <path refid="classpath"/>
+        <path refid="build.classpath"/>
         <pathelement location="${exclass.dir}"/>
       </classpath>
       <compilerarg value="-Xlint"/>
