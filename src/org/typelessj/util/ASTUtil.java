@@ -208,7 +208,7 @@ public class ASTUtil
     public static String extype (Types types, Type type)
     {
         Type stype = types.supertype(type);
-        return type + "/" + type.tsym + "/" + isLibrary(type.tsym) +
+        return type /*+ "/" + type.tsym */ + "/" + isLibrary(type.tsym) +
             ((stype == null) ? "" : (" <- " + extype(types, stype)));
     }
 
