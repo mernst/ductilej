@@ -113,7 +113,7 @@ public class RT
      * Returns the value of the field with the specified name in the specified target object. Also
      * handles the necessary magic to perform <code>someArray.length</code>.
      */
-    public static Object select (Object target, String fname)
+    public static Object select (String fname, Object target)
     {
         if (target == null) {
             throw new NullPointerException("Requested field access on null target.");
