@@ -99,10 +99,9 @@ public class ExampleApp
             System.out.println("Arg " + arg);
         }
 
-// Something about how we're transforming this crashes the compiler. Whee!
-//         for (int ii = 0; ii < args.length; ii++) {
-//             System.out.println("Arg " + args[ii]);
-//         }
+        for (int ii = 0; ii < args.length; ii++) {
+            System.out.println("Arg " + args[ii]);
+        }
     }
 
 //     protected static void testArrayCreate ()

@@ -44,7 +44,7 @@ import com.sun.tools.javac.util.Names;
 import org.typelessj.runtime.RT;
 import org.typelessj.runtime.Transformed;
 import org.typelessj.util.ASTUtil;
-import org.typelessj.util.PathedTreeVisitor;
+import org.typelessj.util.PathedTreeTranslator;
 
 /**
  * The main entry point for the detyping processor.
@@ -107,7 +107,10 @@ public class Processor extends AbstractProcessor
             JCCompilationUnit unit = toUnit(elem);
 //             RT.debug("Root elem " + elem, "unit", unit.getClass().getSimpleName(),
 //                      "sym.mems", ASTUtil.expand(unit.packge.members_field.elems.sym));
-            unit.accept(new PathedTreeVisitor(new DetypingVisitor(unit)));
+            unit.accept(new DetypingVisitor(unit));
+            if (true || Boolean.getBoolean("showclass")) {
+                RT.debug(""+unit);
+            }
         }
         return false;
     }
@@ -118,7 +121,7 @@ public class Processor extends AbstractProcessor
         return (path == null) ? null : (JCCompilationUnit)path.getCompilationUnit();
     }
 
-    protected class DetypingVisitor extends PathedTreeVisitor.TreeTranslatorDelegate
+    protected class DetypingVisitor extends PathedTreeTranslator
     {
         public DetypingVisitor (JCCompilationUnit unit) {
             _unit = unit;
@@ -126,21 +129,6 @@ public class Processor extends AbstractProcessor
             _vizcls = ASTUtil.enumVisibleClassNames(unit);
 
             // RT.debug("Visible classes " + _vizcls);
-        }
-
-        @Override public void visitTopLevel (JCCompilationUnit tree) {
-            // we don't call super because we need to inject select transformation toggling
-            _transformingSelect = false;
-            tree.pid = translate(tree.pid);
-            _transformingSelect = true;
-            tree.defs = translate(tree.defs);
-            result = tree;
-        }
-
-        @Override public void visitImport (JCImport tree) {
-            _transformingSelect = false;
-            super.visitImport(tree);
-            _transformingSelect = true;
         }
 
         @Override public void visitClassDef (JCClassDecl tree) {
@@ -164,9 +152,6 @@ public class Processor extends AbstractProcessor
             _clstack = _clstack.tail;
 
             RT.debug("Leaving class " + tree.name);
-            if (true || Boolean.getBoolean("showclass")) {
-                RT.debug(""+tree);
-            }
         }
 
         @Override public void visitVarDef (JCVariableDecl tree) {
@@ -184,6 +169,7 @@ public class Processor extends AbstractProcessor
         @Override public void visitMethodDef (JCMethodDecl tree) {
             // no call to super, as we need more control over what is transformed
 
+            JCMethodDecl ometh = _curmeth;
             _curmeth = tree; // note the current method being processed
 
             if (tree.sym == null) {
@@ -217,7 +203,18 @@ public class Processor extends AbstractProcessor
             tree.body = translate(tree.body);
             result = tree;
 
-            _curmeth = null; // we're no longer processing this method
+            _curmeth = ometh; // we're no longer processing this method
+        }
+
+        @Override public void visitReturn (JCReturn tree) {
+            super.visitReturn(tree);
+
+            // if we're in a method whose signature cannot be transformed, we must cast the result
+            // of the return type back to the static method return type
+            if (ASTUtil.isLibraryOverrider(_types, _curmeth.sym)) {
+                tree.expr = callRT("checkedCast", tree.expr.pos,
+                                   classLiteral(_curmeth.restype, tree.expr.pos), tree.expr);
+            }
         }
 
         @Override public void visitUnary (JCUnary tree) {
@@ -232,7 +229,7 @@ public class Processor extends AbstractProcessor
             super.visitBinary(tree);
 
             JCLiteral opcode = _tmaker.Literal(TypeTags.CLASS, tree.getKind().toString());
-            result = callRT("binop", opcode.pos, opcode, tree.lhs, tree.rhs);
+            result = callRT("binop", tree.pos, opcode, tree.lhs, tree.rhs);
             // RT.debug("Rewrote binop", "kind", tree.getKind(), "tp", tree.pos, "ap", opcode.pos);
         }
 
@@ -252,7 +249,7 @@ public class Processor extends AbstractProcessor
             } else {
                 args = that.args.prepend(_tmaker.Ident(_names._this));
             }
-            args = args.prepend(_tmaker.Select(that.clazz, _names._class));
+            args = args.prepend(classLiteral(that.clazz, that.clazz.pos));
 
             JCMethodInvocation invoke = callRT("newInstance", that.pos, args);
             invoke.varargsElement = that.varargsElement;
@@ -275,21 +272,31 @@ public class Processor extends AbstractProcessor
 //         }
 
         @Override public void visitSelect (JCFieldAccess tree) {
+            super.visitSelect(tree);
 
-            // TODO: more is needed here, what about "new java.util.HashMap" for example?
-            if (_transformingSelect && !_vizcls.contains(tree.selected.toString())) {
+            // TODO: more may be needed here
+            String path = path();
+            boolean wantXform = true;
+            wantXform = wantXform && !path.contains(".TopLevel.pid");
+            wantXform = wantXform && !path.contains(".Import");
+            wantXform = wantXform && !path.contains(".Annotation");
+            wantXform = wantXform && !path.contains(".Apply.meth");
+            wantXform = wantXform && !path.contains(".VarDef.vartype");
+            wantXform = wantXform && !path.contains(".NewClass.clazz");
+
+            if (wantXform && !_vizcls.contains(tree.selected.toString())) {
                 // transform obj.field into RT.select(obj, "field")
                 result = callRT("select", tree.pos, translate(tree.selected),
-                                _tmaker.Literal(TypeTags.CLASS, tree.name));
-                RT.debug("Transformed select " + result + " (" + _path + ")");
-            } else {
-                super.visitSelect(tree);
+                                _tmaker.Literal(TypeTags.CLASS, tree.name.toString()));
+                RT.debug("Transformed select " + tree + " (" + path + ")");
             }
         }
 
         @Override public void visitApply (JCMethodInvocation tree) {
-            RT.debug("Method invocation", "typeargs", tree.typeargs, "method", what(tree.meth),
-                     "args", tree.args, "varargs", tree.varargsElement);
+            super.visitApply(tree);
+
+//             RT.debug("Method invocation", "typeargs", tree.typeargs, "method", what(tree.meth),
+//                      "args", tree.args, "varargs", tree.varargsElement);
 
 // freaks out: possibly wrong environment; possibly wrong compiler state
 //             RT.debug("Method type", "meth", _attr.attribExpr(
@@ -315,8 +322,8 @@ public class Processor extends AbstractProcessor
                     tree.meth = mkRT("invoke", mfacc.pos);
                 }
 
-                RT.debug("Mutated", "typeargs", tree.typeargs, "method", what(tree.meth),
-                         "type", tree.type, "args", tree.args, "varargs", tree.varargsElement);
+//                 RT.debug("Mutated", "typeargs", tree.typeargs, "method", what(mfacc),
+//                          "type", tree.type, "args", tree.args, "varargs", tree.varargsElement);
 
             // transform method(args)
             } else if (tree.meth instanceof JCIdent) {
@@ -366,13 +373,6 @@ public class Processor extends AbstractProcessor
                          "method", what(tree.meth), "args", tree.args,
                          "varargs", tree.varargsElement);
             }
-
-            // we don't call super because we need to inject select transformation toggling
-            _transformingSelect = false;
-            tree.meth = translate(tree.meth);
-            _transformingSelect = true;
-            tree.args = translate(tree.args);
-            result = tree;
         }
 
         @Override public void visitIf (JCIf tree) {
@@ -411,22 +411,14 @@ public class Processor extends AbstractProcessor
         }
 
         @Override public void visitAssign (JCAssign tree) {
+            super.visitAssign(tree);
 
             // TODO: do we need to crawl down into parenthesized expressions?
             if (tree.lhs instanceof JCArrayAccess) {
                 JCArrayAccess aa = (JCArrayAccess)tree.lhs;
                 result = callRT("assignAt", tree.pos, translate(aa.indexed), translate(aa.index),
                                 translate(tree.rhs));
-
-            } else {
-                super.visitAssign(tree);
             }
-        }
-
-        @Override public void visitAnnotation (JCAnnotation tree) {
-            _transformingSelect = false;
-            super.visitAnnotation(tree);
-            _transformingSelect = true;
         }
 
         protected boolean inStatic () {
@@ -456,12 +448,21 @@ public class Processor extends AbstractProcessor
             }
         }
 
+        protected JCExpression classLiteral (JCExpression expr, int pos) {
+            // TODO: validate that we got passed either Name or package.Name
+            if ("int".equals(expr.toString())) {
+                expr = _tmaker.Ident(_names.fromString("Integer"));
+            }
+            return setPos(_tmaker.Select(expr, _names._class), pos);
+        }
+
         protected JCCompilationUnit _unit;
         protected TreeMaker _tmaker;
         protected Set<String> _vizcls;
 
         protected List<JCClassDecl> _clstack = List.nil();
         protected JCMethodDecl _curmeth;
+        protected boolean _curmethxf;
     }
 
     // Annotate.enterAnnotation is non-public so we have to be sneaky
@@ -503,5 +504,4 @@ public class Processor extends AbstractProcessor
     protected TreeMaker _rootmaker;
 
     protected Method _enterAnnotation;
-    protected boolean _transformingSelect = true;
 }

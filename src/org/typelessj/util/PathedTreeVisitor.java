@@ -56,14 +56,20 @@ public class PathedTreeVisitor extends JCTree.Visitor
             return _path;
         }
 
-        /** Returns true if the current path contains a node of the specified type. */
-        public boolean contains (Class<? extends JCTree> nclass) {
+        /** Returns the first instance of the specified class in the path (searching from leaf to
+         * root). */
+        public <T extends JCTree> T find (Class<T> nclass) {
             for (JCTree node : _path) {
                 if (nclass.isInstance(node)) {
-                    return true;
+                    return nclass.cast(node);
                 }
             }
-            return false;
+            return null;
+        }
+
+        /** Returns true if the current path contains a node of the specified type. */
+        public boolean contains (Class<? extends JCTree> nclass) {
+            return find(nclass) != null;
         }
 
         @Override public String toString () {
