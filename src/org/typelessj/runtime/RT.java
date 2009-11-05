@@ -40,7 +40,7 @@ public class RT
      * @param encl the enclosing instance to use in the case of a non-static inner class.
      * @param args the arguments to be supplied to the constructor, if any.
      */
-    public static Object newInstance (Class<?> clazz, Object encl, Object... args)
+    public static <T> T newInstance (Class<T> clazz, Object encl, Object... args)
     {
         Constructor<?> ctor = findConstructor(clazz, args);
         if (ctor == null) {
@@ -51,7 +51,8 @@ public class RT
             ctor.setAccessible(true);
             // TODO: if this is a non-static inner class we need to shift the enclosing instance
             // into position zero of the arguments (I think)
-            return ctor.newInstance(args);
+            @SuppressWarnings("unchecked") T inst = (T)ctor.newInstance(args);
+            return inst;
         } catch (InstantiationException ie) {
             throw new RuntimeException(ie);
         } catch (IllegalAccessException iae) {
