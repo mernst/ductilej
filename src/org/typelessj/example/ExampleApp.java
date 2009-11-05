@@ -3,6 +3,7 @@
 
 package org.typelessj.example;
 
+import java.io.IOException;
 import java.util.Collections;
 
 /**
@@ -114,6 +115,11 @@ public class ExampleApp
         test2[1] = "1";
         test2[2] = "2";
         System.out.println("New two: " + test2[0] + " " + test2[1] + " " + test2[2]);
+    }
+
+    protected static void testThrows () throws IOException
+    {
+        throw new IOException("Oh noez!");
     }
 
 //     protected static void fail ()
