@@ -291,8 +291,9 @@ public class Processor extends AbstractProcessor
 
             if (wantXform && !_vizcls.contains(tree.selected.toString())) {
                 // transform obj.field into RT.select(obj, "field")
-                result = callRT("select", tree.pos, tree.selected,
-                                _tmaker.Literal(TypeTags.CLASS, tree.name.toString()));
+                result = callRT("select", tree.pos,
+                                _tmaker.Literal(TypeTags.CLASS, tree.name.toString()),
+                                tree.selected);
                 RT.debug("Transformed select " + tree + " (" + path + ")");
             }
         }
