@@ -5,8 +5,10 @@ package org.typelessj.runtime;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -42,7 +44,18 @@ public class RT
      */
     public static <T> T newInstance (Class<T> clazz, Object encl, Object... args)
     {
-        Constructor<?> ctor = findConstructor(clazz, args);
+        // if this is a non-static inner class, we need to shift a reference to the containing
+        // class onto the constructor arguments
+        Object[] rargs;
+        if (!clazz.isMemberClass() || Modifier.isStatic(clazz.getModifiers())) {
+            rargs = args;
+        } else {
+            rargs = new Object[args.length+1];
+            rargs[0] = encl;
+            System.arraycopy(args, 0, rargs, 1, args.length);
+        }
+
+        Constructor<?> ctor = findConstructor(clazz, rargs);
         if (ctor == null) {
             throw new NoSuchMethodError(); // TODO
         }
@@ -51,7 +64,7 @@ public class RT
             ctor.setAccessible(true);
             // TODO: if this is a non-static inner class we need to shift the enclosing instance
             // into position zero of the arguments (I think)
-            @SuppressWarnings("unchecked") T inst = (T)ctor.newInstance(args);
+            @SuppressWarnings("unchecked") T inst = (T)ctor.newInstance(rargs);
             return inst;
         } catch (InstantiationException ie) {
             throw new RuntimeException(ie);
@@ -126,7 +139,7 @@ public class RT
     public static Object select (String fname, Object target)
     {
         if (target == null) {
-            throw new NullPointerException("Requested field access on null target.");
+            throw new NullPointerException("Field access on null target");
         }
 
         Class<?> clazz = target.getClass();
@@ -139,6 +152,29 @@ public class RT
 
         try {
             return clazz.getField(fname).get(target);
+        } catch (NoSuchFieldException nsfe) {
+            throw new RuntimeException(nsfe);
+        } catch (IllegalAccessException iae) {
+            throw new RuntimeException(iae);
+        }
+    }
+
+    /**
+     * Assigns the specified value into the specified field of the target object.
+     */
+    public static Object assign (Object target, String mname, Object value)
+    {
+        if (target == null) {
+            throw new NullPointerException("Field assignment to null target: " + mname);
+        }
+
+        try {
+            Field field = target.getClass().getField(mname);
+            field.setAccessible(true);
+            field.set(target, value);
+            return value; // TODO: is the result of assignment the coerced type? in that case we
+                          // need to return field.get(mname)
+
         } catch (NoSuchFieldException nsfe) {
             throw new RuntimeException(nsfe);
         } catch (IllegalAccessException iae) {
@@ -393,14 +429,27 @@ public class RT
      */
     protected static Constructor<?> findConstructor (Class<?> clazz, Object... args)
     {
-        // TODO: this needs to be smarter :)
+//         // enumerate all possible matching constructors
+//         Class<?> target = clazz;
+//         do {
+//             List<Constructor<?>> ctors = Lists.newArrayList();
+//             for (Constructor<?> ctor : target.getDeclaredConstructors()) {
+//                 // TODO: make sure the argument types can match
+//                 if (ptypes.length == args.length) {
+//                     ctors.add(ctor);
+//                 }
+//             }
+//             target = target.getSuperclass();
+//         } while (target != null);
+//         // TODO: sort them by best to worst match; return the first one
+
       CTORS:
         for (Constructor<?> ctor : clazz.getDeclaredConstructors()) {
             Class<?>[] ptypes = ctor.getParameterTypes();
             if (ptypes.length != args.length) {
                 continue CTORS;
             }
-            // debug("Checking " + method.getName() + " for match", "ptypes", ptypes, "args", args);
+            // debug("Checking " + ctor.getName() + " for match", "ptypes", ptypes, "args", args);
             for (int ii = 0; ii < args.length; ii++) {
                 Class<?> ptype = ptypes[ii].isPrimitive() ? WRAPPERS.get(ptypes[ii]) : ptypes[ii];
                 if (args[ii] != null && !ptype.isAssignableFrom(args[ii].getClass())) {
