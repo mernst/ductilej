@@ -102,7 +102,7 @@ public class ASTUtil
      *
      * <p> Ideally we would also match argument type but we don't have that information at the time
      * we're doing this and all we're trying to figure out is which is the closest enclosing nested
-     * class that defines a static method that is being called with no prefixed type. The collsion
+     * class that defines a static method that is being called with no prefixed type. A collision
      * case is: <pre>
      * class Outer {
      *     static class Inner {
@@ -113,7 +113,7 @@ public class ASTUtil
      *     }
      *     static void foo (int arg) {}
      * }
-     * </pre></p>
+     * </pre> but we're just punting on that for now.</p>
      */
     public static boolean definesStaticMethod (JCClassDecl ctree, JCMethodInvocation mtree)
     {
