@@ -2,23 +2,10 @@ TypelessJ TODO
 --------------
 
 Open issues
+- Exceptions need a rethink (see ThrowsTest)
 - How to handle switch (can't just switch ((Integer)exp) because of enums)?
 -- Transform into a for{} and some if()s?
-- How to handle post-fix assignment operators (++, +=, etc.)?
--- Implement mutable boxes, ensure that all "initially primitive" variables
-reference mutable boxes and preserve mutable boxes through operations
 - What math ops are legal for Character (+ and -, but * and /?)
-- What to do about exceptions?
--- We either don't detype them (but then throwing the result of a function call breaks)
--- If we cast them to Exception (or Throwable) then the method has to declare
-that it throws that exception (we could adjust all method declarations to throw
-Exception but that won't work for library overriders)
--- We could wrap the exception in RuntimeException but that breaks semantics
-and will also anger javac if it sees a try/catch on a checked exception that is
-not thrown
--- Maybe we don't detype them (or rather we immediately cast back to the type
-provided in the new expression), and we don't detype the return value of any
-method that returns an Exception subclass?
 - Need to avoid passing array as sole final argument to RT.invoke and
 RT.invokeStatic, can happen when passing an argument in an untransformed method
 and for literals:
@@ -26,8 +13,9 @@ and for literals:
 -- foo(new String[] { ... })
 
 Detyper
+- Convert postfix incr/decr into (v = (e = e + 1) - 1)
+- Need to handle select on LHS (e.g. foo.bar = 5)
 - Handle array creation (new type[expr] -> new type[(Integer)expr])
-- Handle array cell assignment (foo[bar] = baz)
 - Insert cast to proper return type for overridden library methods
 - I think we don't need to annotate anonymous inner classes, confirm this
 - Implement signature mangling
@@ -43,6 +31,8 @@ Runtime
 - Finish implementation of RT.unop(), RT.binop()
 - Make use of type information everywhere possible to validate types before
 calling typed library methods (transformed methods as well)
+- We need to convert Object[] back to the requested type of the receiver when
+passing an array into a library method
 
 Later
 - Maybe implement rudimentary scoping:
