@@ -155,15 +155,16 @@ public class Processor extends AbstractProcessor
         }
 
         @Override public void visitVarDef (JCVariableDecl tree) {
-//             RT.debug("Transforming vardef", "mods", tree.mods, "name", tree.name,
-//                      "vtype", what(tree.vartype), "init", tree.init,
-//                      "sym", ASTUtil.expand(tree.sym));
-
-            // TODO: is not calling translate(tree.params) all we need to do to ensure that we
-            // don't detype parameters to library method overriders and implementers?
-            tree.vartype = _tmaker.Ident(_names.fromString("Object"));
-
             super.visitVarDef(tree);
+
+            // we don't want to detype the param(s) of a catch block
+            String path = path();
+            if (!path.contains(".Catch")) {
+                RT.debug("Transforming vardef", "mods", tree.mods, "name", tree.name,
+                         "vtype", what(tree.vartype), "init", tree.init,
+                         "sym", ASTUtil.expand(tree.sym));
+                tree.vartype = _tmaker.Ident(_names.fromString("Object"));
+            }
         }
 
         @Override public void visitMethodDef (JCMethodDecl tree) {
@@ -259,8 +260,26 @@ public class Processor extends AbstractProcessor
         @Override public void visitNewArray (JCNewArray tree) {
             super.visitNewArray(tree);
 
-            RT.debug("Array creation", "dims", tree.dims, "elems", tree.elems);
-            // TODO
+            RT.debug("Array creation", "expr", tree, "dims", tree.dims, "elems", tree.elems);
+
+            if (tree.elemtype == null) {
+                RT.debug("Hrm? " + tree);
+                return;
+            }
+
+            JCExpression otype = tree.elemtype;
+// TODO: something funny happens here
+//             tree.elemtype = setPos(_tmaker.Ident(_names.java_lang_Object), otype.pos);
+            result = callRT("boxArray", tree.pos, classLiteral(otype, otype.pos), tree);
+
+//             // either we have dimensions or a set of initial values, but not both
+//             if (tree.elems != null) {
+//                 // TODO
+//             } else if (!tree.dims.isEmpty()) {
+//                 result = callRT("newArray", tree.pos,
+//                                 tree.dims.prepend(classLiteral(tree.elemtype, tree.elemtype.pos)).
+//                                 toArray(new JCExpression[tree.dims.size()]));
+//             }
         }
 
 // TODO: this is fiddlier
@@ -283,6 +302,7 @@ public class Processor extends AbstractProcessor
             wantXform = wantXform && !path.contains(".Apply.meth");
             wantXform = wantXform && !path.contains(".VarDef.vartype");
             wantXform = wantXform && !path.contains(".NewClass.clazz");
+            wantXform = wantXform && !path.contains(".NewArray.type");
             // TODO: this is pesky, better to say we must be in ClassDef.defs but then we need to
             // deal with inner classes... blah
             wantXform = wantXform && !path.contains(".ClassDef.typarams");

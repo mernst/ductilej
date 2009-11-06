@@ -63,6 +63,16 @@ public class RT
     }
 
     /**
+     * Creates a new empty array with the specified dimensions. TODO: we may need to box the array
+     * and preserve the original type information.
+     */
+    public static Object boxArray (Class<?> clazz, Object array)
+    {
+        return array;
+//         return Array.newInstance(Object.class, dims);
+    }
+
+    /**
      * Invokes the specified method via reflection, performing runtime type resolution and handling
      * the necessary signature de-mangling.
      */
