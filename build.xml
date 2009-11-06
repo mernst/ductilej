@@ -9,6 +9,8 @@
   <property name="src.dir"     value="src"/>
   <property name="deploy.dir"  value="dist"/>
   <property name="classes.dir" value="${deploy.dir}/classes"/>
+  <property name="dtclass.dir" value="${deploy.dir}/dtclass"/>
+  <property name="stclass.dir" value="${deploy.dir}/stclass"/>
   <property name="exclass.dir" value="${deploy.dir}/exclass"/>
   <property name="javadoc.dir" value="${deploy.dir}/docs"/>
   <property name="libs.dir"    value="lib"/>
@@ -72,6 +74,7 @@
            srcdir="${src.dir}" destdir="${classes.dir}">
       <classpath refid="build.classpath"/>
       <exclude name="org/typelessj/example/**"/>
+      <exclude name="org/typelessj/tests/**"/>
       <compilerarg value="-Xlint"/>
       <compilerarg value="-Xlint:-serial"/>
     </javac>
@@ -94,22 +97,6 @@
   <target name="all" depends="clean,prepare,compile,javadoc,dist"
           description="Cleans and rebuilds everything including documentation."/>
 
-  <!-- runs our unit tests -->
-  <target name="tests" depends="prepare,compile" description="Runs the unit tests.">
-    <taskdef name="unit" classpathref="classpath"
-      classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask"/>
-    <unit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
-      <classpath refid="build.classpath"/>
-      <sysproperty key="test_dir" value="${basedir}"/>
-      <formatter type="brief" usefile="false"/>
-      <batchtest>
-        <fileset dir="${src.dir}">
-          <include name="**/tests/**/*Test.java"/>
-        </fileset>
-      </batchtest>
-    </unit>
-  </target>
-
   <!-- builds our distribution jar file -->
   <target name="dist" depends="prepare,compile"
           description="Compiles the code and builds our jar file.">
@@ -128,6 +115,77 @@
       <!-- TODO: enhance autojar to allow the com/sun/* files to be excluded so -->
       <!-- that they don't result in a warning every time we run the tool -->
     </java>
+  </target>
+
+  <!-- compiles our unit tests with the detyper and runs them -->
+  <target name="tests" depends="prepare,compile"
+          description="Compiles and runs the unit tests (with detyper).">
+    <delete dir="${dtclass.dir}"/>
+    <mkdir dir="${dtclass.dir}"/>
+
+    <!-- allows passing -Dtest=NamePrefix to restrict to subset of tests -->
+    <property name="test" value=""/>
+    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
+           source="1.6" target="1.6" encoding="utf-8"
+           srcdir="${src.dir}" destdir="${dtclass.dir}">
+      <classpath>
+        <pathelement location="${dtclass.dir}"/>
+        <path refid="build.classpath"/>
+      </classpath>
+      <!--<compilerarg value="-Dshowclass=${showclass}"/>-->
+      <compilerarg value="-Xlint"/>
+      <compilerarg value="-Xlint:-serial"/>
+      <!--<compilerarg value="-XprintProcessorInfo"/>-->
+      <compilerarg value="-processor"/>
+      <compilerarg value="org.typelessj.detyper.Processor"/>
+      <include name="**/tests/${test}*.java"/>
+    </javac>
+
+    <taskdef name="unit" classpathref="build.classpath"
+      classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask"/>
+    <unit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
+      <classpath refid="build.classpath"/>
+      <formatter type="brief" usefile="false"/>
+      <batchtest>
+        <fileset dir="${src.dir}">
+          <include name="**/tests/${test}*.java"/>
+        </fileset>
+      </batchtest>
+    </unit>
+  </target>
+
+  <!-- compiles our unit tests with the stock compiler and runs them -->
+  <target name="stock-tests" depends="prepare,compile"
+          description="Compiles and runs the unit tests (without detyper).">
+    <delete dir="${stclass.dir}"/>
+    <mkdir dir="${stclass.dir}"/>
+
+    <!-- allows passing -Dtest=NamePrefix to restrict to subset of tests -->
+    <property name="test" value=""/>
+    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
+           source="1.6" target="1.6" encoding="utf-8"
+           srcdir="${src.dir}" destdir="${stclass.dir}">
+      <classpath>
+        <pathelement location="${stclass.dir}"/>
+        <path refid="build.classpath"/>
+      </classpath>
+      <!--<compilerarg value="-Dshowclass=${showclass}"/>-->
+      <compilerarg value="-Xlint"/>
+      <compilerarg value="-Xlint:-serial"/>
+      <include name="**/tests/${test}*.java"/>
+    </javac>
+
+    <taskdef name="unit" classpathref="build.classpath"
+      classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask"/>
+    <unit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
+      <classpath refid="build.classpath"/>
+      <formatter type="brief" usefile="false"/>
+      <batchtest>
+        <fileset dir="${src.dir}">
+          <include name="**/tests/${test}*.java"/>
+        </fileset>
+      </batchtest>
+    </unit>
   </target>
 
   <!-- runs the compiler on the example code with the detyper processor active -->
