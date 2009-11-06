@@ -361,7 +361,7 @@ public class Processor extends AbstractProcessor
                 // we're in a static method, so a receiverless method invocation must also be a
                 // static method, but we need to find out what class to call it on
                 } else if (inStatic()) {
-                    // find the closest class tree defines this method
+                    // find the closest class that defines this method
                     JCClassDecl decl = null;
                     for (List<JCClassDecl> cl = _clstack; !cl.isEmpty(); cl = cl.tail) {
                         if (ASTUtil.definesStaticMethod(cl.head, tree)) {
