@@ -432,22 +432,26 @@ public class Processor extends AbstractProcessor
         @Override public void visitIndexed (JCArrayAccess tree) {
             super.visitIndexed(tree);
 
-            String path = path();
-            // TODO: this is not quite correct because we need to handle: foo[bar[ii]] = 1
-            if (!path.contains(".Assign.lhs")) {
-                // rewrite the array dereference as: RT.atIndex(array, index)
-                result = callRT("atIndex", tree.pos, tree.indexed, tree.index);
-            }
+            // rewrite the array dereference as: RT.atIndex(array, index)
+            result = callRT("atIndex", tree.pos, tree.indexed, tree.index);
         }
 
         @Override public void visitAssign (JCAssign tree) {
-            super.visitAssign(tree);
-
-            // TODO: we need to handle (foo[ii]) = 1 and maybe (a ? foo[ii] : bar[ii]) = 1
+            RT.debug("Hello assign!", "lhs", tree.lhs, "rhs", tree.rhs);
             if (tree.lhs instanceof JCArrayAccess) {
                 JCArrayAccess aa = (JCArrayAccess)tree.lhs;
-                result = callRT("assignAt", tree.pos, aa.indexed, aa.index, tree.rhs);
+                result = callRT("assignAt", tree.pos, translate(aa.indexed), translate(aa.index),
+                                translate(tree.rhs));
+            } else if (tree.lhs instanceof JCFieldAccess) {
+                JCFieldAccess fa = (JCFieldAccess)tree.lhs;
+                result = callRT("assign", tree.pos, translate(fa.selected),
+                                _tmaker.Literal(TypeTags.CLASS, fa.name.toString()),
+                                translate(tree.rhs));
+            } else {
+                RT.debug("Not transforming assign", "lhs", tree.lhs, "rhs", tree.rhs);
+                super.visitAssign(tree);
             }
+            // TODO: we need to handle (foo[ii]) = 1 (and maybe others?)
         }
 
         protected boolean inStatic () {
