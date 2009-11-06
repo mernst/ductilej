@@ -58,6 +58,8 @@
   <target name="clean" description="Cleans out build results.">
     <delete dir="${classes.dir}"/>
     <delete dir="${exclass.dir}"/>
+    <delete dir="${stclass.dir}"/>
+    <delete dir="${dtclass.dir}"/>
     <delete dir="${deploy.dir}/docs"/>
     <delete failonerror="false"><fileset dir="${deploy.dir}" includes="*.jar"/></delete>
   </target>
@@ -144,7 +146,11 @@
     <taskdef name="unit" classpathref="build.classpath"
       classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask"/>
     <unit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
-      <classpath refid="build.classpath"/>
+      <classpath>
+        <pathelement location="${classes.dir}"/>
+        <pathelement location="${dtclass.dir}"/>
+        <path refid="build.classpath"/>
+      </classpath>
       <formatter type="brief" usefile="false"/>
       <batchtest>
         <fileset dir="${src.dir}">
@@ -178,7 +184,11 @@
     <taskdef name="unit" classpathref="build.classpath"
       classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask"/>
     <unit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
-      <classpath refid="build.classpath"/>
+      <classpath>
+        <pathelement location="${classes.dir}"/>
+        <pathelement location="${stclass.dir}"/>
+        <path refid="build.classpath"/>
+      </classpath>
       <formatter type="brief" usefile="false"/>
       <batchtest>
         <fileset dir="${src.dir}">
