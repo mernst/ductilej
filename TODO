@@ -50,3 +50,8 @@ Later
 names are shadowed
 -- if we want to get crazy we can also keep some unresolved type information
 around for the names
+- Ambiguous overload handling, use this approach:
+-- http://www.eros-os.org/pipermail/e-lang/2001-March/004921.html
+- How to better handle typos? (throw new IOExceptio("Foo") gives cannot find
+symbol (since it's RT.newClass(IOException.class, "Foo")) which is a little
+funny...
