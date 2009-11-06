@@ -48,11 +48,6 @@ public class InterfaceTest
         @Override public int compute (int value) {
             return value * 2 + 3;
         }
-
-        // from interface Comparable<MoreTester>
-        public int compareTo (MoreTester o) {
-            return 0;
-        }
     }
 
     @Test public void testInterfaces ()
