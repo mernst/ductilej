@@ -2,7 +2,7 @@ TypelessJ TODO
 --------------
 
 Open issues
-- Exceptions need a rethink (see ThrowsTest)
+- Exceptions need a rethink (try to compile ThrowsTest)
 - How to handle switch (can't just switch ((Integer)exp) because of enums)?
 -- Transform into a for{} and some if()s?
 - What math ops are legal for Character (+ and -, but * and /?)
@@ -11,6 +11,12 @@ RT.invokeStatic, can happen when passing an argument in an untransformed method
 and for literals:
 -- main(String[] args) { foo(args); }
 -- foo(new String[] { ... })
+- We need to preserve statically visible assignment to final class members in
+the constructor
+-- "foo = 5" is OK, but "this.foo = 5" gets turned into a reflective
+assignment, perhaps we should just not do that for this.foo when inside
+constructors... I don't like the special case, maybe we never do it for
+this.foo
 
 Detyper
 - Convert postfix incr/decr into (v = (e = e + 1) - 1)
@@ -45,3 +51,6 @@ around for the names
 - How to better handle typos? (throw new IOExceptio("Foo") gives cannot find
 symbol (since it's RT.newClass(IOException.class, "Foo")) which is a little
 funny...
+- Consider making all transformed members public instead of using
+setAccessible() in our reflective calls. This would make TJ usable for applets
+and such.
