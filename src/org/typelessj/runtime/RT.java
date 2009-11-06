@@ -57,7 +57,9 @@ public class RT
 
         Constructor<?> ctor = findConstructor(clazz, rargs);
         if (ctor == null) {
-            throw new NoSuchMethodError(); // TODO
+            // TODO: if argument mismatch, clarify that
+            throw new NoSuchMethodError("Can't find constructor for " + clazz.getSimpleName() +
+                                        " matching args " + rargs);
         }
 
         try {
@@ -97,7 +99,9 @@ public class RT
 
         Method method = findMethod(mname, receiver.getClass(), args);
         if (method == null) {
-            throw new NoSuchMethodError(); // TODO
+            // TODO: if argument mismatch, clarify that, if total method lacking, clarify that
+            throw new NoSuchMethodError("Can't find method " +
+                                        receiver.getClass().getSimpleName() + "." + mname);
         }
 
         try {
