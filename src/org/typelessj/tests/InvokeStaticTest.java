@@ -11,24 +11,6 @@ import static org.junit.Assert.*;
  */
 public class InvokeStaticTest
 {
-    public static class Tester
-    {
-        public static int half (int value) {
-            return value / 2;
-        }
-
-        public static int tripleDouble (int value) {
-            return triple(value) * 2;
-        }
-    }
-
-    public static class MoreTester
-    {
-        public static int threeHalves (int value) {
-            return Tester.half(3 * value);
-        }
-    }
-
     @Test public void testInterfaces ()
     {
         // a static method defined on an inner class
@@ -48,12 +30,32 @@ public class InvokeStaticTest
         System.out.println("Three-halved value " + value);
 
         // a static method of an inner class calling one from broader scope
-        value = tripleDouble(42);
+        value = Tester.tripleDouble(42);
         System.out.println("Triple-doubled value " + value);
+
+        // TODO: test statically imported method (or just use assertTrue());
     }
 
     protected static int triple (int value)
     {
         return value * 3;
+    }
+
+    protected static class Tester
+    {
+        public static int half (int value) {
+            return value / 2;
+        }
+
+        public static int tripleDouble (int value) {
+            return triple(value) * 2;
+        }
+    }
+
+    protected static class MoreTester
+    {
+        public static int threeHalves (int value) {
+            return Tester.half(3 * value);
+        }
     }
 }
