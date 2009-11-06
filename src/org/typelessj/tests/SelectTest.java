@@ -15,8 +15,11 @@ public class SelectTest
     {
         Value five = new Value(5);
         assertTrue(five.value == 5);
-        assertTrue(toValue(42).value == 42);
-        assertTrue(new Value(180).value == 180);
+        assertTrue(toValue(19).value == 19);
+        // SelectTest.Value shouldn't be transformed, expr.value should
+        assertTrue(new SelectTest.Value(180).value == 180);
+        // since SelectTest.Value is a viz class name, expr.theAnswer is not xformed
+        assertTrue(SelectTest.Value.theAnswer == 42);
     }
 
     protected Value toValue (int value)
@@ -26,7 +29,10 @@ public class SelectTest
 
     protected static class Value
     {
+        public static int theAnswer = 42;
+
         public int value;
+
         public Value (int value) {
             this.value = value;
         }
