@@ -84,42 +84,11 @@ public class ExampleApp
         String name = "Phineas P. Gage";
         String text = append(name);
         System.out.println("Text " + text);
-
-//        testArrayAccess(args);
-        testArrayCreate();
     }
 
     protected static String append (String value)
     {
         return value + " was.";
-    }
-
-    protected static void testArrayAccess (String[] args)
-    {
-        for (String arg : args) {
-            System.out.println("Arg " + arg);
-        }
-
-        for (int ii = 0; ii < args.length; ii++) {
-            System.out.println("Arg " + args[ii]);
-        }
-    }
-
-    protected static void testArrayCreate ()
-    {
-        String[] test1 = new String[] { "zero", "one", "two" };
-        System.out.println("One: " + test1[0] + " " + test1[1] + " " + test1[2]);
-        String[] test2 = new String[3];
-        System.out.println("Two: " + test2[0] + " " + test2[1] + " " + test2[2]);
-        test2[0] = "0";
-        test2[1] = "1";
-        test2[2] = "2";
-        System.out.println("New two: " + test2[0] + " " + test2[1] + " " + test2[2]);
-    }
-
-    protected static void testThrows () throws IOException
-    {
-        throw new IOException("Oh noez!");
     }
 
 //     protected static void fail ()
