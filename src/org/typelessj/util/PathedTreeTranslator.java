@@ -302,13 +302,11 @@ public class PathedTreeTranslator extends TreeTranslator
         for (List<JCTypeAnnotation> origDimAnnos : tree.dimAnnotations)
             dimAnnos = dimAnnos.append(translate(origDimAnnos));
         tree.dimAnnotations = dimAnnos;
+        push("type");
         tree.elemtype = translate(tree.elemtype);
-        push("dims");
+        pop();
         tree.dims = translate(tree.dims);
-        pop();
-        push("elems");
         tree.elems = translate(tree.elems);
-        pop();
         result = tree;
         pop();
     }
