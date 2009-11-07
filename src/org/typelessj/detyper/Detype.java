@@ -76,7 +76,7 @@ public class Detype extends PathedTreeTranslator
     }
 
     @Override public void visitClassDef (JCClassDecl tree) {
-        RT.debug("Entering class '" + tree.name + "'");
+        RT.debug("Entering class '" + tree.name + "'", "sym", tree.sym);
 
         // note the environment of the class we're processing
         Env<DetypeContext> oenv = _env;
