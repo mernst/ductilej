@@ -99,7 +99,7 @@ public class Processor extends AbstractProcessor
         }
 
         public void visitClassDef (JCClassDecl tree) {
-            println("Class " + tree.getSimpleName());
+            println("Class '" + tree.getSimpleName() + "' " + what(tree.sym));
             super.visitClassDef(tree);
 //             scan(tree.mods);
 //             scan(tree.typarams);
