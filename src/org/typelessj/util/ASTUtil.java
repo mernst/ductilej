@@ -138,65 +138,6 @@ public class ASTUtil
     }
 
     /**
-     * Enumerates all possible names of all classes visible in this compilation unit. This includes
-     * all names visible in its import statements as well as the outer class in the compilation
-     * unit, and any nested classes defined as well. By all possible, we mean that we include both
-     * Inner and Outer.Inner in the set, we also include all variations of an import statement up
-     * to its root because we don't want to make assumptions about which part of the import
-     * statement refers to outer and inner classes and which refer to package components. Thus
-     * 'import foo.bar.Baz.Bif' will result in Bif, Baz.Bif, bar.Baz.Bif and foo.bar.Baz.Bif' being
-     * added as visible class names.
-     *
-     * <p> This is used later in heuristically determining whether a select expression refers to a
-     * class or an object reference so that a determination can be made about whether we're looking
-     * at a static or non-static method invocation. Because of the limited circumstances in which
-     * these visible class names are used, we are only fooled by particular fairly unlikely (we
-     * hope) constructions. </p>
-     */
-    public static Set<String> enumVisibleClassNames (JCCompilationUnit unit)
-    {
-        final Set<String> names = new HashSet<String>(Arrays.asList(JAVA_LANG));
-        unit.accept(new TreeScanner() {
-            @Override public void visitImport (JCImport tree) {
-                if (tree.staticImport) {
-                    System.err.println("Need special processing! " + tree);
-                } else {
-                    addImportNames(tree.qualid, List.<Name>nil());
-                }
-            }
-            @Override public void visitClassDef (JCClassDecl tree) {
-                _path = _path.prepend(tree.name);
-                for (List<Name> path = _path.reverse(); !path.isEmpty(); path = path.tail) {
-                    names.add(path.toString("."));
-                }
-                super.visitClassDef(tree);
-                _path = _path.tail;
-            }
-            protected void addImportNames (JCTree qualid, List<Name> path) {
-                // TODO: we could stop once we see an uncapped component after having seen a capped
-                // component (ie. stop at util in java.util.Collections.addAll)
-                Name name;
-                JCTree rest = null;
-                if (qualid instanceof JCFieldAccess) {
-                    name = ((JCFieldAccess)qualid).name;
-                    rest = ((JCFieldAccess)qualid).selected;
-                } else if (qualid instanceof JCIdent) {
-                    name = ((JCIdent)qualid).name;
-                } else { // not possible?
-                    throw new RuntimeException(qualid + " is neither field access or ident");
-                }
-                path = path.prepend(name);
-                names.add(path.toString("."));
-                if (rest != null) {
-                    addImportNames(rest, path);
-                }
-            }
-            protected List<Name> _path = List.nil();
-        });
-        return names;
-    }
-
-    /**
      * Returns an expanded string representation of the supplied symbol. Used for debugging.
      */
     public static String expand (Symbol sym)
@@ -215,16 +156,4 @@ public class ASTUtil
         return type /*+ "/" + type.tsym */ + "/" + isLibrary(type.tsym) +
             ((stype == null) ? "" : (" <- " + extype(types, stype)));
     }
-
-    protected static final String[] JAVA_LANG = {
-        "AssertionError", "Boolean", "Byte", "ClassCircularityError", "ClassLoader",
-        "ClassNotFoundException", "Compiler", "Double", "Enum", "EnumConstantNotPresentException",
-        "Error", "Exception", "ExceptionInInitializerError", "Float", "IllegalAccessError",
-        "IllegalAccessException", "IllegalThreadStateException", "InheritableThreadLocal",
-        "Integer", "Long", "Math", "NoSuchFieldException", "Number", "Object", "Package",
-        "Process", "ProcessBuilder", "Runtime", "RuntimeException", "RuntimePermission",
-        "SecurityException", "Short", "StackTraceElement", "StrictMath", "String", "StringBuffer",
-        "StringBuilder", "System", "ThreadDeath", "ThreadLocal", "Throwable",
-        "TypeNotPresentException", "UnsupportedOperationException",
-   };
 }
