@@ -158,7 +158,11 @@ public class ASTUtil
         final Set<String> names = new HashSet<String>(Arrays.asList(JAVA_LANG));
         unit.accept(new TreeScanner() {
             @Override public void visitImport (JCImport tree) {
-                addImportNames(tree.qualid, List.<Name>nil());
+                if (tree.staticImport) {
+                    System.err.println("Need special processing! " + tree);
+                } else {
+                    addImportNames(tree.qualid, List.<Name>nil());
+                }
             }
             @Override public void visitClassDef (JCClassDecl tree) {
                 _path = _path.prepend(tree.name);
