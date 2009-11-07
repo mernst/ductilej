@@ -11,27 +11,29 @@ import static org.junit.Assert.*;
  */
 public class InvokeStaticTest
 {
-    @Test public void testInterfaces ()
+    @Test public void testInvokeStatic ()
     {
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+
         // a static method defined on an inner class
         int value = Tester.half(25);
-        System.out.println("Static value " + value);
+        assertEquals(value, 12);
 
         // a static method defined on an implicit Java class
         Integer foo = Integer.valueOf(25);
-        System.out.println("Int value " + foo);
+        assertEquals(foo, 25);
 
         // a static method defined on this class
         value = triple(42);
-        System.out.println("Tripled value " + value);
+        assertEquals(value, 126);
 
         // a static method of an inner class calling one in neighboring scope
         value = MoreTester.threeHalves(42);
-        System.out.println("Three-halved value " + value);
+        assertEquals(value, 63);
 
         // a static method of an inner class calling one from broader scope
         value = Tester.tripleDouble(42);
-        System.out.println("Triple-doubled value " + value);
+        assertEquals(value, 252);
 
         // TODO: test statically imported method (or just use assertTrue());
     }

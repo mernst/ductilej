@@ -42,6 +42,7 @@ public class HashCodeTest
     public void hashCodeTest ()
     {
         Key key = new Key(42, -24);
+        org.junit.Assert.assertTrue(key.hashCode() == (37 * 42 + -24));
         assertTrue(key.hashCode() == (37 * 42 + -24));
     }
 }

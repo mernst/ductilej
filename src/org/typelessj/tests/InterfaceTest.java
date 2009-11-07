@@ -48,14 +48,18 @@ public class InterfaceTest
         @Override public int compute (int value) {
             return value * 2 + 3;
         }
+
+        // from interface Comparable<MoreTester>
+        public int compareTo (MoreTester o) {
+            return (_multiplier == o._multiplier) ? 0 : ((_multiplier > o._multiplier) ? 1 : -1);
+        }
     }
 
     @Test public void testInterfaces ()
     {
         Tester tester = new Tester("", 2);
-
         int age = tester.five;
         int value = tester.compute(age);
-        System.out.println("Value " + value);
+        assertEquals(value, 15);
     }
 }
