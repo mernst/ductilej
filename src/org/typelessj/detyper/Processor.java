@@ -160,9 +160,9 @@ public class Processor extends AbstractProcessor
             // we don't want to detype the param(s) of a catch block
             String path = path();
             if (!path.contains(".Catch")) {
-                RT.debug("Transforming vardef", "mods", tree.mods, "name", tree.name,
-                         "vtype", what(tree.vartype), "init", tree.init,
-                         "sym", ASTUtil.expand(tree.sym));
+//                 RT.debug("Transforming vardef", "mods", tree.mods, "name", tree.name,
+//                          "vtype", what(tree.vartype), "init", tree.init,
+//                          "sym", ASTUtil.expand(tree.sym));
                 tree.vartype = _tmaker.Ident(_names.fromString("Object"));
             }
         }
@@ -389,8 +389,8 @@ public class Processor extends AbstractProcessor
                     tree.args = tree.args.prepend(recid).
                         prepend(_tmaker.Literal(TypeTags.CLASS, mfid.toString()));
                     tree.meth = mkRT("invoke", mfid.pos);
-                    RT.debug("Mutated", "typeargs", tree.typeargs, "method", what(tree.meth),
-                             "args", tree.args, "varargs", tree.varargsElement);
+//                     RT.debug("Mutated", "typeargs", tree.typeargs, "method", what(tree.meth),
+//                              "args", tree.args, "varargs", tree.varargsElement);
                 }
 
             // are there other types of invocations?
@@ -437,7 +437,6 @@ public class Processor extends AbstractProcessor
         }
 
         @Override public void visitAssign (JCAssign tree) {
-            RT.debug("Hello assign!", "lhs", tree.lhs, "rhs", tree.rhs);
             if (tree.lhs instanceof JCArrayAccess) {
                 JCArrayAccess aa = (JCArrayAccess)tree.lhs;
                 result = callRT("assignAt", tree.pos, translate(aa.indexed), translate(aa.index),
@@ -448,7 +447,6 @@ public class Processor extends AbstractProcessor
                                 _tmaker.Literal(TypeTags.CLASS, fa.name.toString()),
                                 translate(tree.rhs));
             } else {
-                RT.debug("Not transforming assign", "lhs", tree.lhs, "rhs", tree.rhs);
                 super.visitAssign(tree);
             }
             // TODO: we need to handle (foo[ii]) = 1 (and maybe others?)
