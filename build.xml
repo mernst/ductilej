@@ -75,7 +75,6 @@
            source="1.6" target="1.6" encoding="utf-8"
            srcdir="${src.dir}" destdir="${classes.dir}">
       <classpath refid="build.classpath"/>
-      <exclude name="org/typelessj/example/**"/>
       <exclude name="org/typelessj/tests/**"/>
       <compilerarg value="-Xlint"/>
       <compilerarg value="-Xlint:-serial"/>
@@ -198,74 +197,14 @@
     </unit>
   </target>
 
-  <!-- runs the compiler on the example code with the detyper processor active -->
-  <target name="example" depends="prepare,compile"
-          description="Runs the detyping processor on the example code.">
-    <delete dir="${exclass.dir}"/>
-    <mkdir dir="${exclass.dir}"/>
-
-    <echo>--- Compiling example app with detyper:</echo>
-    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
-           source="1.6" target="1.6" encoding="utf-8"
-           srcdir="${src.dir}" destdir="${exclass.dir}">
-      <classpath>
-        <pathelement location="${exclass.dir}"/>
-        <path refid="build.classpath"/>
-      </classpath>
-      <!--<compilerarg value="-Dshowclass=${showclass}"/>-->
-      <compilerarg value="-Xlint"/>
-      <compilerarg value="-Xlint:-serial"/>
-      <!--<compilerarg value="-XprintProcessorInfo"/>-->
-      <compilerarg value="-processor"/>
-      <compilerarg value="org.typelessj.detyper.Processor"/>
-      <include name="org/typelessj/example/ExampleApp.java"/>
-    </javac>
-
-    <echo>--- Running example app:</echo>
-    <java fork="true" classname="org.typelessj.example.ExampleApp">
-      <classpath>
-        <pathelement location="${exclass.dir}"/>
-        <!-- TODO: remove dependency on javac.jar classes -->
-        <pathelement location="${javac.home}/lib/${javac.jar}"/>
-        <path refid="build.classpath"/>
-      </classpath>
-      <arg value="one"/>
-      <arg value="two"/>
-    </java>
-  </target>
-
-  <!-- runs the stock compiler on the example code -->
-  <target name="control" description="Compiles the example code with no processor.">
-    <delete dir="${exclass.dir}"/>
-    <mkdir dir="${exclass.dir}"/>
-
-    <echo>--- Compiling example app with desired javac:</echo>
-    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
-           source="1.6" target="1.6" encoding="utf-8"
-           srcdir="${src.dir}" destdir="${exclass.dir}">
-      <classpath>
-        <pathelement location="${exclass.dir}"/>
-      </classpath>
-      <compilerarg value="-Xlint"/>
-      <compilerarg value="-Xlint:-serial"/>
-      <include name="org/typelessj/example/**"/>
-    </javac>
-
-    <echo>--- Running example app:</echo>
-    <java fork="true" classname="org.typelessj.example.ExampleApp">
-      <classpath>
-        <pathelement location="${exclass.dir}"/>
-      </classpath>
-    </java>
-  </target>
-
-  <!-- runs the compiler on the example code with the astviz processor active -->
+  <!-- runs the compiler on a test class with the astviz processor active -->
   <target name="astviz" depends="prepare,compile"
-          description="Compiles the example code with the astviz processor.">
+          description="Compiles the test code with the astviz processor.">
     <delete dir="${exclass.dir}"/>
     <mkdir dir="${exclass.dir}"/>
 
-    <echo>--- Compiling example app with astviz:</echo>
+    <property name="test" value=""/>
+    <echo>--- Compiling ${test}* with astviz:</echo>
     <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
            source="1.6" target="1.6" encoding="utf-8"
            srcdir="${src.dir}" destdir="${exclass.dir}">
@@ -278,7 +217,7 @@
       <!--<compilerarg value="-XprintProcessorInfo"/>-->
       <compilerarg value="-processor"/>
       <compilerarg value="org.typelessj.astviz.Processor"/>
-      <include name="org/typelessj/example/**"/>
+      <include name="org/typelessj/tests/${test}*"/>
     </javac>
   </target>
 </project>
