@@ -129,10 +129,11 @@ public class Processor extends AbstractProcessor
             _vizcls = ASTUtil.enumVisibleClassNames(unit);
 
             // RT.debug("Visible classes " + _vizcls);
+            // RT.debug("Star-import scope", "scope", unit.starImportScope);
         }
 
         @Override public void visitClassDef (JCClassDecl tree) {
-            RT.debug("Entering class '" + tree.name + "'");
+            RT.debug("Entering class '" + tree.name + "'", "sym.mems", tree.sym.members_field);
 
             if (tree.name != _names.empty) {
                 // add our @Transformed annotation to the AST
