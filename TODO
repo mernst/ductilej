@@ -19,14 +19,13 @@ constructors... I don't like the special case, maybe we never do it for
 this.foo
 
 Detyper
+- Need to handle static imports (hopefully we won't need to differentiate
+between members and methods)
 - Convert postfix incr/decr into (v = (e = e + 1) - 1)
-- Need to handle select on LHS (e.g. foo.bar = 5)
 - Handle array creation (new type[expr] -> new type[(Integer)expr])
 - Insert cast to proper return type for overridden library methods
 - I think we don't need to annotate anonymous inner classes, confirm this
 - Implement signature mangling
-- Need to handle static imports (hopefully we won't need to differentiate
-between members and methods)
 - Extract main() detection into ASTUtil, make it correct
 - Record original type information when transforming JCVariableDecl, somehow
 pass that along to all runtime methods so that they can provide better feedback
