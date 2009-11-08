@@ -2,6 +2,9 @@ TypelessJ TODO
 --------------
 
 Open issues
+- Can't reflectively create anonymous inner classes (duh), maybe should rethink
+all class creation and just inject type tag arguments in place and leave things
+otherwise non-reflective
 - Exceptions need a rethink (try to compile ThrowsTest)
 - How to handle switch (can't just switch ((Integer)exp) because of enums)?
 -- Transform into a for{} and some if()s?
@@ -39,16 +42,11 @@ calling typed library methods (transformed methods as well)
 passing an array into a library method
 
 Later
-- Maybe implement rudimentary scoping:
--- track all names visible at each scope and use that to determine if global
-names are shadowed
--- if we want to get crazy we can also keep some unresolved type information
-around for the names
 - Ambiguous overload handling, use this approach:
 -- http://www.eros-os.org/pipermail/e-lang/2001-March/004921.html
-- How to better handle typos? (throw new IOExceptio("Foo") gives cannot find
-symbol (since it's RT.newClass(IOException.class, "Foo")) which is a little
-funny...
+- How to better handle typos? (throw new IOExceptio("Foo") fails with 'cannot
+find symbol' (since it's RT.newClass(IOExceptio.class, "Foo")) which is a
+little funny...
 - Consider making all transformed members public instead of using
 setAccessible() in our reflective calls. This would make TJ usable for applets
 and such.

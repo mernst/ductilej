@@ -81,7 +81,9 @@ public class Detype extends PathedTreeTranslator
         // note the environment of the class we're processing
         Env<DetypeContext> oenv = _env;
         // _env = _env.dup(tree, oenv.info.dup(new Scope(tree.sym)));
-        _env = _env.dup(tree, oenv.info.dup(tree.sym.members_field.dupUnshared()));
+        Scope nscope = (tree.sym != null) ? tree.sym.members_field.dupUnshared() :
+            new Scope(_env.enclMethod.sym);
+        _env = _env.dup(tree, oenv.info.dup(nscope));
         _env.enclClass = tree;
         _env.outer = oenv;
 
@@ -114,12 +116,12 @@ public class Detype extends PathedTreeTranslator
         _env.enclMethod = tree;
         _env.info.scope.owner = tree.sym;
 
-        // now we can call super and translate our children
-        super.visitMethodDef(tree);
-
         if (tree.sym == null) {
             RT.debug("Zoiks, no symbol", "tree", tree); // TODO: is anonymous inner class?
         }
+
+        // now we can call super and translate our children
+        super.visitMethodDef(tree);
 
         // transform the return type if we're not in a library overrider and it is not void
         if (tree.restype != null && !ASTUtil.isVoid(tree.restype) && !isLibraryOverrider(tree)) {
@@ -180,28 +182,31 @@ public class Detype extends PathedTreeTranslator
         // RT.debug("Rewrote binop", "kind", tree.getKind(), "tp", tree.pos, "ap", opcode.pos);
     }
 
-    @Override public void visitNewClass (JCNewClass that) {
-        super.visitNewClass(that);
+// TODO: we can't reflectively create anonymous inner classes so maybe we should not detype
+// constructor invocation, but rather directly inject the extra type tag arguments...
 
-        RT.debug("Class instantiation", "typeargs", that.typeargs, "class", what(that.clazz),
-                 "args", that.args);
+//     @Override public void visitNewClass (JCNewClass that) {
+//         super.visitNewClass(that);
 
-        // if there is a specific enclosing instance provided, use that, otherwise use this
-        // unless we're in a static context in which case use nothing
-        List<JCExpression> args;
-        if (that.encl != null) {
-            args = that.args.prepend(that.encl);
-        } else if (inStatic()) {
-            args = that.args.prepend(_tmaker.Literal(TypeTags.BOT, null));
-        } else {
-            args = that.args.prepend(_tmaker.Ident(_names._this));
-        }
-        args = args.prepend(classLiteral(that.clazz, that.clazz.pos));
+//         RT.debug("Class instantiation", "typeargs", that.typeargs, "class", what(that.clazz),
+//                  "args", that.args);
 
-        JCMethodInvocation invoke = callRT("newInstance", that.pos, args);
-        invoke.varargsElement = that.varargsElement;
-        result = invoke;
-    }
+//         // if there is a specific enclosing instance provided, use that, otherwise use this
+//         // unless we're in a static context in which case use nothing
+//         List<JCExpression> args;
+//         if (that.encl != null) {
+//             args = that.args.prepend(that.encl);
+//         } else if (inStatic()) {
+//             args = that.args.prepend(_tmaker.Literal(TypeTags.BOT, null));
+//         } else {
+//             args = that.args.prepend(_tmaker.Ident(_names._this));
+//         }
+//         args = args.prepend(classLiteral(that.clazz, that.clazz.pos));
+
+//         JCMethodInvocation invoke = callRT("newInstance", that.pos, args);
+//         invoke.varargsElement = that.varargsElement;
+//         result = invoke;
+//     }
 
     @Override public void visitNewArray (JCNewArray tree) {
         super.visitNewArray(tree);
