@@ -5,7 +5,16 @@ Open issues
 - Can't reflectively create anonymous inner classes (duh), maybe should rethink
 all class creation and just inject type tag arguments in place and leave things
 otherwise non-reflective
-- Exceptions need a rethink (try to compile ThrowsTest)
+- Need to track checked exceptions in Env<DetypeContext> and use that to:
+  try {
+      RT.invoke("someThrower", ...);
+  } catch (CheckedException ce) {
+      if (ce.getCause() instanceof IOException) {
+          throw (IOException)ce.getCause();
+      } else {
+          throw ce;
+      }
+  }
 - How to handle switch (can't just switch ((Integer)exp) because of enums)?
 -- Transform into a for{} and some if()s?
 - What math ops are legal for Character (+ and -, but * and /?)
@@ -28,11 +37,14 @@ when assigning to them which will probably be difficult.
 interface method implementation, which we don't want
 
 Detyper
+- See if we can add an import for org.typelessj.runtime.RT to avoid verbose dumps
+- Handle statically imported fields (Log.log)
 - Need to handle SomeClass.foo.bar in visitSelect()
 - Convert postfix incr/decr into (v = (e = e + 1) - 1)
-- Handle array creation (new type[expr] -> new type[(Integer)expr])
+- Handle array initialization expressions (new int[] { 1, 2, 3, 4})
 - Insert cast to proper return type for overridden library methods
-- I think we don't need to annotate anonymous inner classes, confirm this
+- Casting array dimension exprs to Integer isn't sufficient, they might
+(validly) be a Long (or other integer type) which we need to coerce
 - Implement signature mangling
 - Extract main() detection into ASTUtil, make it correct
 - Record original type information when transforming JCVariableDecl, somehow
