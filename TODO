@@ -20,6 +20,9 @@ the constructor
 assignment, perhaps we should just not do that for this.foo when inside
 constructors... I don't like the special case, maybe we never do it for
 this.foo
+- Should we not detype enums? Should we not detype variable declarations?
+-- Not detyping variable decls will require that we cast back to their type
+when assigning to them which will probably be difficult.
 
 Detyper
 - Need to handle SomeClass.foo.bar in visitSelect()
