@@ -23,6 +23,9 @@ this.foo
 - Should we not detype enums? Should we not detype variable declarations?
 -- Not detyping variable decls will require that we cast back to their type
 when assigning to them which will probably be difficult.
+- We need to remove "implements FooInterface" from detyped class declarations
+(for non-library interface) otherwise javac will freak out if we omit an
+interface method implementation, which we don't want
 
 Detyper
 - Need to handle SomeClass.foo.bar in visitSelect()
