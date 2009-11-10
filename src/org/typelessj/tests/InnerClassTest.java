@@ -25,7 +25,8 @@ public class InnerClassTest
                 return 5;
             }
             public int op (int value) {
-                return value * 5;
+                // trigger isStaticReceiver processing
+                return Integer.valueOf(String.valueOf(value)) * 5;
             }
         };
         assertEquals(v.op(v.value()), 25);
