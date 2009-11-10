@@ -165,8 +165,7 @@ public class Detype extends PathedTreeTranslator
         // if we're in a method whose signature cannot be transformed, we must cast the result of
         // the return type back to the static method return type
         if (tree.expr != null && inLibraryOverrider()) {
-            tree.expr = callRT("checkedCast", tree.expr.pos,
-                               classLiteral(_env.enclMethod.restype, tree.expr.pos), tree.expr);
+            tree.expr = checkedCast(_env.enclMethod.restype, tree.expr);
         }
     }
 
@@ -187,8 +186,8 @@ public class Detype extends PathedTreeTranslator
     }
 
     @Override public void visitNewClass (JCNewClass that) {
-//         RT.debug("Class instantiation", "typeargs", that.typeargs, "class", what(that.clazz),
-//                  "args", that.args);
+        RT.debug("Class instantiation", "typeargs", that.typeargs, "class", what(that.clazz),
+                 "args", that.args);
 
         // if we see an anonymous inner class declaration, resolve the type of the to-be-created
         // class, we need this in inLibraryOverrider() for our approximation approach
@@ -223,21 +222,23 @@ public class Detype extends PathedTreeTranslator
 // TODO: we can't reflectively create anonymous inner classes so maybe we should not detype
 // constructor invocation, but rather directly inject the extra type tag arguments...
 
-//         // if there is a specific enclosing instance provided, use that, otherwise use this
-//         // unless we're in a static context in which case use nothing
-//         List<JCExpression> args;
-//         if (that.encl != null) {
-//             args = that.args.prepend(that.encl);
-//         } else if (inStatic()) {
-//             args = that.args.prepend(_tmaker.Literal(TypeTags.BOT, null));
-//         } else {
-//             args = that.args.prepend(_tmaker.Ident(_names._this));
-//         }
-//         args = args.prepend(classLiteral(that.clazz, that.clazz.pos));
+        if (that.def == null) {
+            // if there is a specific enclosing instance provided, use that, otherwise use this
+            // unless we're in a static context in which case use nothing
+            List<JCExpression> args;
+            if (that.encl != null) {
+                args = that.args.prepend(that.encl);
+            } else if (inStatic()) {
+                args = that.args.prepend(_tmaker.Literal(TypeTags.BOT, null));
+            } else {
+                args = that.args.prepend(_tmaker.Ident(_names._this));
+            }
+            args = args.prepend(classLiteral(that.clazz, that.clazz.pos));
 
-//         JCMethodInvocation invoke = callRT("newInstance", that.pos, args);
-//         invoke.varargsElement = that.varargsElement;
-//         result = invoke;
+            JCMethodInvocation invoke = callRT("newInstance", that.pos, args);
+            invoke.varargsElement = that.varargsElement;
+            result = invoke;
+        }
     }
 
     @Override public void visitNewArray (JCNewArray tree) {
@@ -249,6 +250,9 @@ public class Detype extends PathedTreeTranslator
             RT.debug("Hrm? " + tree);
             return;
         }
+
+        // we need to cast the dimension expressions to int
+        tree.dims = castList(Integer.class, tree.dims);
 
         JCExpression otype = tree.elemtype;
 // TODO: something funny happens here
@@ -272,6 +276,16 @@ public class Detype extends PathedTreeTranslator
 //             // add a cast to Throwable on the expression being thrown since we will have detyped it
 //             tree.expr = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Throwable")), tree.expr);
 //         }
+
+    protected List<JCExpression> castList (Class<?> clazz, List<JCExpression> list)
+    {
+        if (list.isEmpty()) {
+            return list;
+        } else {
+            return castList(clazz, list.tail).prepend(
+                checkedCast(_tmaker.Ident(_names.fromString("Integer")), list.head));
+        }
+    }
 
     @Override public void visitSelect (JCFieldAccess tree) {
         super.visitSelect(tree);
@@ -529,6 +543,10 @@ public class Detype extends PathedTreeTranslator
     protected boolean inStatic () {
         return (_env.enclMethod == null) ||
             (_env.enclMethod.mods != null && (_env.enclMethod.mods.flags & Flags.STATIC) != 0);
+    }
+
+    protected JCExpression checkedCast (JCExpression clazz, JCExpression expr) {
+        return callRT("checkedCast", expr.pos, classLiteral(clazz, expr.pos), expr);
     }
 
     protected JCMethodInvocation callRT (String method, int pos, JCExpression... args) {
