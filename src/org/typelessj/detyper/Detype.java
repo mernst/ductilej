@@ -13,12 +13,12 @@ import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTags;
 import com.sun.tools.javac.code.Types;
-import com.sun.tools.javac.jvm.ClassReader;
 import com.sun.tools.javac.comp.Annotate;
 import com.sun.tools.javac.comp.Attr;
 import com.sun.tools.javac.comp.Enter;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.comp.MemberEnter;
+import com.sun.tools.javac.jvm.ClassReader;
 import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
@@ -78,11 +78,18 @@ public class Detype extends PathedTreeTranslator
     @Override public void visitClassDef (JCClassDecl tree) {
         RT.debug("Entering class '" + tree.name + "'", "sym", tree.sym);
 
+        // if we're visiting an anonymous inner class, we have to create a bogus scope as javac
+        // does not Enter anonymous inner classes during the normal Enter phase; we currently don't
+        // end up using this scope because ASTUtil.isLibraryOverrider requires substantially more
+        // context to be in place than we want to set up manually (and Types.closure() caches class
+        // symbols which we wouldn't want it to do with the fake ClassSymbol we need to create
+        // here), so for now we cope with a bogus scope and some hackery
+        Scope nscope = (tree.sym != null) ? tree.sym.members_field.dupUnshared() :
+            new Scope(new ClassSymbol(0, tree.name, _env.enclMethod.sym));
+
         // note the environment of the class we're processing
         Env<DetypeContext> oenv = _env;
         // _env = _env.dup(tree, oenv.info.dup(new Scope(tree.sym)));
-        Scope nscope = (tree.sym != null) ? tree.sym.members_field.dupUnshared() :
-            new Scope(_env.enclMethod.sym);
         _env = _env.dup(tree, oenv.info.dup(nscope));
         _env.enclClass = tree;
         _env.outer = oenv;
@@ -116,15 +123,11 @@ public class Detype extends PathedTreeTranslator
         _env.enclMethod = tree;
         _env.info.scope.owner = tree.sym;
 
-        if (tree.sym == null) {
-            RT.debug("Zoiks, no symbol", "tree", tree); // TODO: is anonymous inner class?
-        }
-
         // now we can call super and translate our children
         super.visitMethodDef(tree);
 
         // transform the return type if we're not in a library overrider and it is not void
-        if (tree.restype != null && !ASTUtil.isVoid(tree.restype) && !isLibraryOverrider(tree)) {
+        if (tree.restype != null && !ASTUtil.isVoid(tree.restype) && !inLibraryOverrider()) {
             tree.restype = _tmaker.Ident(_names.fromString("Object"));
         }
 
@@ -147,7 +150,7 @@ public class Detype extends PathedTreeTranslator
         // overriding method
         String path = path();
         if (!path.contains(".Catch") &&
-            !(path.contains(".MethodDef.params") && isLibraryOverrider(_env.enclMethod))) {
+            !(path.contains(".MethodDef.params") && inLibraryOverrider())) {
 //                 RT.debug("Transforming vardef", "mods", tree.mods, "name", tree.name,
 //                          "vtype", what(tree.vartype), "init", tree.init,
 //                          "sym", ASTUtil.expand(tree.sym));
@@ -158,9 +161,9 @@ public class Detype extends PathedTreeTranslator
     @Override public void visitReturn (JCReturn tree) {
         super.visitReturn(tree);
 
-        // if we're in a method whose signature cannot be transformed, we must cast the result
-        // of the return type back to the static method return type
-        if (ASTUtil.isLibraryOverrider(_types, _env.enclMethod.sym)) {
+        // if we're in a method whose signature cannot be transformed, we must cast the result of
+        // the return type back to the static method return type
+        if (tree.expr != null && inLibraryOverrider()) {
             tree.expr = callRT("checkedCast", tree.expr.pos,
                                classLiteral(_env.enclMethod.restype, tree.expr.pos), tree.expr);
         }
@@ -182,14 +185,26 @@ public class Detype extends PathedTreeTranslator
         // RT.debug("Rewrote binop", "kind", tree.getKind(), "tp", tree.pos, "ap", opcode.pos);
     }
 
-// TODO: we can't reflectively create anonymous inner classes so maybe we should not detype
-// constructor invocation, but rather directly inject the extra type tag arguments...
-
-//     @Override public void visitNewClass (JCNewClass that) {
-//         super.visitNewClass(that);
-
+    @Override public void visitNewClass (JCNewClass that) {
 //         RT.debug("Class instantiation", "typeargs", that.typeargs, "class", what(that.clazz),
 //                  "args", that.args);
+
+        // if we see an anonymous inner class declaration, resolve the type of the to-be-created
+        // class, we need this in inLibraryOverrider() for our approximation approach
+        Symbol oanonp = _env.info.anonParent;
+        if (that.def != null) {
+            Name cname = (that.clazz instanceof JCTypeApply) ?
+                TreeInfo.fullName(((JCTypeApply)that.clazz).clazz) : TreeInfo.fullName(that.clazz);
+            _env.info.anonParent = Resolver.findType(_env, cname);
+            if (_env.info.anonParent == null) {
+                RT.debug("Pants! Unable to resolve type of anonymous inner parent", "name", cname);
+            }
+        }
+        super.visitNewClass(that);
+        _env.info.anonParent = oanonp;
+
+// TODO: we can't reflectively create anonymous inner classes so maybe we should not detype
+// constructor invocation, but rather directly inject the extra type tag arguments...
 
 //         // if there is a specific enclosing instance provided, use that, otherwise use this
 //         // unless we're in a static context in which case use nothing
@@ -206,7 +221,7 @@ public class Detype extends PathedTreeTranslator
 //         JCMethodInvocation invoke = callRT("newInstance", that.pos, args);
 //         invoke.varargsElement = that.varargsElement;
 //         result = invoke;
-//     }
+    }
 
     @Override public void visitNewArray (JCNewArray tree) {
         super.visitNewArray(tree);
@@ -414,12 +429,23 @@ public class Detype extends PathedTreeTranslator
         _rootmaker = TreeMaker.instance(ctx);
     }
 
-    protected boolean isLibraryOverrider (JCMethodDecl tree)
+    protected boolean inLibraryOverrider ()
     {
+        // if we're passed a method from an anonymous inner class, it will have no symbol
+        // information and we currently instead fall back on a hack that marks all methods in the
+        // inner class as detypable or not based on whether the parent of the anonymous inner class
+        // is a library class or not; this is not strictly correct, but strict correctness is going
+        // to be a huge pile of trouble that we want to make sure is worth it first
+        if (_env.enclMethod.sym == null) {
+            // TODO: is this going to think an inner-class/interface defined in this class but not
+            // yet processed by the detyper is in fact a library class/interface? sigh...
+            return ASTUtil.isLibrary(_env.info.anonParent);
+        }
+
         // TODO: make this more correct: only match public static methods named 'main' with a
         // single String[] argument
-        return tree.getName().toString().equals("main") ||
-            ASTUtil.isLibraryOverrider(_types, tree.sym);
+        return _env.enclMethod.getName().toString().equals("main") ||
+            ASTUtil.isLibraryOverrider(_types, _env.enclMethod.sym);
     }
 
     protected boolean isStaticReceiver (JCExpression fa)
