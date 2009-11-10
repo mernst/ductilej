@@ -5,6 +5,7 @@ package org.typelessj.detyper;
 
 import java.util.Set;
 
+import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol.*;
@@ -199,6 +200,22 @@ public class Detype extends PathedTreeTranslator
             if (_env.info.anonParent == null) {
                 RT.debug("Pants! Unable to resolve type of anonymous inner parent", "name", cname);
             }
+
+// TODO: we don't absolutely need this right now but eventually we'll probably want it
+//             // we need also to do our own partial Enter on this anonymous class so that the class
+//             // and its methods have sufficient symbol information to keep everything working
+//             that.def.accept(new TreeScanner() {
+//                 @Override public void visitClassDef (JCClassDecl tree) {
+//                     if (tree.sym != null) {
+//                         throw new IllegalStateException("Entering already entered tree? " + tree);
+//                     }
+
+//                     ClassSymbol osym = new ClassSymbol(0, tree.name, _env.enclMethod.sym);
+//                 }
+
+//                 @Override public void visitMethodDef (JCMethodDecl tree) {
+//                 }
+//             });
         }
         super.visitNewClass(that);
         _env.info.anonParent = oanonp;
@@ -436,7 +453,7 @@ public class Detype extends PathedTreeTranslator
         // inner class as detypable or not based on whether the parent of the anonymous inner class
         // is a library class or not; this is not strictly correct, but strict correctness is going
         // to be a huge pile of trouble that we want to make sure is worth it first
-        if (_env.enclMethod.sym == null) {
+        if (_env.info.anonParent != null) {
             // TODO: is this going to think an inner-class/interface defined in this class but not
             // yet processed by the detyper is in fact a library class/interface? sigh...
             return ASTUtil.isLibrary(_env.info.anonParent);
