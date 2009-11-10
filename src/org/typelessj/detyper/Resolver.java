@@ -46,6 +46,10 @@ public class Resolver
             if (sym != null) {
                 return sym;
             }
+            if (env1.enclClass.sym == null) {
+                System.err.println("TODO: can't findType in inner class."); // TODO
+                continue;
+            }
             sym = findMemberType(env, name, env1.enclClass.sym);
             if (sym != null) {
                 return sym;
