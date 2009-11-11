@@ -11,6 +11,9 @@ import static org.junit.Assert.*;
  */
 public class SwitchTest
 {
+    // we won't detype static final fields
+    public static final int ONE = 1;
+
     @Test public void testLocalSwitch ()
     {
         assertTrue(switchInt(0) == 3);
@@ -25,7 +28,7 @@ public class SwitchTest
         switch (value) {
         case 0: return 3;
         default:
-        case 1:
+        case ONE:
         case 2: return 1;
         case 3: return 0;
         }

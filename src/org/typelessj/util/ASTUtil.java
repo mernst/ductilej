@@ -9,6 +9,7 @@ import java.util.Set;
 import javax.lang.model.type.TypeKind;
 
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
@@ -93,6 +94,14 @@ public class ASTUtil
     {
         return (expr instanceof JCPrimitiveTypeTree) &&
             ((JCPrimitiveTypeTree)expr).getPrimitiveTypeKind() == TypeKind.VOID;
+    }
+
+    /**
+     * Returns true if the supplied modifiers include 'static' and 'final', false otherwise.
+     */
+    public static boolean isStaticFinal (JCModifiers mods)
+    {
+        return (mods.flags & (Flags.STATIC|Flags.FINAL)) == (Flags.STATIC|Flags.FINAL);
     }
 
     /**
