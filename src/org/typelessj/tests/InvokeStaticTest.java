@@ -21,7 +21,7 @@ public class InvokeStaticTest
 
         // a static method defined on an implicit Java class
         Integer foo = Integer.valueOf(25);
-        assertEquals(foo, 25);
+        assertEquals(foo, (Integer)25); // this cast needed for normal compilation
 
         // a static method defined on this class
         value = triple(42);
@@ -34,6 +34,10 @@ public class InvokeStaticTest
         // a static method of an inner class calling one from broader scope
         value = Tester.tripleDouble(42);
         assertEquals(value, 252);
+
+        // test a static method of another class in this package
+        value = StaticHelper.help(1);
+        assertEquals(value, 43);
 
         // TODO: test statically imported method (or just use assertTrue());
     }
