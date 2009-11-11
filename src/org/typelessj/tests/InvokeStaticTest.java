@@ -6,6 +6,8 @@ package org.typelessj.tests;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
+import org.typelessj.tests.StaticHelper;
+
 /**
  * Tests the detection and invocation of static methods.
  */
@@ -32,12 +34,20 @@ public class InvokeStaticTest
         assertEquals(value, 63);
 
         // a static method of an inner class calling one from broader scope
-        value = Tester.tripleDouble(42);
+        value = InvokeStaticTest.Tester.tripleDouble(42);
         assertEquals(value, 252);
+
+        // test finding a qualified inner inner class
+        value = MoreTester.InnerTester.oneFourth(42);
+        assertEquals(value, 10);
 
         // test a static method of another class in this package
         value = StaticHelper.help(1);
         assertEquals(value, 43);
+
+        // test a static method of another class in this package
+        value = StaticHelper.Inner.innerHelp(1);
+        assertEquals(value, 25);
 
         // TODO: test statically imported method (or just use assertTrue());
     }
@@ -62,6 +72,12 @@ public class InvokeStaticTest
     {
         public static int threeHalves (int value) {
             return Tester.half(3 * value);
+        }
+
+        protected static class InnerTester {
+            public static int oneFourth (int value) {
+                return value;
+            }
         }
     }
 }
