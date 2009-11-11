@@ -394,6 +394,18 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
+    @Override public void visitSwitch (JCSwitch tree) {
+        super.visitSwitch(tree);
+
+        // we need to determine the static type of the selector and cast back to that to avoid a
+        // complex transformation of switch into an equivalent set of if statements nested inside a
+        // one loop for loop (to preserve break semantics)
+        String clazz = Resolver.resolveType(_env, tree.selector);
+        if (clazz != null) {
+            tree.selector = checkedCast(mkFA(clazz, tree.selector.pos), tree.selector);
+        }
+    }
+
     @Override public void visitIf (JCIf tree) {
         super.visitIf(tree);
 
