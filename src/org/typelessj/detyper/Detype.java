@@ -97,9 +97,8 @@ public class Detype extends PathedTreeTranslator
 
         if (tree.name != _names.empty) {
             // add our @Transformed annotation to the AST
-            JCAnnotation a = _tmaker.Annotation(
-                mkFA(Transformed.class.getName(), tree.pos), List.<JCExpression>nil());
-            // a.pos = tree.pos; // maybe we want to provide a fake source position?
+            JCAnnotation a = setPos(_tmaker.Annotation(mkFA(Transformed.class.getName(), tree.pos),
+                                                       List.<JCExpression>nil()), tree.pos);
             tree.mods.annotations = tree.mods.annotations.prepend(a);
 
             // since the annotations AST has already been resolved into type symbols, we have to
