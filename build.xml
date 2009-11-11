@@ -11,7 +11,6 @@
   <property name="classes.dir" value="${deploy.dir}/classes"/>
   <property name="dtclass.dir" value="${deploy.dir}/dtclass"/>
   <property name="stclass.dir" value="${deploy.dir}/stclass"/>
-  <property name="exclass.dir" value="${deploy.dir}/exclass"/>
   <property name="javadoc.dir" value="${deploy.dir}/docs"/>
   <property name="libs.dir"    value="lib"/>
 
@@ -57,7 +56,6 @@
   <!-- cleans out the intermediate build files -->
   <target name="clean" description="Cleans out build results.">
     <delete dir="${classes.dir}"/>
-    <delete dir="${exclass.dir}"/>
     <delete dir="${stclass.dir}"/>
     <delete dir="${dtclass.dir}"/>
     <delete dir="${deploy.dir}/docs"/>
@@ -200,17 +198,17 @@
   <!-- runs the compiler on a test class with the astviz processor active -->
   <target name="astviz" depends="prepare,compile"
           description="Compiles the test code with the astviz processor.">
-    <delete dir="${exclass.dir}"/>
-    <mkdir dir="${exclass.dir}"/>
+    <delete dir="${stclass.dir}"/>
+    <mkdir dir="${stclass.dir}"/>
 
     <property name="test" value=""/>
     <echo>--- Compiling ${test}* with astviz:</echo>
     <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
            source="1.6" target="1.6" encoding="utf-8"
-           srcdir="${src.dir}" destdir="${exclass.dir}">
+           srcdir="${src.dir}" destdir="${stclass.dir}">
       <classpath>
         <path refid="build.classpath"/>
-        <pathelement location="${exclass.dir}"/>
+        <pathelement location="${stclass.dir}"/>
       </classpath>
       <compilerarg value="-Xlint"/>
       <compilerarg value="-Xlint:-serial"/>
