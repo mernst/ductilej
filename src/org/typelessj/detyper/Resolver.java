@@ -8,7 +8,9 @@ import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.comp.Env;
+import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.util.Name;
+import com.sun.tools.javac.code.Type;
 
 import org.typelessj.runtime.RT;
 
@@ -83,6 +85,50 @@ public class Resolver
 //         }
 
         return null;
+    }
+
+    /**
+     * Returns the type of the supplied expression as a string, like "int" or "String" or
+     * "foo.bar.Baz".
+     */
+    public static String resolveType (Env<DetypeContext> env, JCExpression expr)
+    {
+        if (expr instanceof JCIdent) {
+            Name name = ((JCIdent)expr).name;
+            Symbol sym = findVar(env, name);
+            if (sym.type != null) {
+                if (!(sym.type instanceof Type.ClassType)) {
+                    RT.debug("Aiya, have funny type", "expr", expr, "sym", sym, "type", sym.type);
+                    return null;
+                }
+                RT.debug("Found type, now what?", "expr", expr, "sym", sym, "type", sym.type);
+                return null;
+
+            } else {
+                if (sym.owner instanceof MethodSymbol) {
+                    MethodSymbol msym = (MethodSymbol)sym.owner;
+                    Type.MethodType mtype = msym.type.asMethodType();
+                    int idx = 0;
+                    for (VarSymbol vsym : msym.params) {
+                        if (vsym.name == name) {
+                            // hack: rely on the Type's toString() method to do what we want
+                            return ""+mtype.argtypes.get(idx);
+                        }
+                        idx++;
+                    }
+                    RT.debug("Missed formal parameter in arglist?", "expr", expr, "msym", msym);
+                    return null;
+
+                } else {
+                    RT.debug("Is not formal parameter", "expr", expr, "sym.owner", sym.owner);
+                    return null;
+                }
+            }
+
+        } else {
+            RT.debug("Can't handle non-idents", "expr", expr);
+            return null;
+        }
     }
 
     protected static Symbol findMemberType (Env<DetypeContext> env, Name name, TypeSymbol c)
