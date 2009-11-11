@@ -9,6 +9,7 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
+import javax.annotation.processing.SupportedOptions;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
@@ -29,7 +30,8 @@ import org.typelessj.util.ASTUtil;
  * The main entry point for the detyping processor.
  */
 @SupportedAnnotationTypes("*")
-@SupportedSourceVersion(SourceVersion.RELEASE_6)
+@SupportedOptions({Processor.SHOWCLASS_ARG})
+@SupportedSourceVersion(SourceVersion.RELEASE_7)
 public class Processor extends AbstractProcessor
 {
     @Override // from AbstractProcessor
@@ -51,6 +53,9 @@ public class Processor extends AbstractProcessor
         _trees = Trees.instance(procenv);
         _detype = Detype.instance(ctx);
 
+        // note our options
+        _showclass = "true".equalsIgnoreCase(procenv.getOptions().get(SHOWCLASS_ARG));
+
         RT.debug("Detyper running", "vers", procenv.getSourceVersion());
     }
 
@@ -66,8 +71,8 @@ public class Processor extends AbstractProcessor
 //             RT.debug("Root elem " + elem, "unit", unit.getClass().getSimpleName(),
 //                      "sym.mems", ASTUtil.expand(unit.packge.members_field.elems.sym));
             _detype.detype(unit);
-            if (true || Boolean.getBoolean("showclass")) {
-//                RT.debug(""+unit);
+            if (_showclass) {
+                RT.debug(""+unit);
             }
         }
         return false;
@@ -81,4 +86,9 @@ public class Processor extends AbstractProcessor
 
     protected Trees _trees;
     protected Detype _detype;
+
+    // -Aorg.typelessj.showclass=true causes classes to be printed after detyping
+    protected boolean _showclass;
+
+    protected static final String SHOWCLASS_ARG = "org.typelessj.showclass";
 }

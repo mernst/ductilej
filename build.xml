@@ -131,12 +131,12 @@
         <pathelement location="${dtclass.dir}"/>
         <path refid="build.classpath"/>
       </classpath>
-      <!--<compilerarg value="-Dshowclass=${showclass}"/>-->
       <compilerarg value="-Xlint"/>
       <compilerarg value="-Xlint:-serial"/>
       <!--<compilerarg value="-XprintProcessorInfo"/>-->
       <compilerarg value="-processor"/>
       <compilerarg value="org.typelessj.detyper.Processor"/>
+      <compilerarg value="-Aorg.typelessj.showclass=${showclass}"/>
       <include name="**/tests/${test}*.java"/>
     </javac>
 
@@ -172,7 +172,6 @@
         <pathelement location="${stclass.dir}"/>
         <path refid="build.classpath"/>
       </classpath>
-      <!--<compilerarg value="-Dshowclass=${showclass}"/>-->
       <compilerarg value="-Xlint"/>
       <compilerarg value="-Xlint:-serial"/>
       <include name="**/tests/${test}*.java"/>
