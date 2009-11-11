@@ -147,14 +147,19 @@ public class Detype extends PathedTreeTranslator
             _env.info.scope.enter(new VarSymbol(0, tree.name, null, _env.info.scope.owner));
         }
 
-        // we don't want to detype the param(s) of a catch block nor the arguments of a library
         // overriding method
+        // we don't want to detype the param(s) of a catch block
         String path = path();
         if (!path.contains(".Catch") &&
-            !(path.contains(".MethodDef.params") && inLibraryOverrider())) {
-//                 RT.debug("Transforming vardef", "mods", tree.mods, "name", tree.name,
-//                          "vtype", what(tree.vartype), "init", tree.init,
-//                          "sym", ASTUtil.expand(tree.sym));
+            // nor the arguments of a library
+            !(path.contains(".MethodDef.params") && inLibraryOverrider()) &&
+            // nor static final members (because they may be used in a case statement in which case
+            // they must be primitive constants or Enum values); NOTE: because of that we may want
+            // to only avoid detyping static final primitive and Enum fields
+            !ASTUtil.isStaticFinal(tree.mods)) {
+            RT.debug("Transforming vardef", "mods", tree.mods, "name", tree.name,
+                     "vtype", what(tree.vartype), "init", tree.init,
+                     "sym", ASTUtil.expand(tree.sym));
             tree.vartype = _tmaker.Ident(_names.fromString("Object"));
         }
     }
