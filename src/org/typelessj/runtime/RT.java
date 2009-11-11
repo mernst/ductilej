@@ -31,7 +31,18 @@ public class RT
      */
     public static void debug (String message, Object... args)
     {
-        System.out.println(new LogBuilder(message, args));
+        System.out.println(dformat(message, args));
+    }
+
+    /**
+     * Formats a debug message.
+     *
+     * @param args key/value pairs, (e.g. "age", someAge, "size", someSize) which will be appended
+     * to the log message as [age=someAge, size=someSize].
+     */
+    public static String dformat (String message, Object... args)
+    {
+        return new LogBuilder(message, args).toString();
     }
 
     /**
@@ -47,19 +58,22 @@ public class RT
         // if this is a non-static inner class, we need to shift a reference to the containing
         // class onto the constructor arguments
         Object[] rargs;
-        if (!clazz.isMemberClass() || Modifier.isStatic(clazz.getModifiers())) {
-            rargs = args;
-        } else {
+        if (clazz.isMemberClass() && !Modifier.isStatic(clazz.getModifiers())) {
             rargs = new Object[args.length+1];
-            rargs[0] = encl;
+            // our enclosing instance may be an instance of the inner class or an instance of the
+            // enclosing class, in the former case, we need to extract the secret reference to the
+            // enclosing class from the inner class and use that as our first argument
+            rargs[0] = clazz.isInstance(encl) ? getEnclosingReference(encl) : encl;
             System.arraycopy(args, 0, rargs, 1, args.length);
+        } else {
+            rargs = args;
         }
 
         Constructor<?> ctor = findConstructor(clazz, rargs);
         if (ctor == null) {
             // TODO: if argument mismatch, clarify that
-            throw new NoSuchMethodError("Can't find constructor for " + clazz.getSimpleName() +
-                                        " matching args " + rargs);
+            throw new NoSuchMethodError(dformat("Can't find constructor for " +
+                                                clazz.getSimpleName(), "args", rargs));
         }
 
         try {
@@ -517,6 +531,27 @@ public class RT
     protected static Class<?> promoteFloat (Class<?> other)
     {
         return (other == Long.class) ? Double.class : Float.class;
+    }
+
+    /**
+     * Locates and returns the value of the secret reference to a non-static inner-class's
+     * enclosing class.  We need this when we're constructing a non-static inner-class and have
+     * only a reference to another instance of that non-static inner-class. In that case, the new
+     * reference uses the same reference.
+     */
+    protected static Object getEnclosingReference (Object obj)
+    {
+        try {
+            for (Field field : obj.getClass().getDeclaredFields()) {
+                if (field.getName().equals("this$0")) {
+                    field.setAccessible(true);
+                    return field.get(obj);
+                }
+            }
+            throw new RuntimeException("Failure finding enclosing reference");
+        } catch (IllegalAccessException iae) {
+            throw new RuntimeException("Failure accessing enclosing reference", iae);
+        }
     }
 
     protected static interface MathOps {
