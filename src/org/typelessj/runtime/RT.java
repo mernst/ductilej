@@ -87,7 +87,7 @@ public class RT
         } catch (IllegalAccessException iae) {
             throw new RuntimeException(iae);
         } catch (InvocationTargetException ite) {
-            throw new RuntimeException(ite);
+            throw new RuntimeException(ite.getCause());
         }
     }
 
@@ -124,7 +124,7 @@ public class RT
         } catch (IllegalAccessException iae) {
             throw new RuntimeException(iae);
         } catch (InvocationTargetException ite) {
-            throw new RuntimeException(ite);
+            throw new RuntimeException(ite.getCause());
         }
     }
 
@@ -146,7 +146,7 @@ public class RT
         } catch (IllegalAccessException iae) {
             throw new RuntimeException(iae);
         } catch (InvocationTargetException ite) {
-            throw new RuntimeException(ite);
+            throw new RuntimeException(ite.getCause());
         }
     }
 
