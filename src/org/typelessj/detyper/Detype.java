@@ -156,9 +156,9 @@ public class Detype extends PathedTreeTranslator
             // they must be primitive constants or Enum values); NOTE: because of that we may want
             // to only avoid detyping static final primitive and Enum fields
             !ASTUtil.isStaticFinal(tree.mods)) {
-            RT.debug("Transforming vardef", "mods", tree.mods, "name", tree.name,
-                     "vtype", what(tree.vartype), "init", tree.init,
-                     "sym", ASTUtil.expand(tree.sym));
+//             RT.debug("Transforming vardef", "mods", tree.mods, "name", tree.name,
+//                      "vtype", what(tree.vartype), "init", tree.init,
+//                      "sym", ASTUtil.expand(tree.sym));
             tree.vartype = _tmaker.Ident(_names.fromString("Object"));
         }
     }
@@ -199,7 +199,7 @@ public class Detype extends PathedTreeTranslator
         if (that.def != null) {
             Name cname = (that.clazz instanceof JCTypeApply) ?
                 TreeInfo.fullName(((JCTypeApply)that.clazz).clazz) : TreeInfo.fullName(that.clazz);
-            _env.info.anonParent = Resolver.findType(_env, cname);
+            _env.info.anonParent = _resolver.findType(_env, cname);
             if (_env.info.anonParent == null) {
                 RT.debug("Pants! Unable to resolve type of anonymous inner parent", "name", cname);
             }
@@ -281,16 +281,6 @@ public class Detype extends PathedTreeTranslator
 //             tree.expr = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Throwable")), tree.expr);
 //         }
 
-    protected List<JCExpression> castList (Class<?> clazz, List<JCExpression> list)
-    {
-        if (list.isEmpty()) {
-            return list;
-        } else {
-            return castList(clazz, list.tail).prepend(
-                checkedCast(_tmaker.Ident(_names.fromString("Integer")), list.head));
-        }
-    }
-
     @Override public void visitSelect (JCFieldAccess tree) {
         super.visitSelect(tree);
 
@@ -364,7 +354,7 @@ public class Detype extends PathedTreeTranslator
 
             // resolve the method in question (TODO: this should at least take the argument count
             // if not whatever type information we have)
-            Symbol nsym = Resolver.findMethod(_env, mfid.name);
+            Symbol nsym = _resolver.findMethod(_env, mfid.name);
             if (nsym == null) {
                 RT.debug("!!! Not transforming unresolvable method: " + tree);
                 return;
@@ -404,7 +394,7 @@ public class Detype extends PathedTreeTranslator
         // we need to determine the static type of the selector and cast back to that to avoid a
         // complex transformation of switch into an equivalent set of if statements nested inside a
         // one loop for loop (to preserve break semantics)
-        String clazz = Resolver.resolveType(_env, tree.selector);
+        String clazz = _resolver.resolveType(_env, tree.selector);
         if (clazz != null) {
             tree.selector = checkedCast(mkFA(clazz, tree.selector.pos), tree.selector);
         }
@@ -464,13 +454,13 @@ public class Detype extends PathedTreeTranslator
     protected Detype (Context ctx)
     {
         ctx.put(DETYPE_KEY, this);
+        _resolver = Resolver.instance(ctx);
         _types = Types.instance(ctx);
         _enter = Enter.instance(ctx);
         _memberEnter = MemberEnter.instance(ctx);
         _attr = Attr.instance(ctx);
         // _names = Name.Table.instance(ctx);
         _names = Names.instance(ctx);
-        _reader = ClassReader.instance(ctx);
         _syms = Symtab.instance(ctx);
         _annotate = Annotate.instance(ctx);
         _rootmaker = TreeMaker.instance(ctx);
@@ -497,63 +487,36 @@ public class Detype extends PathedTreeTranslator
 
     protected boolean isStaticReceiver (JCExpression fa)
     {
-        // if we've already transformed the receiver, it will now be a method invocation
+        RT.debug("isStaticReceiver(" + fa + ")");
+
+        // if we've already transformed this receiver, it will be a method invocation
         if (!(fa instanceof JCIdent || fa instanceof JCFieldAccess)) {
             return false;
         }
 
-        if (isScopedReference(fa)) {
+        // if it's some variable in scope (cheap test), it's not a static receiver
+        if (isScopedVar(fa)) {
             return false;
         }
 
-        Name fname = TreeInfo.fullName(fa);
-        if (Resolver.findType(_env, fname) != null || isQualifiedType(fa)) {
-            return true;
-        }
-        if (isClassPlusSelect(fa)) {
-            return false;
-        }
-        if (_reader.loadClass(fname) != null) {
-            return true;
-        }
-        return false;
+        // otherwise try resolving this expression as a type
+        return (_resolver.resolveAsType(_env, fa) != null);
     }
 
-    protected boolean isScopedReference (JCExpression expr)
+    protected boolean isScopedVar (JCExpression expr)
     {
         if (expr instanceof JCFieldAccess) {
-            return isScopedReference(((JCFieldAccess)expr).selected);
+            return isScopedVar(((JCFieldAccess)expr).selected);
 
         } else if (expr instanceof JCIdent) {
             Name name = ((JCIdent)expr).name;
             // 'this' is always a reference (for our purposes)
-            return name == _names._this || (Resolver.findVar(_env, name) != null);
+            return name == _names._this || (_resolver.findVar(_env, name) != null);
 
         } else {
-            RT.debug("isScopedReference on weird expr: " + expr);
+            RT.debug("isScopedVar on weird expr: " + expr);
             return false;
         }
-    }
-
-    protected boolean isQualifiedType (JCExpression expr)
-    {
-        if (expr instanceof JCFieldAccess) {
-            JCFieldAccess fa = (JCFieldAccess)expr;
-            return isQualifiedType(fa.selected) && (Resolver.findType(_env, fa.name) != null);
-        } else if (expr instanceof JCIdent) {
-            return (Resolver.findType(_env, ((JCIdent)expr).name) != null);
-        } else {
-            RT.debug("isQualifiedType called with weird expr: " + expr);
-            return false;
-        }
-    }
-
-    protected boolean isClassPlusSelect (JCExpression expr)
-    {
-        if (expr instanceof JCFieldAccess && isClassPlusSelect(((JCFieldAccess)expr).selected)) {
-            return true;
-        }
-        return (Resolver.findType(_env, TreeInfo.fullName(expr)) != null);
     }
 
     protected boolean inStatic () {
@@ -597,6 +560,34 @@ public class Detype extends PathedTreeTranslator
         return setPos(_tmaker.Select(expr, _names._class), pos);
     }
 
+    protected List<JCExpression> castList (Class<?> clazz, List<JCExpression> list)
+    {
+        if (list.isEmpty()) {
+            return list;
+        } else {
+            return castList(clazz, list.tail).prepend(
+                checkedCast(_tmaker.Ident(_names.fromString("Integer")), list.head));
+        }
+    }
+
+    /**
+     * Merges two select expressions (or idents) into one. For example: (foo, bar.baz) ->
+     * foo.bar.baz, (foo.bar, baz) -> foo.bar.baz, (foo.bar, baz.bif) -> foo.bar.baz.bif.
+     */
+    protected JCFieldAccess mergeSelects (JCExpression left, JCExpression right)
+    {
+        if (right instanceof JCIdent) {
+            return _tmaker.Select(left, ((JCIdent)right).name);
+
+        } else if (right instanceof JCFieldAccess) {
+            JCFieldAccess racc = (JCFieldAccess)right;
+            return _tmaker.Select(mergeSelects(left, racc.selected), racc.name);
+
+        } else {
+            throw new IllegalArgumentException("Can't merge " + right);
+        }
+    }
+
     protected static String what (JCTree node)
     {
         if (node == null) {
@@ -624,10 +615,10 @@ public class Detype extends PathedTreeTranslator
 
     protected List<JCClassDecl> _clstack = List.nil();
 
+    protected Resolver _resolver;
     protected Types _types;
     // protected Name.Table _names;
     protected Names _names;
-    protected ClassReader _reader;
     protected Enter _enter;
     protected MemberEnter _memberEnter;
     protected Attr _attr;

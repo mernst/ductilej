@@ -7,10 +7,13 @@ import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.comp.Env;
-import com.sun.tools.javac.tree.JCTree.*;
-import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.comp.Env;
+import com.sun.tools.javac.jvm.ClassReader;
+import com.sun.tools.javac.tree.JCTree.*;
+import com.sun.tools.javac.tree.TreeInfo;
+import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.Name;
 
 import org.typelessj.runtime.RT;
 
@@ -20,10 +23,22 @@ import org.typelessj.runtime.RT;
 public class Resolver
 {
     /**
+     * Returns our simple symbol resolver.
+     */
+    public static Resolver instance (Context context)
+    {
+        Resolver instance = context.get(RESOLVER_KEY);
+        if (instance == null) {
+            instance = new Resolver(context);
+        }
+        return instance;
+    }
+
+    /**
      * Locates the closest variable symbol in the supplied context with the specified name.
      * Returns null if no match is found.
      */
-    public static Symbol findVar (Env<DetypeContext> env, Name name)
+    public Symbol findVar (Env<DetypeContext> env, Name name)
     {
         return find(env, name, Kinds.VAR);
     }
@@ -32,7 +47,7 @@ public class Resolver
      * Locates the closest method symbol in the supplied context with the specified name.  Returns
      * null if no match is found.
      */
-    public static Symbol findMethod (Env<DetypeContext> env, Name name)
+    public Symbol findMethod (Env<DetypeContext> env, Name name)
     {
         return find(env, name, Kinds.MTH);
     }
@@ -41,7 +56,7 @@ public class Resolver
      * Locates the closest type symbol in the supplied context with the specified name.  Returns
      * null if no match is found.
      */
-    public static Symbol findType (Env<DetypeContext> env, Name name)
+    public Symbol findType (Env<DetypeContext> env, Name name)
     {
         for (Env<DetypeContext> env1 = env; env1.outer != null; env1 = env1.outer) {
             Symbol sym = lookup(env1.info.scope, name, Kinds.TYP);
@@ -91,7 +106,7 @@ public class Resolver
      * Returns the type of the supplied expression as a string, like "int" or "String" or
      * "foo.bar.Baz".
      */
-    public static String resolveType (Env<DetypeContext> env, JCExpression expr)
+    public String resolveType (Env<DetypeContext> env, JCExpression expr)
     {
         if (expr instanceof JCIdent) {
             Name name = ((JCIdent)expr).name;
@@ -131,7 +146,69 @@ public class Resolver
         }
     }
 
-    protected static Symbol findMemberType (Env<DetypeContext> env, Name name, TypeSymbol c)
+    /**
+     * Resolves the supplied expression as the name of a type (e.g. "foo.bar.Baz", "Baz",
+     * "Baz.Bif", "foo.bar.Baz.Bif"). Returns the referenced type or null if expression does not
+     * name a type.
+     *
+     * <p> Note: this may or may not do anything sensible if used on type variables. Don't do that.
+     */
+    public ClassSymbol resolveAsType (Env<DetypeContext> env, JCExpression expr)
+    {
+        // maybe the whole thing names a type in scope
+        Name fname = TreeInfo.fullName(expr);
+        Symbol type = findType(env, fname);
+        if (type instanceof ClassSymbol) {
+            RT.debug("Found type " + type);
+            return (ClassSymbol)type;
+        }
+
+        // maybe the selection is a class and the selectee is a member class
+        if (expr instanceof JCFieldAccess) {
+            JCFieldAccess fa = (JCFieldAccess)expr;
+            Name sname = TreeInfo.fullName(fa.selected);
+            type = findType(env, sname);
+            if (type instanceof ClassSymbol) {
+                Symbol mtype = findMemberType(env, fa.name, (ClassSymbol)type);
+                RT.debug("Found member type " + mtype);
+                return (mtype instanceof ClassSymbol) ? (ClassSymbol)mtype : null;
+            }
+        }
+
+//         // maybe it's an unqualified reference to a class in our same package
+//         Name spname = TreeInfo.fullName(mergeSelects(_env.toplevel.pid, fa));
+//         if (Resolver.findType(_env, spname) != null) {
+//             RT.debug("Found unqualified local type", "name", spname);
+//             return true;
+//         } else {
+//             RT.debug("Alas, not unqualified local type", "name", spname);
+//         }
+
+        // or maybe it's just a class we've never seen before
+        try {
+            return _reader.loadClass(fname);
+        } catch (Symbol.CompletionFailure cfe) {
+            // it doesn't exist, fall through
+        }
+
+// //         // or maybe it's just a class we've never seen before
+// //         try {
+// //             _reader.loadClass(spname);
+// //             return true;
+// //         } catch (Symbol.CompletionFailure cfe) {
+// //             // it doesn't exist, fall through
+// //         }
+
+        return null;
+    }
+
+    protected Resolver (Context ctx)
+    {
+        ctx.put(RESOLVER_KEY, this);
+        _reader = ClassReader.instance(ctx);
+    }
+
+    protected Symbol findMemberType (Env<DetypeContext> env, Name name, TypeSymbol c)
     {
         // RT.debug("Checking for " + name + " as member of " + c + " " + c.members());
         Symbol sym = first(c.members().lookup(name), Kinds.TYP);
@@ -158,7 +235,7 @@ public class Resolver
 //         }
     }
 
-    protected static Symbol find (Env<DetypeContext> env, Name name, int kind)
+    protected Symbol find (Env<DetypeContext> env, Name name, int kind)
     {
         if (name == null) {
             RT.debug("Asked to lookup null name...", new Throwable());
@@ -209,4 +286,8 @@ public class Resolver
         }
         return null;
     }
+
+    protected ClassReader _reader;
+
+    protected static final Context.Key<Resolver> RESOLVER_KEY = new Context.Key<Resolver>();
 }
