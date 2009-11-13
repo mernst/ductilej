@@ -570,24 +570,6 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
-    /**
-     * Merges two select expressions (or idents) into one. For example: (foo, bar.baz) ->
-     * foo.bar.baz, (foo.bar, baz) -> foo.bar.baz, (foo.bar, baz.bif) -> foo.bar.baz.bif.
-     */
-    protected JCFieldAccess mergeSelects (JCExpression left, JCExpression right)
-    {
-        if (right instanceof JCIdent) {
-            return _tmaker.Select(left, ((JCIdent)right).name);
-
-        } else if (right instanceof JCFieldAccess) {
-            JCFieldAccess racc = (JCFieldAccess)right;
-            return _tmaker.Select(mergeSelects(left, racc.selected), racc.name);
-
-        } else {
-            throw new IllegalArgumentException("Can't merge " + right);
-        }
-    }
-
     protected static String what (JCTree node)
     {
         if (node == null) {
