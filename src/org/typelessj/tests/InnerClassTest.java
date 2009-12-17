@@ -42,4 +42,14 @@ public class InnerClassTest
         assertEquals(values[0], (Integer)1);
         assertEquals(values[2], (Integer)3);
     }
+
+    // test inner class handling with no enclosing member
+    protected Value _value = new Value() {
+        public int value () {
+            return 3;
+        }
+        public int op (int value) {
+            return value+1;
+        }
+    };
 }
