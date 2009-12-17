@@ -60,7 +60,7 @@ public class Detype extends PathedTreeTranslator
         try {
             _env = new Env<DetypeContext>(tree, new DetypeContext());
             _env.toplevel = tree;
-            // _env.enclClass = predefClassDef;
+            _env.enclClass = _predefClassDef;
             _env.info.scope = tree.namedImportScope;
             tree.accept(this);
         } finally {
@@ -85,8 +85,9 @@ public class Detype extends PathedTreeTranslator
         // context to be in place than we want to set up manually (and Types.closure() caches class
         // symbols which we wouldn't want it to do with the fake ClassSymbol we need to create
         // here), so for now we cope with a bogus scope and some hackery
+        Symbol encsym = (_env.enclMethod == null) ? _env.enclClass.sym : _env.enclMethod.sym;
         Scope nscope = (tree.sym != null) ? tree.sym.members_field.dupUnshared() :
-            new Scope(new ClassSymbol(0, tree.name, _env.enclMethod.sym));
+            new Scope(new ClassSymbol(0, tree.name, encsym));
 
         // note the environment of the class we're processing
         Env<DetypeContext> oenv = _env;
@@ -108,9 +109,7 @@ public class Detype extends PathedTreeTranslator
                                          _enter.getEnv(tree.sym)));
         }
 
-        _clstack = _clstack.prepend(tree);
         super.visitClassDef(tree);
-        _clstack = _clstack.tail;
         _env = oenv;
 
         RT.debug("Leaving class " + tree.name);
@@ -464,6 +463,12 @@ public class Detype extends PathedTreeTranslator
         _syms = Symtab.instance(ctx);
         _annotate = Annotate.instance(ctx);
         _rootmaker = TreeMaker.instance(ctx);
+
+        // a class that will enclose all outer classes
+        _predefClassDef = _rootmaker.ClassDef(
+            _rootmaker.Modifiers(Flags.PUBLIC),
+            _syms.predefClass.name, null, null, null, null);
+        _predefClassDef.sym = _syms.predefClass;
     }
 
     protected boolean inLibraryOverrider ()
@@ -487,7 +492,7 @@ public class Detype extends PathedTreeTranslator
 
     protected boolean isStaticReceiver (JCExpression fa)
     {
-        RT.debug("isStaticReceiver(" + fa + ")");
+        // RT.debug("isStaticReceiver(" + fa + ")");
 
         // if we've already transformed this receiver, it will be a method invocation
         if (!(fa instanceof JCIdent || fa instanceof JCFieldAccess)) {
@@ -595,7 +600,7 @@ public class Detype extends PathedTreeTranslator
     protected Env<DetypeContext> _env;
     protected TreeMaker _tmaker;
 
-    protected List<JCClassDecl> _clstack = List.nil();
+    protected JCTree.JCClassDecl _predefClassDef;
 
     protected Resolver _resolver;
     protected Types _types;
