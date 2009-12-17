@@ -6,8 +6,6 @@ package org.typelessj.tests;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
-import org.typelessj.tests.StaticHelper;
-
 /**
  * Tests the detection and invocation of static methods.
  */
