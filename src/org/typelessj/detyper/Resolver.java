@@ -13,9 +13,10 @@ import com.sun.tools.javac.jvm.ClassReader;
 import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
 
-import org.typelessj.runtime.RT;
+import org.typelessj.runtime.Debug;
 
 /**
  * Handles some simple name resolution tasks.
@@ -53,6 +54,14 @@ public class Resolver
     }
 
     /**
+     * Returns all methods in the supplied scope that have the specified name.
+     */
+    public List<Symbol> findMethods (Scope scope, Name name)
+    {
+        return lookupAll(scope, name, Kinds.MTH);
+    }
+
+    /**
      * Locates the closest type symbol in the supplied context with the specified name.  Returns
      * null if no match is found.
      */
@@ -64,7 +73,7 @@ public class Resolver
                 return sym;
             }
             if (env1.enclClass.sym == null) {
-                System.err.println("TODO: can't findType in inner class."); // TODO
+                Debug.log("TODO: can't findType in inner class", "name", name); // TODO
                 continue;
             }
             sym = findMemberType(env, name, env1.enclClass.sym);
@@ -119,10 +128,10 @@ public class Resolver
             Symbol sym = findVar(env, name);
             if (sym.type != null) {
                 if (!(sym.type instanceof Type.ClassType)) {
-                    RT.debug("Aiya, have funny type", "expr", expr, "sym", sym, "type", sym.type);
+                    Debug.log("Aiya, have funny type", "expr", expr, "sym", sym, "type", sym.type);
                     return null;
                 }
-                RT.debug("Found type, now what?", "expr", expr, "sym", sym, "type", sym.type);
+                Debug.log("Found type, now what?", "expr", expr, "sym", sym, "type", sym.type);
                 return null;
 
             } else {
@@ -137,17 +146,17 @@ public class Resolver
                         }
                         idx++;
                     }
-                    RT.debug("Missed formal parameter in arglist?", "expr", expr, "msym", msym);
+                    Debug.log("Missed formal parameter in arglist?", "expr", expr, "msym", msym);
                     return null;
 
                 } else {
-                    RT.debug("Is not formal parameter", "expr", expr, "sym.owner", sym.owner);
+                    Debug.log("Is not formal parameter", "expr", expr, "sym.owner", sym.owner);
                     return null;
                 }
             }
 
         } else {
-            RT.debug("Can't handle non-idents", "expr", expr);
+            Debug.log("Can't handle non-idents", "expr", expr);
             return null;
         }
     }
@@ -165,7 +174,7 @@ public class Resolver
         Name fname = TreeInfo.fullName(expr);
         Symbol type = findType(env, fname);
         if (type instanceof ClassSymbol) {
-            RT.debug("Found scoped type " + type);
+            Debug.log("Found scoped type " + type);
             return (ClassSymbol)type;
         }
 
@@ -176,14 +185,14 @@ public class Resolver
             type = findType(env, sname);
             if (type instanceof ClassSymbol) {
                 Symbol mtype = findMemberType(env, fa.name, (ClassSymbol)type);
-                RT.debug("Found member type " + mtype);
+                Debug.log("Found member type " + mtype);
                 return (mtype instanceof ClassSymbol) ? (ClassSymbol)mtype : null;
             }
         }
 
         // or maybe it's just a class we've never seen before
         try {
-            RT.debug("Trying load class " + fname);
+            Debug.log("Trying load class " + fname);
             return _reader.loadClass(fname);
         } catch (Symbol.CompletionFailure cfe) {
             // it doesn't exist, fall through
@@ -200,7 +209,7 @@ public class Resolver
 
     protected Symbol findMemberType (Env<DetypeContext> env, Name name, TypeSymbol c)
     {
-        // RT.debug("Checking for " + name + " as member of " + c + " " + c.members());
+        // Debug.log("Checking for " + name + " as member of " + c + " " + c.members());
         Symbol sym = first(c.members().lookup(name), Kinds.TYP);
         if (sym != null) {
             return sym;
@@ -228,13 +237,13 @@ public class Resolver
     protected Symbol find (Env<DetypeContext> env, Name name, int kind)
     {
         if (name == null) {
-            RT.debug("Asked to lookup null name...", new Throwable());
+            Debug.log("Asked to lookup null name...", new Throwable());
             return null;
         }
 
         // first we check our local environment
         for ( ; env.outer != null; env = env.outer) {
-            // RT.debug("Lookup", "name", name, "kind", kind, "scope", env.info.scope);
+            // Debug.log("Lookup", "name", name, "kind", kind, "scope", env.info.scope);
             Symbol sym = lookup(env.info.scope, name, kind);
             if (sym != null) {
                 return sym;
@@ -269,12 +278,33 @@ public class Resolver
 
     protected static Symbol first (Scope.Entry e, int kind)
     {
-        for ( ;e != null && e.scope != null; e = e.next()) {
+        for ( ; e != null && e.scope != null; e = e.next()) {
             if (e.sym.kind == kind) {
                 return e.sym;
             }
         }
         return null;
+    }
+
+    protected static List<Symbol> lookupAll (Scope scope, Name name, int kind)
+    {
+        List<Symbol> syms = List.nil();
+        for ( ; scope != Scope.emptyScope && scope != null; scope = scope.next) {
+            syms = all(scope.lookup(name), kind, syms);
+        }
+        return syms;
+    }
+
+    protected static List<Symbol> all (Scope.Entry e, int kind, List<Symbol> syms)
+    {
+        Debug.log("Looking for all " + kind + " in " + Debug.fieldsToString(e));
+        for ( ; e != null && e.scope != null; e = e.next()) {
+            Debug.log("Is match? " + e.sym + "? " + e.sym.kind);
+            if (e.sym.kind == kind) {
+                syms = syms.prepend(e.sym);
+            }
+        }
+        return syms;
     }
 
     protected ClassReader _reader;
