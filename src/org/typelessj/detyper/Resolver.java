@@ -79,6 +79,12 @@ public class Resolver
             return sym;
         }
 
+        // then we check package members (for unqualified references to types in our package)
+        sym = lookup(env.toplevel.packge.members(), name, Kinds.TYP);
+        if (sym != null) {
+            return sym;
+        }
+
         // finally we check star imports
         sym = lookup(env.toplevel.starImportScope, name, Kinds.TYP);
         if (sym != null) {
@@ -159,7 +165,7 @@ public class Resolver
         Name fname = TreeInfo.fullName(expr);
         Symbol type = findType(env, fname);
         if (type instanceof ClassSymbol) {
-            RT.debug("Found type " + type);
+            RT.debug("Found scoped type " + type);
             return (ClassSymbol)type;
         }
 
@@ -175,29 +181,13 @@ public class Resolver
             }
         }
 
-//         // maybe it's an unqualified reference to a class in our same package
-//         Name spname = TreeInfo.fullName(mergeSelects(_env.toplevel.pid, fa));
-//         if (Resolver.findType(_env, spname) != null) {
-//             RT.debug("Found unqualified local type", "name", spname);
-//             return true;
-//         } else {
-//             RT.debug("Alas, not unqualified local type", "name", spname);
-//         }
-
         // or maybe it's just a class we've never seen before
         try {
+            RT.debug("Trying load class " + fname);
             return _reader.loadClass(fname);
         } catch (Symbol.CompletionFailure cfe) {
             // it doesn't exist, fall through
         }
-
-// //         // or maybe it's just a class we've never seen before
-// //         try {
-// //             _reader.loadClass(spname);
-// //             return true;
-// //         } catch (Symbol.CompletionFailure cfe) {
-// //             // it doesn't exist, fall through
-// //         }
 
         return null;
     }
