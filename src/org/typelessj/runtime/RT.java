@@ -16,35 +16,12 @@ import java.util.Map;
 import com.sun.source.tree.Tree;
 
 import com.google.common.collect.ImmutableMap;
-import com.samskivert.util.LogBuilder;
 
 /**
  * Provides dynamic method dispatch, operator evaluation and other bits.
  */
 public class RT
 {
-    /**
-     * Emits a debug message.
-     *
-     * @param args key/value pairs, (e.g. "age", someAge, "size", someSize) which will be appended
-     * to the log message as [age=someAge, size=someSize].
-     */
-    public static void debug (String message, Object... args)
-    {
-        System.out.println(dformat(message, args));
-    }
-
-    /**
-     * Formats a debug message.
-     *
-     * @param args key/value pairs, (e.g. "age", someAge, "size", someSize) which will be appended
-     * to the log message as [age=someAge, size=someSize].
-     */
-    public static String dformat (String message, Object... args)
-    {
-        return new LogBuilder(message, args).toString();
-    }
-
     /**
      * Invokes the constructor of the supplied class, with the specified arguments and returns the
      * newly created instance.
@@ -72,8 +49,8 @@ public class RT
         Constructor<?> ctor = findConstructor(clazz, rargs);
         if (ctor == null) {
             // TODO: if argument mismatch, clarify that
-            throw new NoSuchMethodError(dformat("Can't find constructor for " +
-                                                clazz.getSimpleName(), "args", rargs));
+            throw new NoSuchMethodError(Debug.format("Can't find constructor for " +
+                                                     clazz.getSimpleName(), "args", rargs));
         }
 
         try {

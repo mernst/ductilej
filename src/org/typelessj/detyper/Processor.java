@@ -23,7 +23,7 @@ import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.util.Context;
 
-import org.typelessj.runtime.RT;
+import org.typelessj.runtime.Debug;
 import org.typelessj.util.ASTUtil;
 
 /**
@@ -56,7 +56,7 @@ public class Processor extends AbstractProcessor
         // note our options
         _showclass = "true".equalsIgnoreCase(procenv.getOptions().get(SHOWCLASS_ARG));
 
-        RT.debug("Detyper running", "vers", procenv.getSourceVersion());
+        Debug.log("Detyper running", "vers", procenv.getSourceVersion());
     }
 
     @Override // from AbstractProcessor
@@ -68,11 +68,11 @@ public class Processor extends AbstractProcessor
 
         for (Element elem : roundEnv.getRootElements()) {
             JCCompilationUnit unit = toUnit(elem);
-//             RT.debug("Root elem " + elem, "unit", unit.getClass().getSimpleName(),
-//                      "sym.mems", ASTUtil.expand(unit.packge.members_field.elems.sym));
+//             Debug.log("Root elem " + elem, "unit", unit.getClass().getSimpleName(),
+//                       "sym.mems", ASTUtil.expand(unit.packge.members_field.elems.sym));
             _detype.detype(unit);
             if (_showclass) {
-                RT.debug(""+unit);
+                Debug.log(""+unit);
             }
         }
         return false;

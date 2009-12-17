@@ -29,6 +29,7 @@ import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name; // Name.Table -> Names in OpenJDK
 import com.sun.tools.javac.util.Names;
 
+import org.typelessj.runtime.Debug;
 import org.typelessj.runtime.RT;
 import org.typelessj.runtime.Transformed;
 import org.typelessj.util.ASTUtil;
@@ -71,13 +72,13 @@ public class Detype extends PathedTreeTranslator
     @Override public void visitTopLevel (JCCompilationUnit tree) {
         _tmaker = _rootmaker.forToplevel(tree);
 
-        // RT.debug("Named-import scope", "scope", tree.namedImportScope);
-        // RT.debug("Star-import scope", "scope", tree.starImportScope);
+        // Debug.log("Named-import scope", "scope", tree.namedImportScope);
+        // Debug.log("Star-import scope", "scope", tree.starImportScope);
         super.visitTopLevel(tree);
     }
 
     @Override public void visitClassDef (JCClassDecl tree) {
-        RT.debug("Entering class '" + tree.name + "'", "sym", tree.sym);
+        Debug.log("Entering class '" + tree.name + "'", "sym", tree.sym);
 
         // if we're visiting an anonymous inner class, we have to create a bogus scope as javac
         // does not Enter anonymous inner classes during the normal Enter phase; we currently don't
@@ -112,7 +113,7 @@ public class Detype extends PathedTreeTranslator
         super.visitClassDef(tree);
         _env = oenv;
 
-        RT.debug("Leaving class " + tree.name);
+        Debug.log("Leaving class " + tree.name);
     }
 
     @Override public void visitMethodDef (JCMethodDecl tree) {
@@ -155,7 +156,7 @@ public class Detype extends PathedTreeTranslator
             // they must be primitive constants or Enum values); NOTE: because of that we may want
             // to only avoid detyping static final primitive and Enum fields
             !ASTUtil.isStaticFinal(tree.mods)) {
-//             RT.debug("Transforming vardef", "mods", tree.mods, "name", tree.name,
+//             Debug.log("Transforming vardef", "mods", tree.mods, "name", tree.name,
 //                      "vtype", what(tree.vartype), "init", tree.init,
 //                      "sym", ASTUtil.expand(tree.sym));
             tree.vartype = _tmaker.Ident(_names.fromString("Object"));
@@ -177,7 +178,7 @@ public class Detype extends PathedTreeTranslator
 
         JCLiteral opcode = _tmaker.Literal(TypeTags.CLASS, tree.getKind().toString());
         result = callRT("unop", opcode.pos, opcode, tree.arg);
-        // RT.debug("Rewrote unop", "kind", tree.getKind(), "tp", tree.pos, "ap", opcode.pos);
+        // Debug.log("Rewrote unop", "kind", tree.getKind(), "tp", tree.pos, "ap", opcode.pos);
     }
 
     @Override public void visitBinary (JCBinary tree) {
@@ -185,11 +186,11 @@ public class Detype extends PathedTreeTranslator
 
         JCLiteral opcode = _tmaker.Literal(TypeTags.CLASS, tree.getKind().toString());
         result = callRT("binop", tree.pos, opcode, tree.lhs, tree.rhs);
-        // RT.debug("Rewrote binop", "kind", tree.getKind(), "tp", tree.pos, "ap", opcode.pos);
+        // Debug.log("Rewrote binop", "kind", tree.getKind(), "tp", tree.pos, "ap", opcode.pos);
     }
 
     @Override public void visitNewClass (JCNewClass that) {
-        RT.debug("Class instantiation", "typeargs", that.typeargs, "class", what(that.clazz),
+        Debug.log("Class instantiation", "typeargs", that.typeargs, "class", what(that.clazz),
                  "args", that.args);
 
         // if we see an anonymous inner class declaration, resolve the type of the to-be-created
@@ -200,7 +201,7 @@ public class Detype extends PathedTreeTranslator
                 TreeInfo.fullName(((JCTypeApply)that.clazz).clazz) : TreeInfo.fullName(that.clazz);
             _env.info.anonParent = _resolver.findType(_env, cname);
             if (_env.info.anonParent == null) {
-                RT.debug("Pants! Unable to resolve type of anonymous inner parent", "name", cname);
+                Debug.log("Pants! Unable to resolve type of anonymous inner parent", "name", cname);
             }
 
 // TODO: we don't absolutely need this right now but eventually we'll probably want it
@@ -220,7 +221,6 @@ public class Detype extends PathedTreeTranslator
 //             });
         }
         super.visitNewClass(that);
-        _env.info.anonParent = oanonp;
 
 // TODO: we can't reflectively create anonymous inner classes so maybe we should not detype
 // constructor invocation, but rather directly inject the extra type tag arguments...
@@ -241,16 +241,33 @@ public class Detype extends PathedTreeTranslator
             JCMethodInvocation invoke = callRT("newInstance", that.pos, args);
             invoke.varargsElement = that.varargsElement;
             result = invoke;
+
+        // if the instantiated type is a library class or interface, we need to insert runtime
+        // casts to the the formal parameter types
+        } else {
+            // isLibrary() will return false if anonParent is null (which could happen if we fail
+            // to resolve its type above)
+            if (!that.args.isEmpty() && ASTUtil.isLibrary(_env.info.anonParent)) {
+                // TODO: here's where we'll need partial-type-aware static method resolution magic;
+                // for now we just punt and assume no overloading
+                List<Symbol> ctors = _resolver.findMethods(
+                    _env.info.anonParent.members(), _env.info.anonParent.name);
+                Debug.log("Ctors of " + _env.info.anonParent.name + ": " + ctors +
+                         " (" + _env.info.anonParent.members() + ")");
+            }
         }
+
+        // finally restore our previous anonymous parent
+        _env.info.anonParent = oanonp;
     }
 
     @Override public void visitNewArray (JCNewArray tree) {
         super.visitNewArray(tree);
 
-        RT.debug("Array creation", "expr", tree, "dims", tree.dims, "elems", tree.elems);
+        Debug.log("Array creation", "expr", tree, "dims", tree.dims, "elems", tree.elems);
 
         if (tree.elemtype == null) {
-            RT.debug("Hrm? " + tree);
+            Debug.log("Hrm? " + tree);
             return;
         }
 
@@ -312,16 +329,16 @@ public class Detype extends PathedTreeTranslator
             result = callRT("select", tree.pos,
                             _tmaker.Literal(TypeTags.CLASS, tree.name.toString()),
                             tree.selected);
-            // RT.debug("Transformed select " + tree + " (" + path + ")");
+            // Debug.log("Transformed select " + tree + " (" + path + ")");
         } else {
-            RT.debug("!!! Not xforming select: " + tree + " (" + path + ")");
+            Debug.log("!!! Not xforming select: " + tree + " (" + path + ")");
         }
     }
 
     @Override public void visitApply (JCMethodInvocation tree) {
         super.visitApply(tree);
 
-//             RT.debug("Method invocation", "typeargs", tree.typeargs, "method", what(tree.meth),
+//             Debug.log("Method invocation", "typeargs", tree.typeargs, "method", what(tree.meth),
 //                      "args", tree.args, "varargs", tree.varargsElement);
 
         // transform expr.method(args)
@@ -355,7 +372,7 @@ public class Detype extends PathedTreeTranslator
             // if not whatever type information we have)
             Symbol nsym = _resolver.findMethod(_env, mfid.name);
             if (nsym == null) {
-                RT.debug("!!! Not transforming unresolvable method: " + tree);
+                Debug.log("!!! Not transforming unresolvable method: " + tree);
                 return;
             }
 
@@ -376,12 +393,12 @@ public class Detype extends PathedTreeTranslator
             tree.args = tree.args.prepend(recid).
                 prepend(_tmaker.Literal(TypeTags.CLASS, mfid.toString()));
             tree.meth = mkRT("invoke", mfid.pos);
-//                     RT.debug("Mutated", "typeargs", tree.typeargs, "method", what(tree.meth),
+//                     Debug.log("Mutated", "typeargs", tree.typeargs, "method", what(tree.meth),
 //                              "args", tree.args, "varargs", tree.varargsElement);
 
         // are there other types of invocations?
         } else {
-            RT.debug("Unknown invocation?", "typeargs", tree.typeargs,
+            Debug.log("Unknown invocation?", "typeargs", tree.typeargs,
                      "method", what(tree.meth), "args", tree.args,
                      "varargs", tree.varargsElement);
         }
@@ -492,7 +509,7 @@ public class Detype extends PathedTreeTranslator
 
     protected boolean isStaticReceiver (JCExpression fa)
     {
-        // RT.debug("isStaticReceiver(" + fa + ")");
+        // Debug.log("isStaticReceiver(" + fa + ")");
 
         // if we've already transformed this receiver, it will be a method invocation
         if (!(fa instanceof JCIdent || fa instanceof JCFieldAccess)) {
@@ -519,7 +536,7 @@ public class Detype extends PathedTreeTranslator
             return name == _names._this || (_resolver.findVar(_env, name) != null);
 
         } else {
-            RT.debug("isScopedVar on weird expr: " + expr);
+            Debug.log("isScopedVar on weird expr: " + expr);
             return false;
         }
     }
