@@ -5,6 +5,7 @@ package org.typelessj.tests;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -41,6 +42,14 @@ public class InnerClassTest
         });
         assertEquals(values[0], (Integer)1);
         assertEquals(values[2], (Integer)3);
+    }
+
+    @Test public void testAnonLibraryInst () {
+        int size = 25;
+        Map<Integer,Integer> map = new HashMap<Integer,Integer>(size) {
+        };
+        map.put(5, 10);
+        assertEquals(map.get(5), 10);
     }
 
     // test inner class handling with no enclosing member

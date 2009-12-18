@@ -249,11 +249,16 @@ public class Detype extends PathedTreeTranslator
             // to resolve its type above)
             if (!that.args.isEmpty() && ASTUtil.isLibrary(_env.info.anonParent)) {
                 // TODO: here's where we'll need partial-type-aware static method resolution magic;
-                // for now we just punt and assume no overloading
-                List<Symbol> ctors = _resolver.findMethods(
-                    _env.info.anonParent.members(), _env.info.anonParent.name);
-                Debug.log("Ctors of " + _env.info.anonParent.name + ": " + ctors +
-                         " (" + _env.info.anonParent.members() + ")");
+                // for now we just punt and only handly arity-based overloading
+                List<MethodSymbol> ctors = _resolver.findMethods(
+                    _env.info.anonParent.members(), _names.init);
+                for (MethodSymbol ctor : ctors) {
+                    List<Type> atypes = ctor.type.asMethodType().argtypes;
+                    if (atypes.size() == that.args.size()) {
+                        that.args = castList(atypes, that.args);
+                        break;
+                    }
+                }
             }
         }
 
@@ -272,7 +277,7 @@ public class Detype extends PathedTreeTranslator
         }
 
         // we need to cast the dimension expressions to int
-        tree.dims = castList(Integer.class, tree.dims);
+        tree.dims = castIntList(tree.dims);
 
         JCExpression otype = tree.elemtype;
 // TODO: something funny happens here
@@ -582,13 +587,23 @@ public class Detype extends PathedTreeTranslator
         return setPos(_tmaker.Select(expr, _names._class), pos);
     }
 
-    protected List<JCExpression> castList (Class<?> clazz, List<JCExpression> list)
+    protected List<JCExpression> castIntList (List<JCExpression> list)
     {
         if (list.isEmpty()) {
             return list;
         } else {
-            return castList(clazz, list.tail).prepend(
+            return castIntList(list.tail).prepend(
                 checkedCast(_tmaker.Ident(_names.fromString("Integer")), list.head));
+        }
+    }
+
+    protected List<JCExpression> castList (List<Type> params, List<JCExpression> list)
+    {
+        if (list.isEmpty()) {
+            return list;
+        } else {
+            JCExpression clazz = mkFA(params.head.toString(), list.head.pos);
+            return castList(params.tail, list.tail).prepend(checkedCast(clazz, list.head));
         }
     }
 

@@ -56,9 +56,9 @@ public class Resolver
     /**
      * Returns all methods in the supplied scope that have the specified name.
      */
-    public List<Symbol> findMethods (Scope scope, Name name)
+    public List<MethodSymbol> findMethods (Scope scope, Name name)
     {
-        return lookupAll(scope, name, Kinds.MTH);
+        return lookupAll(scope, name, MethodSymbol.class, Kinds.MTH);
     }
 
     /**
@@ -286,22 +286,22 @@ public class Resolver
         return null;
     }
 
-    protected static List<Symbol> lookupAll (Scope scope, Name name, int kind)
+    protected static <T extends Symbol> List<T> lookupAll (
+        Scope scope, Name name, Class<T> clazz, int kind)
     {
-        List<Symbol> syms = List.nil();
+        List<T> syms = List.nil();
         for ( ; scope != Scope.emptyScope && scope != null; scope = scope.next) {
-            syms = all(scope.lookup(name), kind, syms);
+            syms = all(scope.lookup(name), clazz, kind, syms);
         }
         return syms;
     }
 
-    protected static List<Symbol> all (Scope.Entry e, int kind, List<Symbol> syms)
+    protected static <T extends Symbol> List<T> all (
+        Scope.Entry e, Class<T> clazz, int kind, List<T> syms)
     {
-        Debug.log("Looking for all " + kind + " in " + Debug.fieldsToString(e));
         for ( ; e != null && e.scope != null; e = e.next()) {
-            Debug.log("Is match? " + e.sym + "? " + e.sym.kind);
             if (e.sym.kind == kind) {
-                syms = syms.prepend(e.sym);
+                syms = syms.prepend(clazz.cast(e.sym));
             }
         }
         return syms;

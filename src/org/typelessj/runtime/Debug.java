@@ -45,25 +45,57 @@ public class Debug
             return "[null]";
         }
 
-        Class<?> clazz = object.getClass();
         StringBuilder buf = new StringBuilder("[");
         int written = 0;
-        for (Field field : clazz.getFields()) {
-            int mods = field.getModifiers();
-            if ((mods & Modifier.STATIC) != 0) {
-                continue; // we only want non-static fields
+        Class<?> clazz = object.getClass();
+        while (clazz != null) {
+            for (Field field : clazz.getDeclaredFields()) {
+                int mods = field.getModifiers();
+                if ((mods & Modifier.STATIC) != 0) {
+                    continue; // we only want non-static fields
+                }
+                if (written > 0) {
+                    buf.append(", ");
+                }
+                buf.append(field.getName()).append("=");
+                try {
+                    field.setAccessible(true);
+                    buf.append(field.get(object));
+                } catch (Exception e) {
+                    buf.append("<error: " + e + ">");
+                }
+                written++;
             }
-            if (written > 0) {
-                buf.append(", ");
-            }
-            buf.append(field.getName()).append("=");
-            try {
-                buf.append(field.get(object));
-            } catch (Exception e) {
-                buf.append("<error: " + e + ">");
-            }
-            written++;
+            clazz = clazz.getSuperclass();
         }
         return buf.append("]").toString();
+    }
+
+    /**
+     * Forcibly extracts the named field from the supplied object. For circumventing protected and
+     * private access control when debugging.
+     */
+    public static Object get (Object obj, String field)
+    {
+        Field f = getField(obj.getClass(), field);
+        try {
+            f.setAccessible(true);
+            return f.get(obj);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to get " + field + " of " + obj, e);
+        }
+    }
+
+    public static Field getField (Class<?> clazz, String fname)
+    {
+        if (clazz == null) {
+            return null;
+        }
+        for (Field field : clazz.getDeclaredFields()) {
+            if (field.getName().equals(fname)) {
+                return field;
+            }
+        }
+        return getField(clazz.getSuperclass(), fname);
     }
 }
