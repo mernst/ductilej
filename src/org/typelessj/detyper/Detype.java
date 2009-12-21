@@ -5,6 +5,7 @@ package org.typelessj.detyper;
 
 import java.util.Set;
 
+import com.sun.source.tree.Tree;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Scope;
@@ -177,9 +178,33 @@ public class Detype extends PathedTreeTranslator
     @Override public void visitUnary (JCUnary tree) {
         super.visitUnary(tree);
 
-        JCLiteral opcode = _tmaker.Literal(TypeTags.CLASS, tree.getKind().toString());
-        result = callRT("unop", opcode.pos, opcode, tree.arg);
-        // Debug.log("Rewrote unop", "kind", tree.getKind(), "tp", tree.pos, "ap", opcode.pos);
+        JCExpression expr;
+        JCLiteral one = _tmaker.Literal(TypeTags.INT, 1);
+        switch (tree.getKind()) {
+        case PREFIX_INCREMENT:  // ++i -> (i = i + 1)
+        case POSTFIX_INCREMENT: // i++ -> ((i = i + 1) - 1)
+            expr = _tmaker.Assign(tree.arg, binop(tree.pos, Tree.Kind.PLUS, tree.arg, one));
+            if (tree.getKind() == Tree.Kind.POSTFIX_INCREMENT) {
+                expr = binop(tree.pos, Tree.Kind.MINUS, expr, one);
+            }
+            break;
+
+        case PREFIX_DECREMENT:  // --i -> (i = i - 1)
+        case POSTFIX_DECREMENT: // i-- -> ((i = i - 1) + 1)
+            expr = _tmaker.Assign(tree.arg, binop(tree.pos, Tree.Kind.MINUS, tree.arg,
+                                                  _tmaker.Literal(TypeTags.INT, 1)));
+            if (tree.getKind() == Tree.Kind.POSTFIX_DECREMENT) {
+                expr = binop(tree.pos, Tree.Kind.PLUS, expr, one);
+            }
+            break;
+
+        default:
+            expr = unop(tree.pos, tree.getKind(), tree.arg);
+            break;
+        }
+
+        // Debug.log("Rewrote unop: " + tree + " -> " + expr);
+        result = expr;
     }
 
     @Override public void visitBinary (JCBinary tree) {
@@ -555,6 +580,18 @@ public class Detype extends PathedTreeTranslator
     protected boolean inStatic () {
         return (_env.enclMethod == null) ||
             (_env.enclMethod.mods != null && (_env.enclMethod.mods.flags & Flags.STATIC) != 0);
+    }
+
+    protected JCMethodInvocation unop (int pos, Tree.Kind op, JCExpression arg)
+    {
+        JCLiteral opcode = _tmaker.at(pos).Literal(TypeTags.CLASS, op.toString());
+        return callRT("unop", opcode.pos, opcode, arg);
+    }
+
+    protected JCMethodInvocation binop (int pos, Tree.Kind op, JCExpression lhs, JCExpression rhs)
+    {
+        JCLiteral opcode = _tmaker.at(pos).Literal(TypeTags.CLASS, op.toString());
+        return callRT("binop", opcode.pos, opcode, lhs, rhs);
     }
 
     protected JCExpression checkedCast (JCExpression clazz, JCExpression expr) {
