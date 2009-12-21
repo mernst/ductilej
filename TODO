@@ -37,14 +37,12 @@ when assigning to them which will probably be difficult.
 interface method implementation, which we don't want
 
 Detyper
+- Handle field selection in lvalue position (i.e. foo.bar += baz)
 - See if we can add an import for org.typelessj.runtime.RT to avoid verbose dumps
 - Handle statically imported fields (Log.log)
 - Need to handle SomeClass.foo.bar in visitSelect()
-- Convert postfix incr/decr into (v = (e = e + 1) - 1)
 - Handle array initialization expressions (new int[] { 1, 2, 3, 4})
 - Insert cast to proper return type for overridden library methods
-- Insert cast to formal parameter type when instantiating anonymous inner
-library class
 - Casting array dimension exprs to Integer isn't sufficient, they might
 (validly) be a Long (or other integer type) which we need to coerce
 - Implement signature mangling
