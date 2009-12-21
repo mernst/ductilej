@@ -231,6 +231,10 @@ public class Resolver
 
         // maybe the whole thing names a type in scope
         Name fname = TreeInfo.fullName(expr);
+        if (fname == null) {
+            Debug.log("!!! Asked to resolve as type expr with no name?", "expr", expr);
+            return null;
+        }
         Symbol type = findType(env, fname);
         if (type instanceof ClassSymbol) {
             // Debug.log("Found scoped type " + type);
