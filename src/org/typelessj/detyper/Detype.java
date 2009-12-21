@@ -143,7 +143,8 @@ public class Detype extends PathedTreeTranslator
         if (_env.tree.getTag() != JCTree.CLASSDEF) {
             // create a placeholder VarSymbol for this variable so that we can use it later
             // during some simple name resolution
-            _env.info.scope.enter(new VarSymbol(0, tree.name, null, _env.info.scope.owner));
+            Type vtype = _resolver.resolveAsType(_env, tree.vartype);
+            _env.info.scope.enter(new VarSymbol(0, tree.name, vtype, _env.info.scope.owner));
         }
 
         // overriding method
@@ -248,16 +249,13 @@ public class Detype extends PathedTreeTranslator
             // isLibrary() will return false if anonParent is null (which could happen if we fail
             // to resolve its type above)
             if (!that.args.isEmpty() && ASTUtil.isLibrary(_env.info.anonParent)) {
-                // TODO: here's where we'll need partial-type-aware static method resolution magic;
-                // for now we just punt and only handly arity-based overloading
                 List<MethodSymbol> ctors = _resolver.findMethods(
                     _env.info.anonParent.members(), _names.init);
-                for (MethodSymbol ctor : ctors) {
-                    List<Type> atypes = ctor.type.asMethodType().argtypes;
-                    if (atypes.size() == that.args.size()) {
-                        that.args = castList(atypes, that.args);
-                        break;
-                    }
+                MethodSymbol best = _resolver.pickMethod(_env, ctors, that.args);
+                if (best != null) {
+                    that.args = castList(best.type.asMethodType().argtypes, that.args);
+                } else {
+                    Debug.log("Unable to resolve overload", "ctors", ctors, "args", that.args);
                 }
             }
         }
@@ -336,7 +334,7 @@ public class Detype extends PathedTreeTranslator
                             tree.selected);
             // Debug.log("Transformed select " + tree + " (" + path + ")");
         } else {
-            Debug.log("!!! Not xforming select: " + tree + " (" + path + ")");
+            Debug.log("Not xforming select: " + tree + " (" + path + ")");
         }
     }
 
@@ -410,14 +408,21 @@ public class Detype extends PathedTreeTranslator
     }
 
     @Override public void visitSwitch (JCSwitch tree) {
-        super.visitSwitch(tree);
-
         // we need to determine the static type of the selector and cast back to that to avoid a
         // complex transformation of switch into an equivalent set of if statements nested inside a
         // one loop for loop (to preserve break semantics)
-        String clazz = _resolver.resolveType(_env, tree.selector);
-        if (clazz != null) {
-            tree.selector = checkedCast(mkFA(clazz, tree.selector.pos), tree.selector);
+        Type type = _resolver.resolveType(_env, tree.selector);
+        if (type == null) {
+            Debug.log("!!! Can't resolve type for switch " + tree.selector);
+        }
+
+        // we have to look up the type *before* we transform the switch expression
+        super.visitSwitch(tree);
+
+        // we have to apply our checked cast *after* we transform the switch expression
+        if (type != null) {
+            // type.toString() gives us back a source representation of the type
+            tree.selector = checkedCast(mkFA(type.toString(), tree.selector.pos), tree.selector);
         }
     }
 
@@ -501,6 +506,7 @@ public class Detype extends PathedTreeTranslator
         // is a library class or not; this is not strictly correct, but strict correctness is going
         // to be a huge pile of trouble that we want to make sure is worth it first
         if (_env.info.anonParent != null) {
+            Debug.log("Checking anon parent " + _env.info.anonParent);
             // TODO: is this going to think an inner-class/interface defined in this class but not
             // yet processed by the detyper is in fact a library class/interface? sigh...
             return ASTUtil.isLibrary(_env.info.anonParent);
