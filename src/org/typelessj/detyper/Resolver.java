@@ -7,9 +7,12 @@ import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.jvm.ClassReader;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.util.Context;
@@ -59,6 +62,23 @@ public class Resolver
     public List<MethodSymbol> findMethods (Scope scope, Name name)
     {
         return lookupAll(scope, name, MethodSymbol.class, Kinds.MTH);
+    }
+
+    /**
+     * Selects the closest matching method from the supplied list of overloaded methods given the
+     * supplied actual argument expressions. Currently only handles arity overloading, in the
+     * future the giant pile of effort will be expended to make it handle type-based overloading
+     * with partial type information.
+     */
+    public MethodSymbol pickMethod (Env<DetypeContext> env, List<MethodSymbol> mths,
+                                    List<JCExpression> args)
+    {
+        for (MethodSymbol mth : mths) {
+            if (mth.type.asMethodType().argtypes.size() == args.size()) {
+                return mth;
+            }
+        }
+        return null;
     }
 
     /**
@@ -118,45 +138,79 @@ public class Resolver
     }
 
     /**
-     * Returns the type of the supplied expression as a string, like "int" or "String" or
-     * "foo.bar.Baz".
+     * Returns the symbol representing the type of the supplied expression. Currently handles bare
+     * identifiers (variables), field access, and return types of method invocation.
      */
-    public String resolveType (Env<DetypeContext> env, JCExpression expr)
+    public Type resolveType (Env<DetypeContext> env, JCExpression expr)
     {
-        if (expr instanceof JCIdent) {
+        switch (expr.getTag()) {
+        case JCTree.IDENT: {
             Name name = ((JCIdent)expr).name;
             Symbol sym = findVar(env, name);
             if (sym.type != null) {
-                if (!(sym.type instanceof Type.ClassType)) {
-                    Debug.log("Aiya, have funny type", "expr", expr, "sym", sym, "type", sym.type);
-                    return null;
-                }
-                Debug.log("Found type, now what?", "expr", expr, "sym", sym, "type", sym.type);
-                return null;
-
-            } else {
-                if (sym.owner instanceof MethodSymbol) {
-                    MethodSymbol msym = (MethodSymbol)sym.owner;
-                    Type.MethodType mtype = msym.type.asMethodType();
-                    int idx = 0;
-                    for (VarSymbol vsym : msym.params) {
-                        if (vsym.name == name) {
-                            // hack: rely on the Type's toString() method to do what we want
-                            return ""+mtype.argtypes.get(idx);
-                        }
-                        idx++;
-                    }
-                    Debug.log("Missed formal parameter in arglist?", "expr", expr, "msym", msym);
-                    return null;
-
-                } else {
-                    Debug.log("Is not formal parameter", "expr", expr, "sym.owner", sym.owner);
-                    return null;
-                }
+                return sym.type; // it's got a type, let's use it!
             }
 
-        } else {
-            Debug.log("Can't handle non-idents", "expr", expr);
+            // it may be a method formal parameter, in which case we have to dig deeper
+            if (sym.owner instanceof MethodSymbol) {
+                MethodSymbol msym = (MethodSymbol)sym.owner;
+                Type.MethodType mtype = msym.type.asMethodType();
+                int idx = 0;
+                for (VarSymbol vsym : msym.params) {
+                    if (vsym.name == name) {
+                        return mtype.argtypes.get(idx);
+                    }
+                    idx++;
+                }
+                Debug.log("Missed formal parameter in arglist?", "expr", expr, "msym", msym);
+                return null;
+            }
+            Debug.log("Can't resolveType() of expr", "expr", expr, "sym.owner", sym.owner);
+            return null;
+        }
+
+        case JCTree.SELECT: {
+            Type type = resolveType(env, ((JCFieldAccess)expr).selected);
+            return lookup(((ClassSymbol)type.tsym).members_field,
+                          ((JCFieldAccess)expr).name, Kinds.VAR).type;
+        }
+
+        case JCTree.APPLY: {
+            JCMethodInvocation mexpr = (JCMethodInvocation)expr;
+            Scope scope;
+            switch (mexpr.meth.getTag()) {
+            case JCTree.IDENT:
+                scope = env.info.scope;
+                break;
+            case JCTree.SELECT:
+                Type rtype = resolveType(env, ((JCFieldAccess)mexpr.meth).selected);
+                if (rtype == null) {
+                    Debug.log("Can't resolve receiver type", "expr", expr);
+                    return null;
+                }
+                scope = ((ClassSymbol)rtype.tsym).members_field;
+                break;
+            default:
+                Debug.log("Method not ident or select?", "expr", expr);
+                return null;
+            }
+
+            Name mname = TreeInfo.name(mexpr.meth);
+            List<MethodSymbol> mths = findMethods(scope, mname);
+            MethodSymbol best = pickMethod(env, mths, mexpr.args);
+            if (best == null) {
+                Debug.log("Unable to resolve overload", "expr", mexpr);
+                return null;
+            } else if (best.type == null) {
+                Debug.log("Resolved method has no type information", "mth", best);
+                return null;
+            } else {
+                return best.type.asMethodType().restype;
+            }
+        }
+
+        default:
+            Debug.log("Can't resolveType() of expr", "tag", expr.getTag(), "expr", expr);
             return null;
         }
     }
@@ -168,32 +222,37 @@ public class Resolver
      *
      * <p> Note: this may or may not do anything sensible if used on type variables. Don't do that.
      */
-    public ClassSymbol resolveAsType (Env<DetypeContext> env, JCExpression expr)
+    public Type resolveAsType (Env<DetypeContext> env, JCExpression expr)
     {
+        // if this is a primitive type, return its predef type
+        if (expr.getTag() == JCTree.TYPEIDENT) {
+            return _syms.typeOfTag[((JCPrimitiveTypeTree)expr).typetag];
+        }
+
         // maybe the whole thing names a type in scope
         Name fname = TreeInfo.fullName(expr);
         Symbol type = findType(env, fname);
         if (type instanceof ClassSymbol) {
-            Debug.log("Found scoped type " + type);
-            return (ClassSymbol)type;
+            // Debug.log("Found scoped type " + type);
+            return ((ClassSymbol)type).type;
         }
 
         // maybe the selection is a class and the selectee is a member class
-        if (expr instanceof JCFieldAccess) {
+        if (expr.getTag() == JCTree.SELECT) {
             JCFieldAccess fa = (JCFieldAccess)expr;
             Name sname = TreeInfo.fullName(fa.selected);
             type = findType(env, sname);
             if (type instanceof ClassSymbol) {
                 Symbol mtype = findMemberType(env, fa.name, (ClassSymbol)type);
-                Debug.log("Found member type " + mtype);
-                return (mtype instanceof ClassSymbol) ? (ClassSymbol)mtype : null;
+                // Debug.log("Found member type " + mtype);
+                return (mtype instanceof ClassSymbol) ? ((ClassSymbol)mtype).type : null;
             }
         }
 
         // or maybe it's just a class we've never seen before
         try {
             Debug.log("Trying load class " + fname);
-            return _reader.loadClass(fname);
+            return _reader.loadClass(fname).type;
         } catch (Symbol.CompletionFailure cfe) {
             // it doesn't exist, fall through
         }
@@ -205,6 +264,8 @@ public class Resolver
     {
         ctx.put(RESOLVER_KEY, this);
         _reader = ClassReader.instance(ctx);
+        _types = Types.instance(ctx);
+        _syms = Symtab.instance(ctx);
     }
 
     protected Symbol findMemberType (Env<DetypeContext> env, Name name, TypeSymbol c)
@@ -308,6 +369,8 @@ public class Resolver
     }
 
     protected ClassReader _reader;
+    protected Types _types;
+    protected Symtab _syms;
 
     protected static final Context.Key<Resolver> RESOLVER_KEY = new Context.Key<Resolver>();
 }
