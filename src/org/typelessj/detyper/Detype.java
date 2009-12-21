@@ -215,6 +215,17 @@ public class Detype extends PathedTreeTranslator
         // Debug.log("Rewrote binop", "kind", tree.getKind(), "tp", tree.pos, "ap", opcode.pos);
     }
 
+    @Override public void visitAssignop (JCAssignOp tree) {
+        super.visitAssignop(tree);
+
+        // TODO: this a problem wrt evaluating the LHS more than once, we probably need to do
+        // something painfully complicated
+        JCExpression bop = _tmaker.Binary(tree.getTag() - JCTree.ASGOffset, tree.lhs, tree.rhs);
+        bop = binop(tree.pos, bop.getKind(), tree.lhs, tree.rhs);
+        result = _tmaker.at(tree.pos).Assign(tree.lhs, bop);
+        // Debug.log("Rewrote assignop", "kind", tree.getKind(), "into", result);
+    }
+
     @Override public void visitNewClass (JCNewClass that) {
         Debug.log("Class instantiation", "typeargs", that.typeargs, "class", what(that.clazz),
                  "args", that.args);
