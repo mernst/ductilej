@@ -18,8 +18,7 @@ public class AssignTest
         }
     }
 
-    @Test
-    public void assignTest ()
+    @Test public void assignTest ()
     {
         int ivalue = 42;
         assertTrue(ivalue == 42);
