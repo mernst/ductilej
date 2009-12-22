@@ -476,11 +476,28 @@ public class Detype extends PathedTreeTranslator
         tree.cond = callRT("asBoolean", tree.cond.pos, tree.cond);
     }
 
+    @Override public void visitDoLoop (JCDoWhileLoop tree) {
+        super.visitDoLoop(tree);
+
+        // we need to cast the while expression to boolean
+        tree.cond = callRT("asBoolean", tree.cond.pos, tree.cond);
+    }
+
+    @Override public void visitWhileLoop (JCWhileLoop tree) {
+        super.visitWhileLoop(tree);
+
+        // we need to cast the while expression to boolean
+        tree.cond = callRT("asBoolean", tree.cond.pos, tree.cond);
+    }
+
     @Override public void visitForLoop (JCForLoop tree) {
         super.visitForLoop(tree);
 
-        // we need to cast the for condition expression to boolean
-        tree.cond = callRT("asBoolean", tree.cond.pos, tree.cond);
+        // "for (;;)" will have null condition
+        if (tree.cond != null) {
+            // we need to cast the for condition expression to boolean
+            tree.cond = callRT("asBoolean", tree.cond.pos, tree.cond);
+        }
     }
 
     @Override public void visitForeachLoop (JCEnhancedForLoop tree) {
