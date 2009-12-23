@@ -22,6 +22,7 @@ import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
 
+import org.typelessj.runtime.Debug;
 import org.typelessj.runtime.Transformed;
 
 /**
@@ -63,8 +64,10 @@ public class ASTUtil
     public static boolean isLibrary (Symbol sym)
     {
         if (sym == null) {
+            Debug.log("Asked for isLibrary on null-symbol...");
             return false; // TODO: under what circumstances are we supplied with a null symbol?
         }
+
         if (!(sym instanceof Symbol.ClassSymbol)) {
             // TODO: this is assuming that if the containing class of an inner class is
             // transformed, then every inner class therein is transformed; this may or may not be
@@ -74,6 +77,16 @@ public class ASTUtil
         Symbol.ClassSymbol csym = (Symbol.ClassSymbol)sym;
         if (csym.fullname == null) { // we're an anonymous inner class
             return isLibrary(sym.outermostClass());
+        }
+
+        // if we're currently compiling this class from source, it's not a library; we need to make
+        // this check because we may ask about a class that's involved in this compile and which
+        // will be processed after the class that needs to know whether it's a library, so it will
+        // not already have the @Transformed annotation; this allows us to avoid doing things in
+        // two passes, where we first tag everything with @Transformed and then go through and
+        // transform everything
+        if (csym.classfile.toString().endsWith(".java")) {
+            return false;
         }
 
         // check whether the class that defines this symbol has the @Transformed annotation
