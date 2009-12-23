@@ -85,7 +85,7 @@ public class ASTUtil
         // not already have the @Transformed annotation; this allows us to avoid doing things in
         // two passes, where we first tag everything with @Transformed and then go through and
         // transform everything
-        if (csym.classfile.toString().endsWith(".java")) {
+        if (csym.classfile == null || csym.classfile.toString().endsWith(".java")) {
             return false;
         }
 
