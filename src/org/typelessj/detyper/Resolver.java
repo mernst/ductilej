@@ -39,6 +39,14 @@ public class Resolver
     }
 
     /**
+     * Returns all methods in the supplied scope that have the specified name.
+     */
+    public List<MethodSymbol> lookupMethods (Scope scope, Name name)
+    {
+        return lookupAll(scope, name, MethodSymbol.class, Kinds.MTH);
+    }
+
+    /**
      * Locates the closest variable symbol in the supplied context with the specified name.
      * Returns null if no match is found.
      */
@@ -54,14 +62,6 @@ public class Resolver
     public Symbol findMethod (Env<DetypeContext> env, Name name)
     {
         return find(env, name, Kinds.MTH);
-    }
-
-    /**
-     * Returns all methods in the supplied scope that have the specified name.
-     */
-    public List<MethodSymbol> findMethods (Scope scope, Name name)
-    {
-        return lookupAll(scope, name, MethodSymbol.class, Kinds.MTH);
     }
 
     /**
@@ -138,6 +138,49 @@ public class Resolver
     }
 
     /**
+     * Resolves the supplied method invocation into a symbol using information in the supplied
+     * context. Performs static resolution to choose between overloaded candidates.
+     */
+    public MethodSymbol resolveMethod (Env<DetypeContext> env, JCMethodInvocation mexpr)
+    {
+        Scope scope;
+        switch (mexpr.meth.getTag()) {
+        case JCTree.IDENT:
+            scope = env.info.scope;
+            break;
+        case JCTree.SELECT:
+            Debug.log("Finding type of receiver", "expr", ((JCFieldAccess)mexpr.meth).selected);
+            Type rtype = resolveType(env, ((JCFieldAccess)mexpr.meth).selected);
+            if (rtype == null) {
+                // if the selectee is not a variable in scope, maybe it's a type name
+                rtype = resolveAsType(env, ((JCFieldAccess)mexpr.meth).selected);
+            }
+            if (rtype == null) {
+                Debug.log("Can't resolve receiver type", "expr", mexpr);
+                return null;
+            }
+            scope = ((ClassSymbol)rtype.tsym).members_field;
+            break;
+        default:
+            Debug.log("Method not ident or select?", "expr", mexpr);
+            return null;
+        }
+
+        Name mname = TreeInfo.name(mexpr.meth);
+        List<MethodSymbol> mths = lookupMethods(scope, mname);
+        MethodSymbol best = pickMethod(env, mths, mexpr.args);
+        if (best == null) {
+            Debug.log("Unable to resolve overload", "expr", mexpr, "scope", (scope == null) ? null : scope.owner, "mths", mths);
+            return null;
+        } else if (best.type == null) {
+            Debug.log("Resolved method has no type information", "mth", best);
+            return null;
+        } else {
+            return best;
+        }
+    }
+
+    /**
      * Returns the symbol representing the type of the supplied expression. Currently handles bare
      * identifiers (variables), field access, and return types of method invocation.
      */
@@ -147,6 +190,9 @@ public class Resolver
         case JCTree.IDENT: {
             Name name = ((JCIdent)expr).name;
             Symbol sym = findVar(env, name);
+            if (sym == null) {
+                return null; // no variable in scope with that name
+            }
             if (sym.type != null) {
                 return sym.type; // it's got a type, let's use it!
             }
@@ -171,42 +217,13 @@ public class Resolver
 
         case JCTree.SELECT: {
             Type type = resolveType(env, ((JCFieldAccess)expr).selected);
-            return lookup(((ClassSymbol)type.tsym).members_field,
-                          ((JCFieldAccess)expr).name, Kinds.VAR).type;
+            return (type == null) ? null : lookup(((ClassSymbol)type.tsym).members_field,
+                                                  ((JCFieldAccess)expr).name, Kinds.VAR).type;
         }
 
         case JCTree.APPLY: {
-            JCMethodInvocation mexpr = (JCMethodInvocation)expr;
-            Scope scope;
-            switch (mexpr.meth.getTag()) {
-            case JCTree.IDENT:
-                scope = env.info.scope;
-                break;
-            case JCTree.SELECT:
-                Type rtype = resolveType(env, ((JCFieldAccess)mexpr.meth).selected);
-                if (rtype == null) {
-                    Debug.log("Can't resolve receiver type", "expr", expr);
-                    return null;
-                }
-                scope = ((ClassSymbol)rtype.tsym).members_field;
-                break;
-            default:
-                Debug.log("Method not ident or select?", "expr", expr);
-                return null;
-            }
-
-            Name mname = TreeInfo.name(mexpr.meth);
-            List<MethodSymbol> mths = findMethods(scope, mname);
-            MethodSymbol best = pickMethod(env, mths, mexpr.args);
-            if (best == null) {
-                Debug.log("Unable to resolve overload", "expr", mexpr);
-                return null;
-            } else if (best.type == null) {
-                Debug.log("Resolved method has no type information", "mth", best);
-                return null;
-            } else {
-                return best.type.asMethodType().restype;
-            }
+            MethodSymbol msym = resolveMethod(env, (JCMethodInvocation)expr);
+            return (msym == null) ? null : msym.type.asMethodType().restype;
         }
 
         default:
@@ -232,6 +249,7 @@ public class Resolver
         // maybe the whole thing names a type in scope
         Name fname = TreeInfo.fullName(expr);
         if (fname == null) {
+            // TODO: LHS may be an array select expression
             Debug.log("!!! Asked to resolve as type expr with no name?", "expr", expr);
             return null;
         }
