@@ -39,7 +39,9 @@ public class Resolver
     }
 
     /**
-     * Returns all methods in the supplied scope that have the specified name.
+     * Returns all methods in the supplied scope that have the specified name. You probably don't
+     * want to be using this, you want {@link #resolveMethod}. This doesn't climb up the type
+     * hierarchy checking parent classes or anything useful.
      */
     public List<MethodSymbol> lookupMethods (Scope scope, Name name)
     {
@@ -170,7 +172,59 @@ public class Resolver
         List<MethodSymbol> mths = lookupMethods(scope, mname);
         MethodSymbol best = pickMethod(env, mths, mexpr.args);
         if (best == null) {
-            Debug.log("Unable to resolve overload", "expr", mexpr, "scope", (scope == null) ? null : scope.owner, "mths", mths);
+            Debug.log("Unable to resolve overload", "expr", mexpr, "mths", mths);
+            return null;
+        } else if (best.type == null) {
+            Debug.log("Resolved method has no type information", "mth", best);
+            return null;
+        } else {
+            return best;
+        }
+    }
+
+    /**
+     * Resolves the supplied method invocation into a symbol using information in the supplied
+     * context. Performs static resolution to choose between overloaded candidates.
+     */
+    public MethodSymbol resolveMethodProper (Env<DetypeContext> env, JCMethodInvocation mexpr)
+    {
+        ClassSymbol csym;
+        switch (mexpr.meth.getTag()) {
+        case JCTree.IDENT:
+            csym = env.enclClass.sym; // TODO: we need to create a ClassSymbol while processing
+                                      // inner classes and stuff it into enclClass.sym, then clear
+                                      // it out again later; then we need to be careful not to use
+                                      // Types.closure()
+            break;
+        case JCTree.SELECT:
+            Debug.log("Finding type of receiver", "expr", ((JCFieldAccess)mexpr.meth).selected);
+            Type rtype = resolveType(env, ((JCFieldAccess)mexpr.meth).selected);
+            if (rtype == null) {
+                // if the selectee is not a variable in scope, maybe it's a type name
+                rtype = resolveAsType(env, ((JCFieldAccess)mexpr.meth).selected);
+            }
+            if (rtype == null) {
+                Debug.log("Can't resolve receiver type", "expr", mexpr);
+                return null;
+            }
+            csym = ((ClassSymbol)rtype.tsym);
+            break;
+        default:
+            Debug.log("Method not ident or select?", "expr", mexpr);
+            return null;
+        }
+
+        // aaaaaaaaaaahhhhhhhhhhhhhhhhh! this is insanely complex, this isn't going to work either
+        Name mname = TreeInfo.name(mexpr.meth);
+        List<MethodSymbol> mths = List.nil();
+        for (Type type : _types.closure(csym.type)) {
+            Scope scope = csym.members_field;
+            mths.appendList(lookupMethods(scope, mname));
+        }
+
+        MethodSymbol best = pickMethod(env, mths, mexpr.args);
+        if (best == null) {
+            Debug.log("Unable to resolve overload", "expr", mexpr, "mths", mths);
             return null;
         } else if (best.type == null) {
             Debug.log("Resolved method has no type information", "mth", best);
