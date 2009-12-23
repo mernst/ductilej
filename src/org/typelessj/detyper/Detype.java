@@ -559,10 +559,12 @@ public class Detype extends PathedTreeTranslator
         // is a library class or not; this is not strictly correct, but strict correctness is going
         // to be a huge pile of trouble that we want to make sure is worth it first
         if (_env.info.anonParent != null) {
-            Debug.log("Checking anon parent " + _env.info.anonParent);
-            // TODO: is this going to think an inner-class/interface defined in this class but not
-            // yet processed by the detyper is in fact a library class/interface? sigh...
             return ASTUtil.isLibrary(_env.info.anonParent);
+        }
+
+        // if we're not in a method, we can't be in a library overrider
+        if (_env.enclMethod == null) {
+            return false;
         }
 
         // TODO: make this more correct: only match public static methods named 'main' with a
