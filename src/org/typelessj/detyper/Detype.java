@@ -285,7 +285,7 @@ public class Detype extends PathedTreeTranslator
             // isLibrary() will return false if anonParent is null (which could happen if we fail
             // to resolve its type above)
             if (!that.args.isEmpty() && ASTUtil.isLibrary(_env.info.anonParent)) {
-                List<MethodSymbol> ctors = _resolver.findMethods(
+                List<MethodSymbol> ctors = _resolver.lookupMethods(
                     _env.info.anonParent.members(), _names.init);
                 MethodSymbol best = _resolver.pickMethod(_env, ctors, that.args);
                 if (best != null) {
@@ -375,10 +375,14 @@ public class Detype extends PathedTreeTranslator
     }
 
     @Override public void visitApply (JCMethodInvocation tree) {
-        super.visitApply(tree);
+//         Debug.log("Method invocation", "typeargs", tree.typeargs, "method", what(tree.meth),
+//                   "args", tree.args, "varargs", tree.varargsElement);
 
-//             Debug.log("Method invocation", "typeargs", tree.typeargs, "method", what(tree.meth),
-//                      "args", tree.args, "varargs", tree.varargsElement);
+// TODO: if we get this working properly, everything below becomes vastly simplified
+//         MethodSymbol msym = _resolver.resolveMethod(_env, tree);
+//         Debug.log("Method invoke " + tree + " -> " + msym);
+
+        super.visitApply(tree);
 
         // transform expr.method(args)
         if (tree.meth instanceof JCFieldAccess) {
@@ -505,6 +509,13 @@ public class Detype extends PathedTreeTranslator
 
         // rewrite the foreach loop as: foreach (iter : RT.asIterable(expr))
         tree.expr = callRT("asIterable", tree.expr.pos, tree.expr);
+    }
+
+    @Override public void visitTry (JCTry tree) {
+        super.visitTry(tree);
+
+        // TODO: for each catch, insert an inner try/catch that catches WrappedException,
+        // dynamically checks whether it's the caught type and casts and rethrows if so
     }
 
     @Override public void visitIndexed (JCArrayAccess tree) {
