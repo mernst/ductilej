@@ -35,6 +35,9 @@ when assigning to them which will probably be difficult.
 - We need to remove "implements FooInterface" from detyped class declarations
 (for non-library interface) otherwise javac will freak out if we omit an
 interface method implementation, which we don't want
+- Need to do the "right" thing with == (assuming there is a right thing),
+i.e. if == is called on boxed integers, we need to unbox and compare, but ==
+called on one or two references should compare references.
 
 Detyper
 - Handle field selection in lvalue position (i.e. foo.bar += baz)
