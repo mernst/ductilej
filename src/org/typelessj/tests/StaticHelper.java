@@ -14,7 +14,13 @@ public class StaticHelper
         public static int innerHelp (int value) {
             return value + 24;
         }
+
+        public int triple (int value) {
+            return value * 3;
+        }
     }
+
+    public static final Inner inner = new Inner();
 
     public static int help (int value)
     {

@@ -18,7 +18,7 @@ public class SelectTest
         assertTrue(toValue(19).value == 19);
         // SelectTest.Value shouldn't be transformed, expr.value should
         assertTrue(new SelectTest.Value(180).value == 180);
-        // since SelectTest.Value is a viz class name, expr.theAnswer is not xformed
+        // since SelectTest.Value is a class name, expr.theAnswer is not xformed
         assertTrue(SelectTest.Value.theAnswer == 42);
     }
 
