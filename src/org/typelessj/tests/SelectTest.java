@@ -11,6 +11,8 @@ import static org.junit.Assert.*;
  */
 public class SelectTest
 {
+    public static final Value twofour = new Value(24);
+
     @Test public void testSelect ()
     {
         Value five = new Value(5);
@@ -20,6 +22,8 @@ public class SelectTest
         assertTrue(new SelectTest.Value(180).value == 180);
         // since SelectTest.Value is a class name, expr.theAnswer is not xformed
         assertTrue(SelectTest.Value.theAnswer == 42);
+        // SelectTest.twofour should not be transformed, expr.value should
+        assertTrue(SelectTest.twofour.value == 24);
     }
 
     protected Value toValue (int value)
