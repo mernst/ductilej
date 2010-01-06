@@ -81,20 +81,9 @@ public class Detype extends PathedTreeTranslator
     @Override public void visitClassDef (JCClassDecl tree) {
         Debug.log("Entering class '" + tree.name + "'", "sym", tree.sym);
 
-        // if we're visiting an anonymous inner class, we have to create a bogus scope as javac
-        // does not Enter anonymous inner classes during the normal Enter phase; we currently don't
-        // end up using this scope because ASTUtil.isLibraryOverrider requires substantially more
-        // context to be in place than we want to set up manually (and Types.closure() caches class
-        // symbols which we wouldn't want it to do with the fake ClassSymbol we need to create
-        // here), so for now we cope with a bogus scope and some hackery
-        Symbol encsym = (_env.enclMethod == null) ? _env.enclClass.sym : _env.enclMethod.sym;
-        Scope nscope = (tree.sym != null) ? tree.sym.members_field.dupUnshared() :
-            new Scope(new ClassSymbol(0, tree.name, encsym));
-
         // note the environment of the class we're processing
         Env<DetypeContext> oenv = _env;
-        // _env = _env.dup(tree, oenv.info.dup(new Scope(tree.sym)));
-        _env = _env.dup(tree, oenv.info.dup(nscope));
+        _env = _env.dup(tree, oenv.info.dup(tree.sym.members_field.dupUnshared()));
         _env.enclClass = tree;
         _env.outer = oenv;
 
@@ -118,6 +107,8 @@ public class Detype extends PathedTreeTranslator
     }
 
     @Override public void visitMethodDef (JCMethodDecl tree) {
+        Debug.log("Visiting method def", "name", tree.name);
+
         // create a local environment for this method definition
         Env<DetypeContext> oenv = _env;
         _env = _env.dup(tree, oenv.info.dup(oenv.info.scope.dupUnshared()));
@@ -162,6 +153,9 @@ public class Detype extends PathedTreeTranslator
 //                      "vtype", what(tree.vartype), "init", tree.init,
 //                      "sym", ASTUtil.expand(tree.sym));
             tree.vartype = _tmaker.Ident(_names.fromString("Object"));
+
+        } else {
+            Debug.log("Not transforming", "def", tree, "path", path, "isLib", inLibraryOverrider());
         }
     }
 
@@ -226,57 +220,58 @@ public class Detype extends PathedTreeTranslator
         // Debug.log("Rewrote assignop", "kind", tree.getKind(), "into", result);
     }
 
-    @Override public void visitNewClass (JCNewClass that) {
-        Debug.log("Class instantiation", "typeargs", that.typeargs, "class", what(that.clazz),
-                 "args", that.args);
+    @Override public void visitNewClass (JCNewClass tree) {
+        Debug.log("Class instantiation", "typeargs", tree.typeargs, "class", what(tree.clazz),
+                 "args", tree.args);
 
         // if we see an anonymous inner class declaration, resolve the type of the to-be-created
         // class, we need this in inLibraryOverrider() for our approximation approach
         Symbol oanonp = _env.info.anonParent;
-        if (that.def != null) {
-            Name cname = (that.clazz instanceof JCTypeApply) ?
-                TreeInfo.fullName(((JCTypeApply)that.clazz).clazz) : TreeInfo.fullName(that.clazz);
+        if (tree.def != null) {
+            Name cname = (tree.clazz instanceof JCTypeApply) ?
+                TreeInfo.fullName(((JCTypeApply)tree.clazz).clazz) : TreeInfo.fullName(tree.clazz);
             _env.info.anonParent = _resolver.findType(_env, cname);
             if (_env.info.anonParent == null) {
                 Debug.log("Pants! Unable to resolve type of anonymous inner parent", "name", cname);
             }
 
-// TODO: we don't absolutely need this right now but eventually we'll probably want it
-//             // we need also to do our own partial Enter on this anonymous class so that the class
-//             // and its methods have sufficient symbol information to keep everything working
-//             that.def.accept(new TreeScanner() {
-//                 @Override public void visitClassDef (JCClassDecl tree) {
-//                     if (tree.sym != null) {
-//                         throw new IllegalStateException("Entering already entered tree? " + tree);
-//                     }
+            // we need to create a fake class symbol for our anonymous inner class and do our own
+            // partial Enter on it to obtain enough symbol information to keep everything working
+            Symbol encsym = (_env.enclMethod == null) ? _env.enclClass.sym : _env.enclMethod.sym;
+            ClassSymbol csym = new ClassSymbol(0, tree.def.name, encsym);
+            csym.members_field = new Scope(csym); // TODO: do we want a next?
+            if (tree.def.sym != null) {
+                Debug.log("Eh? Anon-inner-class already has a symbol!?");
+            } else {
+                tree.def.sym = csym;
+            }
 
-//                     ClassSymbol osym = new ClassSymbol(0, tree.name, _env.enclMethod.sym);
-//                 }
-
+// TODO: enter methods, etc.
+//             tree.def.accept(new TreeScanner() {
 //                 @Override public void visitMethodDef (JCMethodDecl tree) {
 //                 }
 //             });
         }
-        super.visitNewClass(that);
+        super.visitNewClass(tree);
 
 // TODO: we can't reflectively create anonymous inner classes so maybe we should not detype
 // constructor invocation, but rather directly inject the extra type tag arguments...
 
-        if (that.def == null) {
-            // if there is a specific enclosing instance provided, use that, otherwise use this
+        if (tree.def == null) {
+            // if there is a specific enclosing instance provided, use tree, otherwise use this
             // unless we're in a static context in which case use nothing
             List<JCExpression> args;
-            if (that.encl != null) {
-                args = that.args.prepend(that.encl);
+            if (tree.encl != null) {
+                args = tree.args.prepend(tree.encl);
             } else if (inStatic()) {
-                args = that.args.prepend(_tmaker.Literal(TypeTags.BOT, null));
+                args = tree.args.prepend(_tmaker.Literal(TypeTags.BOT, null));
             } else {
-                args = that.args.prepend(_tmaker.Ident(_names._this));
+                args = tree.args.prepend(_tmaker.Ident(_names._this));
             }
-            args = args.prepend(classLiteral(that.clazz, that.clazz.pos));
+            args = args.prepend(classLiteral(tree.clazz, tree.clazz.pos));
 
-            JCMethodInvocation invoke = callRT("newInstance", that.pos, args);
-            invoke.varargsElement = that.varargsElement;
+            JCMethodInvocation invoke = callRT("newInstance", tree.pos, args);
+            invoke.varargsElement = tree.varargsElement;
             result = invoke;
 
         // if the instantiated type is a library class or interface, we need to insert runtime
@@ -284,16 +279,19 @@ public class Detype extends PathedTreeTranslator
         } else {
             // isLibrary() will return false if anonParent is null (which could happen if we fail
             // to resolve its type above)
-            if (!that.args.isEmpty() && ASTUtil.isLibrary(_env.info.anonParent)) {
+            if (!tree.args.isEmpty() && ASTUtil.isLibrary(_env.info.anonParent)) {
                 List<MethodSymbol> ctors = _resolver.lookupMethods(
                     _env.info.anonParent.members(), _names.init);
-                MethodSymbol best = _resolver.pickMethod(_env, ctors, that.args);
+                MethodSymbol best = _resolver.pickMethod(_env, ctors, tree.args);
                 if (best != null) {
-                    that.args = castList(best.type.asMethodType().argtypes, that.args);
+                    tree.args = castList(best.type.asMethodType().argtypes, tree.args);
                 } else {
-                    Debug.log("Unable to resolve overload", "ctors", ctors, "args", that.args);
+                    Debug.log("Unable to resolve overload", "ctors", ctors, "args", tree.args);
                 }
             }
+
+            // clear out the fake symbol we created for our anonymous inner class
+            tree.def.sym = null;
         }
 
         // finally restore our previous anonymous parent

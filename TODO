@@ -1,10 +1,10 @@
 TypelessJ TODO
 --------------
 
+Evaluation
+- Do proposed case study exercise: simple address book plus database
+
 Open issues
-- Can't reflectively create anonymous inner classes (duh), maybe should rethink
-all class creation and just inject type tag arguments in place and leave things
-otherwise non-reflective
 - Need to track checked exceptions in Env<DetypeContext> and use that to:
   try {
       RT.invoke("someThrower", ...);
@@ -15,8 +15,6 @@ otherwise non-reflective
           throw ce;
       }
   }
-- How to handle switch (can't just switch ((Integer)exp) because of enums)?
--- Transform into a for{} and some if()s?
 - What math ops are legal for Character (+ and -, but * and /?)
 - Need to avoid passing array as sole final argument to RT.invoke and
 RT.invokeStatic, can happen when passing an argument in an untransformed method
