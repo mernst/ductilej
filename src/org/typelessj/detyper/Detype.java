@@ -512,8 +512,36 @@ public class Detype extends PathedTreeTranslator
     @Override public void visitTry (JCTry tree) {
         super.visitTry(tree);
 
-        // TODO: for each catch, insert an inner try/catch that catches WrappedException,
-        // dynamically checks whether it's the caught type and casts and rethrows if so
+        // insert an inner try/catch that catches RuntimeException, dynamically checks whether its
+        // cause is the caught type and casts and rethrows the cause if so
+        Name gcname = _names.fromString("getCause");
+        List<JCCatch> catchers = List.nil();
+        for (JCCatch catcher : tree.catchers) {
+            Name cvname = _names.fromString("_rt_" + catcher.param.name);
+            Name ctname = TreeInfo.name(catcher.param.vartype);
+            JCIf ifclause = _tmaker.If(
+                _tmaker.TypeTest(
+                    _tmaker.Apply(List.<JCExpression>nil(),
+                                  _tmaker.Select(_tmaker.Ident(cvname), gcname),
+                                  List.<JCExpression>nil()),
+                    _tmaker.Ident(ctname)),
+                _tmaker.Throw(
+                    _tmaker.TypeCast(
+                        _tmaker.Ident(ctname),
+                        _tmaker.Apply(List.<JCExpression>nil(),
+                                      _tmaker.Select(_tmaker.Ident(cvname), gcname),
+                                      List.<JCExpression>nil()))),
+                null);
+            catchers = catchers.append(
+                _tmaker.Catch(
+                    _tmaker.VarDef(_tmaker.Modifiers(0L), cvname,
+                                   mkFA("RuntimeException", 0), null),
+                    _tmaker.Block(0L, List.<JCStatement>of(ifclause))));
+        }
+        if (!catchers.isEmpty()) {
+            tree.body = _tmaker.Block(
+                0L, List.<JCStatement>of(_tmaker.Try(tree.body, catchers, null)));
+        }
     }
 
     @Override public void visitIndexed (JCArrayAccess tree) {
