@@ -19,6 +19,8 @@ public class ThrowsTest
             thrower();
         } catch (IOException ioe) {
             return;
+        } catch (NullPointerException npe) {
+            return;
         }
         fail("Should not be reached.");
     }
