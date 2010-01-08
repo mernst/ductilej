@@ -5,16 +5,6 @@ Evaluation
 - Do proposed case study exercise: simple address book plus database
 
 Open issues
-- Need to track checked exceptions in Env<DetypeContext> and use that to:
-  try {
-      RT.invoke("someThrower", ...);
-  } catch (CheckedException ce) {
-      if (ce.getCause() instanceof IOException) {
-          throw (IOException)ce.getCause();
-      } else {
-          throw ce;
-      }
-  }
 - What math ops are legal for Character (+ and -, but * and /?)
 - Need to avoid passing array as sole final argument to RT.invoke and
 RT.invokeStatic, can happen when passing an argument in an untransformed method

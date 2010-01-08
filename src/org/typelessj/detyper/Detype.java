@@ -514,33 +514,11 @@ public class Detype extends PathedTreeTranslator
 
         // insert an inner try/catch that catches RuntimeException, dynamically checks whether its
         // cause is the caught type and casts and rethrows the cause if so
-        Name gcname = _names.fromString("getCause");
-        Name cvname = null;
-        List<JCStatement> checkers = List.nil();
-        for (JCCatch catcher : tree.catchers) {
-            Name ctname = TreeInfo.name(catcher.param.vartype);
-            if (cvname == null) {
-                cvname = _names.fromString("_rt_" + catcher.param.name);
-            }
-            checkers = checkers.append(
-                _tmaker.If(
-                    _tmaker.TypeTest(
-                        _tmaker.Apply(List.<JCExpression>nil(),
-                                      _tmaker.Select(_tmaker.Ident(cvname), gcname),
-                                      List.<JCExpression>nil()),
-                        _tmaker.Ident(ctname)),
-                    _tmaker.Throw(
-                        _tmaker.TypeCast(
-                            _tmaker.Ident(ctname),
-                            _tmaker.Apply(List.<JCExpression>nil(),
-                                          _tmaker.Select(_tmaker.Ident(cvname), gcname),
-                                          List.<JCExpression>nil()))),
-                    null));
-        }
-        if (cvname != null) {
+        if (!tree.catchers.isEmpty()) {
+            Name cvname = _names.fromString("_rt_" + tree.catchers.head.param.name);
             JCCatch catcher = _tmaker.Catch(
                 _tmaker.VarDef(_tmaker.Modifiers(0L), cvname, mkFA("RuntimeException", 0), null),
-                _tmaker.Block(0L, checkers));
+                _tmaker.Block(0L, List.of(unwrapExns(cvname, tree.catchers))));
             tree.body = _tmaker.Block(
                 0L, List.<JCStatement>of(_tmaker.Try(tree.body, List.of(catcher), null)));
         }
@@ -697,6 +675,28 @@ public class Detype extends PathedTreeTranslator
             expr = _tmaker.Ident(_names.fromString("Integer"));
         }
         return setPos(_tmaker.Select(expr, _names._class), pos);
+    }
+
+    protected JCStatement unwrapExns (Name cvname, List<JCCatch> catchers)
+    {
+        if (catchers.isEmpty()) {
+            return _tmaker.Throw(_tmaker.Ident(cvname));
+        }
+        Name ctname = TreeInfo.name(catchers.head.param.vartype);
+        Name gcname = _names.fromString("getCause");
+        return _tmaker.If(
+            _tmaker.TypeTest(
+                _tmaker.Apply(List.<JCExpression>nil(),
+                              _tmaker.Select(_tmaker.Ident(cvname), gcname),
+                              List.<JCExpression>nil()),
+                _tmaker.Ident(ctname)),
+            _tmaker.Throw(
+                _tmaker.TypeCast(
+                    _tmaker.Ident(ctname),
+                    _tmaker.Apply(List.<JCExpression>nil(),
+                                  _tmaker.Select(_tmaker.Ident(cvname), gcname),
+                                  List.<JCExpression>nil()))),
+            unwrapExns(cvname, catchers.tail));
     }
 
     protected List<JCExpression> castIntList (List<JCExpression> list)
