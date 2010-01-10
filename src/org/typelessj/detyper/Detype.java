@@ -366,7 +366,7 @@ public class Detype extends PathedTreeTranslator
             result = callRT("select", tree.pos,
                             _tmaker.Literal(TypeTags.CLASS, tree.name.toString()),
                             tree.selected);
-            // Debug.log("Transformed select " + tree + " (" + path + ")");
+            // Debug.log("Transformed select " + tree + ": " + result);
         } else {
             Debug.log("Not xforming select: " + tree + " (" + path + ")");
         }
@@ -398,7 +398,7 @@ public class Detype extends PathedTreeTranslator
             // TODO: if receiver is statically imported field we need to prepend classname
 
             // convert to RT.invoke("method", expr, args)
-            tree.args = tree.args.prepend(mfacc.selected).
+            tree.args = tree.args.prepend(translate(mfacc.selected)).
                 prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString()));
             tree.meth = mkRT("invoke", mfacc.pos);
 
@@ -443,6 +443,10 @@ public class Detype extends PathedTreeTranslator
                      "method", what(tree.meth), "args", tree.args,
                      "varargs", tree.varargsElement);
         }
+
+        // we have to reestabslish result because we recursively called translate() above which
+        // wipes it out
+        result = tree;
     }
 
     @Override public void visitSwitch (JCSwitch tree) {
