@@ -146,7 +146,7 @@ public class RT
         }
 
         try {
-            return clazz.getField(fname).get(target);
+            return findField(clazz, fname).get(target);
         } catch (NoSuchFieldException nsfe) {
             throw new RuntimeException(nsfe);
         } catch (IllegalAccessException iae) {
@@ -157,18 +157,18 @@ public class RT
     /**
      * Assigns the specified value into the specified field of the target object.
      */
-    public static Object assign (Object target, String mname, Object value)
+    public static Object assign (Object target, String fname, Object value)
     {
         if (target == null) {
-            throw new NullPointerException("Field assignment to null target: " + mname);
+            throw new NullPointerException("Field assignment to null target: " + fname);
         }
 
         try {
-            Field field = target.getClass().getField(mname);
+            Field field = findField(target.getClass(), fname);
             field.setAccessible(true);
             field.set(target, value);
             return value; // TODO: is the result of assignment the coerced type? in that case we
-                          // need to return field.get(mname)
+                          // need to return field.get(fname)
 
         } catch (NoSuchFieldException nsfe) {
             throw new RuntimeException(nsfe);
@@ -394,7 +394,30 @@ public class RT
     }
 
     /**
+     * A helper for {@link #select} and {@link #assign}.
+     *
+     * @throws NoSuchFieldException if the field could not be found.
+     */
+    protected static Field findField (Class<?> clazz, String fname)
+        throws NoSuchFieldException
+    {
+        for (Field field : clazz.getDeclaredFields()) {
+            if (field.getName().equals(fname)) {
+                return field;
+            }
+        }
+        Class<?> parent = clazz.getSuperclass();
+        if (parent == null) {
+            throw new NoSuchFieldException(fname);
+        }
+        return findField(parent, fname);
+    }
+
+    /**
      * A helper for {@link #invoke} and {@link #invokeStatic}.
+     *
+     * TODO: throw NoSuchMethodError from here instead of having the caller do it (which means
+     * we'll need to keep track of the top-level class as we recurse, etc.)
      */
     protected static Method findMethod (String mname, Class<?> clazz, Object... args)
     {
