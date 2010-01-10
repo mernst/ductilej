@@ -368,7 +368,7 @@ public class Detype extends PathedTreeTranslator
                             tree.selected);
             // Debug.log("Transformed select " + tree + ": " + result);
         } else {
-            Debug.log("Not xforming select: " + tree + " (" + path + ")");
+            // Debug.log("Not xforming select: " + tree + " (" + path + ")");
         }
     }
 
