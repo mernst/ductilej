@@ -64,7 +64,7 @@ public class RT
         } catch (IllegalAccessException iae) {
             throw new RuntimeException(iae);
         } catch (InvocationTargetException ite) {
-            throw new RuntimeException(ite.getCause());
+            throw new RuntimeException(unwrap(ite.getCause()));
         }
     }
 
@@ -101,7 +101,7 @@ public class RT
         } catch (IllegalAccessException iae) {
             throw new RuntimeException(iae);
         } catch (InvocationTargetException ite) {
-            throw new RuntimeException(ite.getCause());
+            throw new RuntimeException(unwrap(ite.getCause()));
         }
     }
 
@@ -123,7 +123,7 @@ public class RT
         } catch (IllegalAccessException iae) {
             throw new RuntimeException(iae);
         } catch (InvocationTargetException ite) {
-            throw new RuntimeException(ite.getCause());
+            throw new RuntimeException(unwrap(ite.getCause()));
         }
     }
 
@@ -551,6 +551,11 @@ public class RT
         } catch (IllegalAccessException iae) {
             throw new RuntimeException("Failure accessing enclosing reference", iae);
         }
+    }
+
+    protected static Throwable unwrap (Throwable t)
+    {
+        return (t instanceof RuntimeException && t.getCause() != null) ? unwrap(t.getCause()) : t;
     }
 
     protected static interface MathOps {
