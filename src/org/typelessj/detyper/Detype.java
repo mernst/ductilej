@@ -348,7 +348,7 @@ public class Detype extends PathedTreeTranslator
         wantXform = wantXform && !path.contains(".TopLevel.pid");
         wantXform = wantXform && !path.contains(".Import");
         wantXform = wantXform && !path.contains(".Annotation");
-        wantXform = wantXform && !path.contains(".Apply.meth");
+        wantXform = wantXform && !path.endsWith(".Apply.meth");
         wantXform = wantXform && !path.contains(".VarDef.vartype");
         wantXform = wantXform && !path.contains(".NewClass.clazz");
         wantXform = wantXform && !path.contains(".NewArray.type");
@@ -398,7 +398,7 @@ public class Detype extends PathedTreeTranslator
             // TODO: if receiver is statically imported field we need to prepend classname
 
             // convert to RT.invoke("method", expr, args)
-            tree.args = tree.args.prepend(translate(mfacc.selected)).
+            tree.args = tree.args.prepend(mfacc.selected).
                 prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString()));
             tree.meth = mkRT("invoke", mfacc.pos);
 
