@@ -1,31 +1,28 @@
 TypelessJ TODO
 --------------
 
-Evaluation
-- Do proposed case study exercise: simple address book plus database
-
 Open issues
 - What math ops are legal for Character (+ and -, but * and /?)
 - Need to avoid passing array as sole final argument to RT.invoke and
-RT.invokeStatic, can happen when passing an argument in an untransformed method
-and for literals:
--- main(String[] args) { foo(args); }
--- foo(new String[] { ... })
+  RT.invokeStatic, can happen when passing an argument in an untransformed method
+  and for literals:
+  - main(String[] args) { foo(args); }
+  - foo(new String[] { ... })
 - We need to preserve statically visible assignment to final class members in
-the constructor
--- "foo = 5" is OK, but "this.foo = 5" gets turned into a reflective
-assignment, perhaps we should just not do that for this.foo when inside
-constructors... I don't like the special case, maybe we never do it for
-this.foo
+  the constructor
+  - "foo = 5" is OK, but "this.foo = 5" gets turned into a reflective
+    assignment, perhaps we should just not do that for this.foo when inside
+    constructors... I don't like the special case, maybe we never do it for
+    this.foo
 - Should we not detype enums? Should we not detype variable declarations?
--- Not detyping variable decls will require that we cast back to their type
-when assigning to them which will probably be difficult.
+  - Not detyping variable decls will require that we cast back to their type
+    when assigning to them which will probably be difficult.
 - We need to remove "implements FooInterface" from detyped class declarations
-(for non-library interface) otherwise javac will freak out if we omit an
-interface method implementation, which we don't want
+  (for non-library interface) otherwise javac will freak out if we omit an
+  interface method implementation, which we don't want
 - Need to do the "right" thing with == (assuming there is a right thing),
-i.e. if == is called on boxed integers, we need to unbox and compare, but ==
-called on one or two references should compare references.
+  i.e. if == is called on boxed integers, we need to unbox and compare, but ==
+  called on one or two references should compare references.
 
 Detyper
 - Handle field selection in lvalue position (i.e. foo.bar += baz)
@@ -33,29 +30,30 @@ Detyper
 - Handle array initialization expressions (new int[] { 1, 2, 3, 4})
 - Insert cast to proper return type for overridden library methods
 - Casting array dimension exprs to Integer isn't sufficient, they might
-(validly) be a Long (or other integer type) which we need to coerce
-- Implement signature mangling
+  (legally) be a Long (or other integer type) which we need to coerce
+- Implement overloaded method combination plus value+type boxing plus dynamic
+  dispatch using tracked static type information
 - Extract main() detection into ASTUtil, make it correct
 - Record original type information when transforming JCVariableDecl, somehow
-pass that along to all runtime methods so that they can provide better feedback
+  pass that along to all runtime methods so that they can provide better feedback
 - Record original type information when transforming JCMethodDecl and store
 that in annotations preserved at runtime for use by RT.invoke()
 - Add RT.asEnum() and use that instead of RT.checkedCast() so that we can
-handle more runtime errors gracefully
+  handle more runtime errors gracefully
 
 Runtime
 - Finish implementation of RT.unop(), RT.binop()
 - Make use of type information everywhere possible to validate types before
-calling typed library methods (transformed methods as well)
+  calling typed library methods (transformed methods as well)
 - We need to convert Object[] back to the requested type of the receiver when
-passing an array into a library method
+  passing an array into a library method
 
 Later
 - Ambiguous overload handling, use this approach:
--- http://www.eros-os.org/pipermail/e-lang/2001-March/004921.html
+  - http://www.eros-os.org/pipermail/e-lang/2001-March/004921.html
 - How to better handle typos? (throw new IOExceptio("Foo") fails with 'cannot
-find symbol' (since it's RT.newClass(IOExceptio.class, "Foo")) which is a
-little funny...
+  find symbol' (since it's RT.newClass(IOExceptio.class, "Foo")) which is a
+  little funny...
 - Consider making all transformed members public instead of using
-setAccessible() in our reflective calls. This would make TJ usable for applets
-and such.
+  setAccessible() in our reflective calls. This would make TJ usable for
+  applets and such.
