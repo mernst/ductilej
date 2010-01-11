@@ -386,6 +386,8 @@ public class Detype extends PathedTreeTranslator
 
         // if this is a super() call, we leave it alone
         if ((tree.meth instanceof JCIdent && TreeInfo.name(tree.meth) == _names._super) ||
+            // TODO: we also leave super.someMethod() alone for now as well, though ideally we'll
+            // be able to reflectively invoke such calls
             (tree.meth instanceof JCFieldAccess &&
              TreeInfo.name(((JCFieldAccess)tree.meth).selected) == _names._super)) {
             return;
