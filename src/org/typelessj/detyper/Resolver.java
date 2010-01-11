@@ -154,7 +154,7 @@ public class Resolver
                                       // Types.closure()
             break;
         case JCTree.SELECT:
-            Debug.log("Finding type of receiver", "expr", ((JCFieldAccess)mexpr.meth).selected);
+            // Debug.log("Finding type of receiver", "expr", ((JCFieldAccess)mexpr.meth).selected);
             Type rtype = resolveType(env, ((JCFieldAccess)mexpr.meth).selected);
             if (rtype == null) {
                 // if the selectee is not a variable in scope, maybe it's a type name
@@ -265,6 +265,9 @@ public class Resolver
 
         // maybe the whole thing names a type in scope
         Name fname = TreeInfo.fullName(expr);
+        if (fname == null) {
+            fname = TreeInfo.name(expr); // handles JCTypeApply
+        }
         if (fname == null) {
             // TODO: LHS may be an array select expression
             Debug.log("!!! Asked to resolve as type expr with no name?", "expr", expr);
