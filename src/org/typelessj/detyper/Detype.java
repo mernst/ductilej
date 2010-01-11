@@ -264,9 +264,9 @@ public class Detype extends PathedTreeTranslator
             if (tree.encl != null) {
                 args = tree.args.prepend(tree.encl);
             } else if (inStatic()) {
-                args = tree.args.prepend(_tmaker.Literal(TypeTags.BOT, null));
+                args = tree.args.prepend(_tmaker.at(tree.pos).Literal(TypeTags.BOT, null));
             } else {
-                args = tree.args.prepend(_tmaker.Ident(_names._this));
+                args = tree.args.prepend(_tmaker.at(tree.pos).Ident(_names._this));
             }
             args = args.prepend(classLiteral(tree.clazz, tree.clazz.pos));
 
@@ -376,77 +376,36 @@ public class Detype extends PathedTreeTranslator
 //         Debug.log("Method invocation", "typeargs", tree.typeargs, "method", what(tree.meth),
 //                   "args", tree.args, "varargs", tree.varargsElement);
 
-// TODO: if we get this working properly, everything below becomes vastly simplified
-//         MethodSymbol msym = _resolver.resolveMethod(_env, tree);
-//         Debug.log("Method invoke " + tree + " -> " + msym);
+        // resolve the called method before we transform the leaves of this tree
+        MethodSymbol msym = _resolver.resolveMethod(_env, tree);
 
         super.visitApply(tree);
 
-        // transform expr.method(args)
-        if (tree.meth instanceof JCFieldAccess) {
-            JCFieldAccess mfacc = (JCFieldAccess)tree.meth;
+        // if this is a super() call, we leave it alone
+        if (tree.meth instanceof JCIdent && TreeInfo.name(tree.meth) == _names._super) {
+            // nada
 
-            if (isStaticReceiver(mfacc.selected)) {
-                // convert to RT.invokeStatic("method", mfacc.selected.class, args)
-                tree.args = tree.args.
-                    prepend(classLiteral(mfacc.selected, mfacc.selected.pos)).
-                    prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString()));
-                tree.meth = mkRT("invokeStatic", mfacc.pos);
-                return;
-            }
+        } else if (msym == null) {
+            Debug.log("Not transforming unresolvable method: " + tree);
 
-            // TODO: if receiver is statically imported field we need to prepend classname
+        } else if (Flags.isStatic(msym)) {
+            // convert to RT.invokeStatic("method", decl.class, args)
+            ClassSymbol osym = (ClassSymbol)msym.owner;
+            tree.args = tree.args. // TODO: better pos than tree.pos
+                prepend(classLiteral(mkFA(osym.fullname.toString(), tree.pos), tree.pos)).
+                prepend(_tmaker.Literal(TypeTags.CLASS, msym.name.toString()));
+            tree.meth = mkRT("invokeStatic", tree.meth.pos);
+            // Debug.log("APPLY " + msym + " -> " + tree);
 
-            // convert to RT.invoke("method", expr, args)
-            tree.args = tree.args.prepend(mfacc.selected).
-                prepend(_tmaker.Literal(TypeTags.CLASS, mfacc.name.toString()));
-            tree.meth = mkRT("invoke", mfacc.pos);
-
-        // transform method(args)
-        } else if (tree.meth instanceof JCIdent) {
-            JCIdent mfid = (JCIdent)tree.meth;
-            if (mfid.name == _names._super) {
-                return; // super() cannot be transformed so we leave it alone
-            }
-
-            // resolve the method in question (TODO: this should at least take the argument count
-            // if not whatever type information we have)
-            Symbol nsym = _resolver.findMethod(_env, mfid.name);
-            if (nsym == null) {
-                Debug.log("!!! Not transforming unresolvable method: " + tree);
-                return;
-            }
-
-            // determine whether this method is static or non-static
-            if (Flags.isStatic(nsym)) {
-                // convert to RT.invokeStatic("method", decl.class, args)
-                ClassSymbol osym = (ClassSymbol)nsym.owner;
-                tree.args = tree.args. // TODO: better pos than tree.pos
-                    prepend(classLiteral(mkFA(osym.fullname.toString(), tree.pos), tree.pos)).
-                    prepend(_tmaker.Literal(TypeTags.CLASS, mfid.toString()));
-                tree.meth = mkRT("invokeStatic", mfid.pos);
-                return;
-            }
-
+        } else {
             // the method is not static so we get RT.invoke("method", this, args)
             JCIdent recid = _tmaker.Ident(_names._this);
-            recid.pos = mfid.pos;
+            recid.pos = tree.meth.pos;
             tree.args = tree.args.prepend(recid).
-                prepend(_tmaker.Literal(TypeTags.CLASS, mfid.toString()));
-            tree.meth = mkRT("invoke", mfid.pos);
-//                     Debug.log("Mutated", "typeargs", tree.typeargs, "method", what(tree.meth),
-//                              "args", tree.args, "varargs", tree.varargsElement);
-
-        // are there other types of invocations?
-        } else {
-            Debug.log("Unknown invocation?", "typeargs", tree.typeargs,
-                     "method", what(tree.meth), "args", tree.args,
-                     "varargs", tree.varargsElement);
+                prepend(_tmaker.Literal(TypeTags.CLASS, msym.name.toString()));
+            tree.meth = mkRT("invoke", tree.meth.pos);
+            // Debug.log("APPLY " + msym + " -> " + tree);
         }
-
-        // we have to reestabslish result because we recursively called translate() above which
-        // wipes it out
-        result = tree;
     }
 
     @Override public void visitSwitch (JCSwitch tree) {
