@@ -3,6 +3,10 @@
 
 package org.typelessj.tests;
 
+import java.awt.BorderLayout;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -31,6 +35,15 @@ public class DefApplyTest
 
         protected String _name;
         protected int _age;
+    }
+
+    public class MyPanel extends JPanel
+    {
+        public MyPanel () {
+            setLayout(new BorderLayout());
+            JLabel label = new JLabel("Testing");
+            add(label, BorderLayout.CENTER);
+        }
     }
 
     @Test public void testDefApply ()
