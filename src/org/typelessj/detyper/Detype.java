@@ -89,8 +89,8 @@ public class Detype extends PathedTreeTranslator
 
         if (tree.name != _names.empty) {
             // add our @Transformed annotation to the AST
-            JCAnnotation a = setPos(_tmaker.Annotation(mkFA(Transformed.class.getName(), tree.pos),
-                                                       List.<JCExpression>nil()), tree.pos);
+            JCAnnotation a = _tmaker.at(tree.pos).Annotation(
+                mkFA(Transformed.class.getName(), tree.pos), List.<JCExpression>nil());
             tree.mods.annotations = tree.mods.annotations.prepend(a);
 
             // since the annotations AST has already been resolved into type symbols, we have to
@@ -139,9 +139,8 @@ public class Detype extends PathedTreeTranslator
             _env.info.scope.enter(new VarSymbol(0, tree.name, vtype, _env.info.scope.owner));
         }
 
-        // overriding method
-        // we don't want to detype the param(s) of a catch block
         String path = path();
+        // we don't want to detype the param(s) of a catch block
         if (!path.contains(".Catch") &&
             // nor the arguments of a library
             !(path.contains(".MethodDef.params") && inLibraryOverrider()) &&
@@ -313,7 +312,7 @@ public class Detype extends PathedTreeTranslator
 
         JCExpression otype = tree.elemtype;
 // TODO: something funny happens here
-//             tree.elemtype = setPos(_tmaker.Ident(_names.java_lang_Object), otype.pos);
+//             tree.elemtype = _tmaker.at(otype.pos).Ident(_names.java_lang_Object);
         result = callRT("boxArray", tree.pos, classLiteral(otype, otype.pos), tree);
 
 //             // either we have dimensions or a set of initial values, but not both
@@ -383,29 +382,47 @@ public class Detype extends PathedTreeTranslator
 
         // if this is a super() call, we leave it alone
         if (tree.meth instanceof JCIdent && TreeInfo.name(tree.meth) == _names._super) {
-            // nada
+            return;
+        }
 
-        } else if (msym == null) {
+        // if this method has no receiver, then we're well and truly confused; leave this
+        // method untransformed and let the compilation fail
+        if (msym == null && !(tree.meth instanceof JCFieldAccess)) {
             Debug.log("Not transforming unresolvable method: " + tree);
+            return;
+        }
 
-        } else if (Flags.isStatic(msym)) {
+        String invokeName;
+        JCExpression recv;
+        if (msym != null && Flags.isStatic(msym)) {
             // convert to RT.invokeStatic("method", decl.class, args)
             ClassSymbol osym = (ClassSymbol)msym.owner;
-            tree.args = tree.args. // TODO: better pos than tree.pos
-                prepend(classLiteral(mkFA(osym.fullname.toString(), tree.pos), tree.pos)).
-                prepend(_tmaker.Literal(TypeTags.CLASS, msym.name.toString()));
-            tree.meth = mkRT("invokeStatic", tree.meth.pos);
-            // Debug.log("APPLY " + msym + " -> " + tree);
+            recv = classLiteral(mkFA(osym.fullname.toString(), tree.pos), tree.pos);
+            invokeName = "invokeStatic";
+
+        } else if (tree.meth instanceof JCFieldAccess) {
+            // convert to RT.invoke("method", receiver, args)
+            recv = ((JCFieldAccess)tree.meth).selected;
+            invokeName = "invoke";
 
         } else {
-            // the method is not static so we get RT.invoke("method", this, args)
-            JCIdent recid = _tmaker.Ident(_names._this);
-            recid.pos = tree.meth.pos;
-            tree.args = tree.args.prepend(recid).
-                prepend(_tmaker.Literal(TypeTags.CLASS, msym.name.toString()));
-            tree.meth = mkRT("invoke", tree.meth.pos);
-            // Debug.log("APPLY " + msym + " -> " + tree);
+            if (msym == null) {
+                // if this method has a receiver, assume a non-static method application; we do
+                // this because if we were unable to resolve a symbol for this method, that may be
+                // because the receiver has "provisional" type (and we would naturally know nothing
+                // about it) TODO: look up a symbol for the receiver to confirm that it's untyped
+                Debug.log("Assuming non-static apply for unresolvable method: " + tree);
+            }            
+
+            // convert to RT.invoke("method", this, args)
+            recv = _tmaker.at(tree.meth.pos).Ident(_names._this);
+            invokeName = "invoke";
         }
+
+        tree.args = tree.args.prepend(recv).
+            prepend(_tmaker.Literal(TypeTags.CLASS, TreeInfo.name(tree.meth).toString()));
+        tree.meth = mkRT(invokeName, tree.meth.pos);
+        // Debug.log("APPLY " + msym + " -> " + tree);
     }
 
     @Override public void visitSwitch (JCSwitch tree) {
@@ -609,11 +626,11 @@ public class Detype extends PathedTreeTranslator
     }
 
     protected JCMethodInvocation callRT (String method, int pos, JCExpression... args) {
-        return setPos(_tmaker.Apply(null, mkRT(method, pos), List.from(args)), pos);
+        return _tmaker.at(pos).Apply(null, mkRT(method, pos), List.from(args));
     }
 
     protected JCMethodInvocation callRT (String method, int pos, List<JCExpression> args) {
-        return setPos(_tmaker.Apply(null, mkRT(method, pos), args), pos);
+        return _tmaker.at(pos).Apply(null, mkRT(method, pos), args);
     }
 
     protected JCExpression mkRT (String method, int pos) {
@@ -621,15 +638,13 @@ public class Detype extends PathedTreeTranslator
     }
 
     protected JCExpression mkFA (String fqName, int pos) {
-        JCExpression expr;
         int didx = fqName.lastIndexOf(".");
         if (didx == -1) {
-            expr = _tmaker.Ident(_names.fromString(fqName)); // simple identifier
+            return _tmaker.at(pos).Ident(_names.fromString(fqName)); // simple identifier
         } else {
-            expr = _tmaker.Select(mkFA(fqName.substring(0, didx), pos), // nested FA expr
-                                  _names.fromString(fqName.substring(didx+1)));
+            return _tmaker.at(pos).Select(mkFA(fqName.substring(0, didx), pos), // nested FA expr
+                                          _names.fromString(fqName.substring(didx+1)));
         }
-        return setPos(expr, pos);
     }
 
     protected JCExpression classLiteral (JCExpression expr, int pos) {
@@ -637,7 +652,7 @@ public class Detype extends PathedTreeTranslator
         if ("int".equals(expr.toString())) {
             expr = _tmaker.Ident(_names.fromString("Integer"));
         }
-        return setPos(_tmaker.Select(expr, _names._class), pos);
+        return _tmaker.at(pos).Select(expr, _names._class);
     }
 
     protected JCStatement unwrapExns (Name cvname, List<JCCatch> catchers)
@@ -696,12 +711,6 @@ public class Detype extends PathedTreeTranslator
     protected static String what (Symbol sym)
     {
         return (sym == null) ? "null" : (sym + "/" + sym.getClass().getSimpleName());
-    }
-
-    protected static <T extends JCTree> T setPos (T tree, int pos)
-    {
-        tree.pos = pos;
-        return tree;
     }
 
     protected Env<DetypeContext> _env;
