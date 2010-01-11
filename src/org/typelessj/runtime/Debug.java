@@ -6,7 +6,7 @@ package org.typelessj.runtime;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 
-import com.samskivert.util.LogBuilder;
+import org.typelessj.util.LogBuilder;
 
 /**
  * Contains debugging related routines.
