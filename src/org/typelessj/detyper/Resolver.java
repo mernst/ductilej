@@ -234,14 +234,23 @@ public class Resolver
 
         case JCTree.SELECT: {
             Type type = resolveType(env, ((JCFieldAccess)expr).selected);
-            return (type == null) ? null : lookup(((ClassSymbol)type.tsym).members_field,
-                                                  ((JCFieldAccess)expr).name, Kinds.VAR).type;
+            if (type == null) {
+                return null;
+            }
+            Symbol sym = lookup(((ClassSymbol)type.tsym).members_field,
+                                ((JCFieldAccess)expr).name, Kinds.VAR);
+            return (sym == null) ? null : sym.type;
         }
 
         case JCTree.APPLY: {
             MethodSymbol msym = resolveMethod(env, (JCMethodInvocation)expr);
             return (msym == null) ? null : msym.type.asMethodType().restype;
         }
+
+        case JCTree.NEWCLASS:
+            // TODO: this isn't quite right since it doesn't return the correct symbol for
+            // anonymous inner classes...
+            return resolveType(env, ((JCNewClass)expr).clazz);
 
         default:
             Debug.log("Can't resolveType() of expr", "tag", expr.getTag(), "expr", expr);

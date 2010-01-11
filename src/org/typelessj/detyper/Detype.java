@@ -136,6 +136,10 @@ public class Detype extends PathedTreeTranslator
             // create a placeholder VarSymbol for this variable so that we can use it later
             // during some simple name resolution
             Type vtype = _resolver.resolveAsType(_env, tree.vartype);
+            if (vtype == null) {
+                Debug.log("Assuming Object for candidate type: " + tree);
+                vtype = _syms.objectType;
+            }
             _env.info.scope.enter(new VarSymbol(0, tree.name, vtype, _env.info.scope.owner));
         }
 
