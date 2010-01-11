@@ -37,7 +37,7 @@ Detyper
 - Record original type information when transforming JCVariableDecl, somehow
   pass that along to all runtime methods so that they can provide better feedback
 - Record original type information when transforming JCMethodDecl and store
-that in annotations preserved at runtime for use by RT.invoke()
+  that in annotations preserved at runtime for use by RT.invoke()
 - Add RT.asEnum() and use that instead of RT.checkedCast() so that we can
   handle more runtime errors gracefully
 
