@@ -4,6 +4,7 @@
 package org.typelessj.tests;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
@@ -43,6 +44,12 @@ public class DefApplyTest
             setLayout(new BorderLayout());
             JLabel label = new JLabel("Testing");
             add(label, BorderLayout.CENTER);
+        }
+
+        public Dimension getPreferredSize () {
+            Dimension d = super.getPreferredSize();
+            d.height = 50;
+            return d;
         }
     }
 
