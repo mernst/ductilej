@@ -12,9 +12,6 @@ import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Map;
 
-// TODO: remove dependency on Tree.Kind from runtime
-import com.sun.source.tree.Tree;
-
 import com.google.common.collect.ImmutableMap;
 
 /**
@@ -185,9 +182,7 @@ public class RT
      */
     public static Object unop (String opcode, Object arg)
     {
-        Tree.Kind kind = Enum.valueOf(Tree.Kind.class, opcode);
-        switch (kind) {
-        case UNARY_MINUS:
+        if (opcode.equals("UNARY_MINUS")) {
             if (arg instanceof Byte) {
                 return -((Byte)arg).byteValue();
             } else if (arg instanceof Short) {
@@ -204,7 +199,7 @@ public class RT
                 throw new IllegalArgumentException("Non-numeric type passed to unary minus.");
             }
 
-        case BITWISE_COMPLEMENT:
+        } else if (opcode.equals("BITWISE_COMPLEMENT")) {
             if (arg instanceof Byte) {
                 return ~((Byte)arg).byteValue();
             } else if (arg instanceof Short) {
@@ -222,7 +217,7 @@ public class RT
                     "Non-numeric type passed to bitwise complement.");
             }
 
-        case LOGICAL_COMPLEMENT:
+        } else if ("LOGICAL_COMPLEMENT".equals(opcode)) {
             if (arg instanceof Boolean) {
                 return !((Boolean)arg).booleanValue();
             } else {
@@ -230,21 +225,17 @@ public class RT
                     "Non-boolean type passed to logical complement.");
             }
 
-        case UNARY_PLUS:
+        } else if ("UNARY_PLUS".equals(opcode)) {
             return arg;
 
-// these must be handled with inline code generation
-//         case POSTFIX_INCREMENT:
-//             return null; // TODO
-//         case POSTFIX_DECREMENT:
-//             return null; // TODO
-//         case PREFIX_INCREMENT:
-//             return null; // TODO
-//         case PREFIX_DECREMENT:
-//             return null; // TODO
+// these are handled with inline tree transformations
+//         case POSTFIX_INCREMENT
+//         case POSTFIX_DECREMENT
+//         case PREFIX_INCREMENT
+//         case PREFIX_DECREMENT
 
-        default:
-            throw new IllegalArgumentException("Unknown unary operator: " + kind);
+        } else {
+            throw new IllegalArgumentException("Unknown unary operator: " + opcode);
         }
     }
 
@@ -256,46 +247,44 @@ public class RT
      */
     public static Object binop (String opcode, Object lhs, Object rhs)
     {
-        Tree.Kind kind = Enum.valueOf(Tree.Kind.class, opcode);
         // TODO: this all needs to be much more sophisticated
-        switch (kind) {
-        case PLUS:
+        if ("PLUS".equals(opcode)) {
             if (lhs instanceof String || rhs instanceof String) {
                 return String.valueOf(lhs) + String.valueOf(rhs);
             }
             return OPS.get(promote((Number)lhs, (Number)rhs)).plus((Number)lhs, (Number)rhs);
 
-        case MINUS:
+        } else if ("MINUS".equals(opcode)) {
             return OPS.get(promote((Number)lhs, (Number)rhs)).minus((Number)lhs, (Number)rhs);
 
-        case MULTIPLY:
+        } else if ("MULTIPLY".equals(opcode)) {
             return OPS.get(promote((Number)lhs, (Number)rhs)).multiply((Number)lhs, (Number)rhs);
 
-        case DIVIDE:
+        } else if ("DIVIDE".equals(opcode)) {
             return OPS.get(promote((Number)lhs, (Number)rhs)).divide((Number)lhs, (Number)rhs);
 
-        case LESS_THAN:
+        } else if ("LESS_THAN".equals(opcode)) {
             return ((Number)lhs).doubleValue() < ((Number)rhs).doubleValue();
 
-        case GREATER_THAN:
+        } else if ("GREATER_THAN".equals(opcode)) {
             return ((Number)lhs).doubleValue() > ((Number)rhs).doubleValue();
 
-        case LESS_THAN_EQUAL:
+        } else if ("LESS_THAN_EQUAL".equals(opcode)) {
             return ((Number)lhs).doubleValue() <= ((Number)rhs).doubleValue();
 
-        case GREATER_THAN_EQUAL:
+        } else if ("GREATER_THAN_EQUAL".equals(opcode)) {
             return ((Number)lhs).doubleValue() >= ((Number)rhs).doubleValue();
 
-        case EQUAL_TO:
+        } else if ("EQUAL_TO".equals(opcode)) {
             return isEqualTo(lhs, rhs);
 
-        case NOT_EQUAL_TO:
+        } else if ("NOT_EQUAL_TO".equals(opcode)) {
             return !isEqualTo(lhs, rhs);
 
-        case CONDITIONAL_AND:
+        } else if ("CONDITIONAL_AND".equals(opcode)) {
             return !((Boolean)lhs).booleanValue() ? false : ((Boolean)rhs).booleanValue();
 
-        case CONDITIONAL_OR:
+        } else if ("CONDITIONAL_OR".equals(opcode)) {
             return ((Boolean)lhs).booleanValue() ? true : ((Boolean)rhs).booleanValue();
         }
 
