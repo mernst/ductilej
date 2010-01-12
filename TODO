@@ -1,6 +1,11 @@
 TypelessJ TODO
 --------------
 
+Evaluation
+- Look at untyped program in Eclipse to get a feel for the impact of the red
+squigglies
+- Bring case study program to type correctness, record notes on the process
+
 Open issues
 - What math ops are legal for Character (+ and -, but * and /?)
 - Need to avoid passing array as sole final argument to RT.invoke and
@@ -57,3 +62,9 @@ Later
 - Consider making all transformed members public instead of using
   setAccessible() in our reflective calls. This would make TJ usable for
   applets and such.
+- Create synthetic classes (in the top-level package) for provisional types
+  - give those classes a varargs constructor
+  - if an instance of such a class is "assigned" to a variable with a concrete
+    type that shares its same name (e.g. Date -> java.util.Date), construct an
+    instance of the target type using the arguments provided when constructing
+    the provisional instance
