@@ -256,10 +256,21 @@ public class Detype extends PathedTreeTranslator
         }
         super.visitNewClass(tree);
 
-// TODO: we can't reflectively create anonymous inner classes so maybe we should not detype
-// constructor invocation, but rather directly inject the extra type tag arguments...
+        // enums are already desugared somewhat by the time we are called, so the AST looks
+        // (bizarrely) something like the following:
+        //
+        // public enum Type {
+        //     /*public static final*/ ADD /* = new Type() */
+        // }
+        //
+        // and we need to avoid transforming the "new Type()" clause or javac chokes
+        boolean inEnumFieldInit = path().endsWith(".ClassDef.VarDef") &&
+            Flags.isEnum(_env.enclClass.sym);
 
-        if (tree.def == null) {
+        // TODO: we can't reflectively create anonymous inner classes so maybe we should not detype
+        // any constructor invocation...
+
+        if (tree.def == null && !inEnumFieldInit) {
             // if there is a specific enclosing instance provided, use tree, otherwise use this
             // unless we're in a static context in which case use nothing
             List<JCExpression> args;
@@ -275,10 +286,11 @@ public class Detype extends PathedTreeTranslator
             JCMethodInvocation invoke = callRT("newInstance", tree.pos, args);
             invoke.varargsElement = tree.varargsElement;
             result = invoke;
+        }
 
         // if the instantiated type is a library class or interface, we need to insert runtime
         // casts to the the formal parameter types
-        } else {
+        if (tree.def != null) {
             // isLibrary() will return false if anonParent is null (which could happen if we fail
             // to resolve its type above)
             if (!tree.args.isEmpty() && ASTUtil.isLibrary(_env.info.anonParent)) {
@@ -661,8 +673,16 @@ public class Detype extends PathedTreeTranslator
 
         } else if (lhs instanceof JCFieldAccess) {
             JCFieldAccess fa = (JCFieldAccess)lhs;
-            return callRT("assign", pos, translate(fa.selected),
-                          _tmaker.Literal(TypeTags.CLASS, fa.name.toString()), rhs);
+            // if the expression is "this.something = ...", we want to avoid turning the lhs into a
+            // reflective assignment; we want to preserve definite assignment in constructors
+            if (fa.selected instanceof JCIdent && ((JCIdent)fa.selected).name == _names._this) {
+                // TODO: resolve the field on the lhs and only preserve definite assignment if it
+                // exists and it's a final field
+                return _tmaker.at(pos).Assign(lhs, rhs);
+            } else {
+                return callRT("assign", pos, translate(fa.selected),
+                              _tmaker.Literal(TypeTags.CLASS, fa.name.toString()), rhs);
+            }
 
         // TODO: we need to handle (foo[ii]) = 1 (and maybe others?)
         } else {
@@ -670,7 +690,8 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
-    protected JCExpression classLiteral (JCExpression expr, int pos) {
+    protected JCExpression classLiteral (JCExpression expr, int pos)
+    {
         // TODO: validate that we got passed either Name or package.Name
         if ("int".equals(expr.toString())) {
             expr = _tmaker.Ident(_names.fromString("Integer"));
