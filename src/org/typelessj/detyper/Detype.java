@@ -169,14 +169,15 @@ public class Detype extends PathedTreeTranslator
     }
 
     @Override public void visitUnary (JCUnary tree) {
-        super.visitUnary(tree);
+        // we don't call super because mkAssign needs the untranslated expr for ++ and --
 
         JCExpression expr;
         JCLiteral one = _tmaker.Literal(TypeTags.INT, 1);
         switch (tree.getKind()) {
         case PREFIX_INCREMENT:  // ++i -> (i = i + 1)
         case POSTFIX_INCREMENT: // i++ -> ((i = i + 1) - 1)
-            expr = _tmaker.Assign(tree.arg, binop(tree.pos, Tree.Kind.PLUS, tree.arg, one));
+            expr = mkAssign(tree.arg, binop(tree.pos, Tree.Kind.PLUS, translate(tree.arg), one),
+                            tree.pos);
             if (tree.getKind() == Tree.Kind.POSTFIX_INCREMENT) {
                 expr = binop(tree.pos, Tree.Kind.MINUS, expr, one);
             }
@@ -184,15 +185,15 @@ public class Detype extends PathedTreeTranslator
 
         case PREFIX_DECREMENT:  // --i -> (i = i - 1)
         case POSTFIX_DECREMENT: // i-- -> ((i = i - 1) + 1)
-            expr = _tmaker.Assign(tree.arg, binop(tree.pos, Tree.Kind.MINUS, tree.arg,
-                                                  _tmaker.Literal(TypeTags.INT, 1)));
+            expr = mkAssign(tree.arg, binop(tree.pos, Tree.Kind.MINUS, translate(tree.arg),
+                                            _tmaker.Literal(TypeTags.INT, 1)), tree.pos);
             if (tree.getKind() == Tree.Kind.POSTFIX_DECREMENT) {
                 expr = binop(tree.pos, Tree.Kind.PLUS, expr, one);
             }
             break;
 
         default:
-            expr = unop(tree.pos, tree.getKind(), tree.arg);
+            expr = unop(tree.pos, tree.getKind(), translate(tree.arg));
             break;
         }
 
@@ -209,13 +210,15 @@ public class Detype extends PathedTreeTranslator
     }
 
     @Override public void visitAssignop (JCAssignOp tree) {
-        super.visitAssignop(tree);
+        // we don't call super because mkAssign needs the untranslated LHS
 
+        // we create this temporary JCBinary so that we can call bop.getKind() below which calls
+        // into non-public code that would otherwise be annoying to call
+        JCExpression bop = _tmaker.Binary(tree.getTag() - JCTree.ASGOffset, tree.lhs, tree.rhs);
+        bop = binop(tree.pos, bop.getKind(), translate(tree.lhs), translate(tree.rhs));
         // TODO: this a problem wrt evaluating the LHS more than once, we probably need to do
         // something painfully complicated
-        JCExpression bop = _tmaker.Binary(tree.getTag() - JCTree.ASGOffset, tree.lhs, tree.rhs);
-        bop = binop(tree.pos, bop.getKind(), tree.lhs, tree.rhs);
-        result = _tmaker.at(tree.pos).Assign(tree.lhs, bop);
+        result = mkAssign(tree.lhs, bop, tree.pos);
         // Debug.log("Rewrote assignop", "kind", tree.getKind(), "into", result);
     }
 
@@ -516,19 +519,8 @@ public class Detype extends PathedTreeTranslator
     }
 
     @Override public void visitAssign (JCAssign tree) {
-        if (tree.lhs instanceof JCArrayAccess) {
-            JCArrayAccess aa = (JCArrayAccess)tree.lhs;
-            result = callRT("assignAt", tree.pos, translate(aa.indexed), translate(aa.index),
-                            translate(tree.rhs));
-        } else if (tree.lhs instanceof JCFieldAccess) {
-            JCFieldAccess fa = (JCFieldAccess)tree.lhs;
-            result = callRT("assign", tree.pos, translate(fa.selected),
-                            _tmaker.Literal(TypeTags.CLASS, fa.name.toString()),
-                            translate(tree.rhs));
-        } else {
-            super.visitAssign(tree);
-        }
-        // TODO: we need to handle (foo[ii]) = 1 (and maybe others?)
+        // we don't call super as we may need to avoid translating the LHS
+        result = mkAssign(tree.lhs, translate(tree).rhs, tree.pos);
     }
 
     protected Detype (Context ctx)
@@ -648,6 +640,23 @@ public class Detype extends PathedTreeTranslator
         } else {
             return _tmaker.at(pos).Select(mkFA(fqName.substring(0, didx), pos), // nested FA expr
                                           _names.fromString(fqName.substring(didx+1)));
+        }
+    }
+
+    protected JCExpression mkAssign (JCExpression lhs, JCExpression rhs, int pos)
+    {
+        if (lhs instanceof JCArrayAccess) {
+            JCArrayAccess aa = (JCArrayAccess)lhs;
+            return callRT("assignAt", pos, translate(aa.indexed), translate(aa.index), rhs);
+
+        } else if (lhs instanceof JCFieldAccess) {
+            JCFieldAccess fa = (JCFieldAccess)lhs;
+            return callRT("assign", pos, translate(fa.selected),
+                          _tmaker.Literal(TypeTags.CLASS, fa.name.toString()), rhs);
+
+        // TODO: we need to handle (foo[ii]) = 1 (and maybe others?)
+        } else {
+            return _tmaker.at(pos).Assign(translate(lhs), rhs);
         }
     }
 
