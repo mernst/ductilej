@@ -520,7 +520,7 @@ public class Detype extends PathedTreeTranslator
 
     @Override public void visitAssign (JCAssign tree) {
         // we don't call super as we may need to avoid translating the LHS
-        result = mkAssign(tree.lhs, translate(tree).rhs, tree.pos);
+        result = mkAssign(tree.lhs, translate(tree.rhs), tree.pos);
     }
 
     protected Detype (Context ctx)
@@ -643,6 +643,7 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
+    // NOTE: lhs must not have been translated, rhs must have been translated
     protected JCExpression mkAssign (JCExpression lhs, JCExpression rhs, int pos)
     {
         if (lhs instanceof JCArrayAccess) {
