@@ -5,6 +5,7 @@ package org.typelessj.tests;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.util.Date;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
@@ -36,6 +37,14 @@ public class DefApplyTest
 
         protected String _name;
         protected int _age;
+    }
+
+    public class DatePerson extends Person {
+        public DatePerson (int age) {
+            // ensures that RT.newInstance(Date.class, ...) detects that the arguments to super()
+            // are in a "static" context (i.e. they cannot reference "this")
+            super(new Date().toString(), age);
+        }
     }
 
     public class MyPanel extends JPanel
