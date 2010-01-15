@@ -14,6 +14,8 @@ public class SwitchTest
     // we won't detype static final fields
     public static final int ONE = 1;
 
+    public enum Code { A, B, C };
+
     @Test public void testLocalSwitch ()
     {
         for (int ii = 0; ii < CASES.length; ii++) {
@@ -22,6 +24,7 @@ public class SwitchTest
             assertTrue(switchSelect(new Wrapper(CASES[ii])) == RESULTS[ii]);
             assertTrue(switchMethod(CASES[ii]) == RESULTS[ii]);
         }
+        assertEquals(switchEnum(Code.B), "B");
     }
 
     protected int switchArg (int value)
@@ -66,6 +69,16 @@ public class SwitchTest
         case ONE:
         case 2: return 1;
         case 3: return 0;
+        }
+    }
+
+    protected String switchEnum (Code code)
+    {
+        switch (code) {
+        case A: return "A";
+        case B: return "B";
+        default:
+        case C: return "C";
         }
     }
 

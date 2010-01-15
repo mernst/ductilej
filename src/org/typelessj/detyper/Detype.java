@@ -471,19 +471,26 @@ public class Detype extends PathedTreeTranslator
     @Override public void visitSwitch (JCSwitch tree) {
         // we need to determine the static type of the selector and cast back to that to avoid a
         // complex transformation of switch into an equivalent set of if statements nested inside a
-        // one loop for loop (to preserve break semantics)
+        // one loop for loop (to preserve 'break' semantics)
         Type type = _resolver.resolveType(_env, tree.selector);
-        if (type == null) {
-            Debug.log("!!! Can't resolve type for switch " + tree.selector);
-        }
 
         // we have to look up the type *before* we transform the switch expression
         super.visitSwitch(tree);
 
         // we have to apply our checked cast *after* we transform the switch expression
-        if (type != null) {
+        if (type == null) {
+            Debug.log("!!! Can't resolve type for switch " + tree.selector);
+
+        } else if (Flags.isEnum(type.tsym)) {
             // type.toString() gives us back a source representation of the type
             tree.selector = checkedCast(mkFA(type.toString(), tree.selector.pos), tree.selector);
+
+        } else {
+            // for integer types, we need to use asInt() rather than casting to Integer because
+            // Java won't unbox and then coerce, whereas it will coerce; so if our switch
+            // expression is int and the case constants are char, compilation will fail if we
+            // promote the int to Integer
+            tree.selector = callRT("asInt", tree.selector.pos, tree.selector);
         }
     }
 
