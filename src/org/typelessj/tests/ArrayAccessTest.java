@@ -25,4 +25,14 @@ public class ArrayAccessTest
         }
         assertEquals(text, "onetwothree");
     }
+
+    @Test public void testArrayIndexedMethodCall ()
+    {
+        String[] args = new String[] { "one", "two", "three" };
+        int length = 0;
+        for (int ii = 0; ii < args.length; ii++) {
+            length += args[ii].length();
+        }
+        assertEquals(length, 11);
+    }
 }

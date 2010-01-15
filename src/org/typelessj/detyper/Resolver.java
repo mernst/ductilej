@@ -12,8 +12,8 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.jvm.ClassReader;
-import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.*;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
@@ -76,7 +76,7 @@ public class Resolver
                                     List<JCExpression> args)
     {
         for (MethodSymbol mth : mths) {
-            if (mth.type.asMethodType().argtypes.size() == args.size()) {
+            if (mth.type.asMethodType().argtypes.size() == args.size() || mth.isVarArgs()) {
                 return mth;
             }
         }
@@ -158,13 +158,18 @@ public class Resolver
             Type rtype = resolveType(env, ((JCFieldAccess)mexpr.meth).selected);
             if (rtype == null) {
                 // if the selectee is not a variable in scope, maybe it's a type name
-                rtype = resolveAsType(env, ((JCFieldAccess)mexpr.meth).selected);
+                rtype = resolveAsType(env, ((JCFieldAccess)mexpr.meth).selected, false);
             }
             if (rtype == null) {
                 Debug.log("Can't resolve receiver type", "expr", mexpr);
                 return null;
             }
-            csym = ((ClassSymbol)rtype.tsym);
+            if (rtype.tsym instanceof ClassSymbol) {
+                csym = ((ClassSymbol)rtype.tsym);
+            } else {
+                Debug.log("!!! Got non-ClassSymbol", "sym", rtype.tsym, "kind", rtype.tsym.kind);
+                return null;
+            }
             break;
         default:
             Debug.log("Method not ident or select?", "expr", mexpr);
@@ -252,6 +257,16 @@ public class Resolver
             // anonymous inner classes...
             return resolveType(env, ((JCNewClass)expr).clazz);
 
+        case JCTree.INDEXED: {
+            Type atype = resolveType(env, ((JCArrayAccess)expr).indexed);
+            if (atype instanceof Type.ArrayType) {
+                return ((Type.ArrayType)atype).elemtype;
+            } else {
+                Debug.log("Can't resolveType() of array index expr", "expr", expr, "atype", atype);
+                return null;
+            }
+        }
+
         default:
             Debug.log("Can't resolveType() of expr", "tag", expr.getTag(), "expr", expr);
             return null;
@@ -264,23 +279,31 @@ public class Resolver
      * name a type.
      *
      * <p> Note: this may or may not do anything sensible if used on type variables. Don't do that.
+     *
+     * @param assumeObject if true, an unresolvable type will be interpreted as java.lang.Object,
+     * if false, null will be returned instead.
      */
-    public Type resolveAsType (Env<DetypeContext> env, JCExpression expr)
+    public Type resolveAsType (Env<DetypeContext> env, JCExpression expr, boolean assumeObject)
     {
         // if this is a primitive type, return its predef type
         if (expr.getTag() == JCTree.TYPEIDENT) {
             return _syms.typeOfTag[((JCPrimitiveTypeTree)expr).typetag];
         }
 
+        // this may be an array expression
+        if (expr.getTag() == JCTree.TYPEARRAY) {
+            Type etype = resolveAsType(env, ((JCArrayTypeTree)expr).elemtype, assumeObject);
+            return (etype == null) ? null : new Type.ArrayType(etype, etype.tsym);
+        }
+
         // maybe the whole thing names a type in scope
+        while (expr.getTag() == JCTree.TYPEAPPLY) {
+            expr = ((JCTypeApply)expr).clazz;
+        }
         Name fname = TreeInfo.fullName(expr);
         if (fname == null) {
-            fname = TreeInfo.name(expr); // handles JCTypeApply
-        }
-        if (fname == null) {
-            // TODO: LHS may be an array select expression
-            Debug.log("!!! Asked to resolve as type expr with no name?", "expr", expr);
-            return null;
+            Debug.log("No name for type expr", "expr", expr, "type", expr.getClass());
+            return null; // TODO: LHS may be an array declaration (i.e. String[])
         }
         Symbol type = findType(env, fname);
         if (type instanceof ClassSymbol) {
@@ -308,7 +331,8 @@ public class Resolver
             // it doesn't exist, fall through
         }
 
-        return null;
+        Debug.log("Assuming Object for candidate type", "expr", expr);
+        return assumeObject ? _syms.objectType : null;
     }
 
     protected Resolver (Context ctx)

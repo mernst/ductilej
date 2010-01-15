@@ -135,11 +135,7 @@ public class Detype extends PathedTreeTranslator
         if (_env.tree.getTag() != JCTree.CLASSDEF) {
             // create a placeholder VarSymbol for this variable so that we can use it later
             // during some simple name resolution
-            Type vtype = _resolver.resolveAsType(_env, tree.vartype);
-            if (vtype == null) {
-                Debug.log("Assuming Object for candidate type: " + tree);
-                vtype = _syms.objectType;
-            }
+            Type vtype = _resolver.resolveAsType(_env, tree.vartype, true);
             _env.info.scope.enter(new VarSymbol(0, tree.name, vtype, _env.info.scope.owner));
         }
 
@@ -593,7 +589,7 @@ public class Detype extends PathedTreeTranslator
         }
 
         // otherwise try resolving this expression as a type
-        return (_resolver.resolveAsType(_env, fa) != null);
+        return (_resolver.resolveAsType(_env, fa, false) != null);
     }
 
     protected boolean isScopedVar (JCExpression expr)
