@@ -69,10 +69,20 @@ public class RT
      * Creates a new empty array with the specified dimensions. TODO: we may need to box the array
      * and preserve the original type information.
      */
-    public static Object boxArray (Class<?> clazz, Object array)
+    public static Object boxArray (Class<?> etype, Object array)
     {
         return array;
-//         return Array.newInstance(Object.class, dims);
+    }
+
+    /**
+     * Creates a new empty array with the supplied initial arguments. TODO: we may need to box the
+     * array and preserve the original type information.
+     */
+    public static Object boxArrayArgs (Class<?> etype, Object... elems)
+    {
+        // TODO: we may want to create an array of the supplied element type and copy the supplied
+        // Object[] values thereinto
+        return elems;
     }
 
     /**

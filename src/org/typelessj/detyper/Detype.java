@@ -301,31 +301,40 @@ public class Detype extends PathedTreeTranslator
     }
 
     @Override public void visitNewArray (JCNewArray tree) {
-        super.visitNewArray(tree);
-
-        Debug.log("Array creation", "expr", tree, "dims", tree.dims, "elems", tree.elems);
-
-        if (tree.elemtype == null) {
-            Debug.log("Hrm? " + tree);
-            return;
+        // determine the type of the array elements
+        JCExpression etype = tree.elemtype;
+        if (etype == null) {
+            // if we have no type, we're probably inside a multidimensional array initializer, so
+            // we obtain our type from our enclosing array initializer
+            if (!(_env.info.arrayElemType instanceof JCArrayTypeTree)) {
+                Debug.log("In nested array initializer but type is not array type?", "expr", tree,
+                          "etype", _env.info.arrayElemType);
+            } else {
+                etype = ((JCArrayTypeTree)_env.info.arrayElemType).elemtype;
+            }
         }
+
+        // note our current array element type in our context
+        JCExpression oetype = _env.info.arrayElemType;
+        _env.info.arrayElemType = etype;
+        // now translate any nested expressions
+        super.visitNewArray(tree);
+        // restore our previous array element type
+        _env.info.arrayElemType = oetype;
+
+        // Debug.log("Array creation", "expr", tree, "dims", tree.dims, "elems", tree.elems);
 
         // we need to cast the dimension expressions to int
         tree.dims = castIntList(tree.dims);
 
-        JCExpression otype = tree.elemtype;
-// TODO: something funny happens here
-//             tree.elemtype = _tmaker.at(otype.pos).Ident(_names.java_lang_Object);
-        result = callRT("boxArray", tree.pos, classLiteral(otype, otype.pos), tree);
-
-//             // either we have dimensions or a set of initial values, but not both
-//             if (tree.elems != null) {
-//                 // TODO
-//             } else if (!tree.dims.isEmpty()) {
-//                 result = callRT("newArray", tree.pos,
-//                                 tree.dims.prepend(classLiteral(tree.elemtype, tree.elemtype.pos)).
-//                                 toArray(new JCExpression[tree.dims.size()]));
-//             }
+        if (etype == null) {
+            // do nothing, we're probably looking at syntactically incorrect code
+        } else if (tree.elems != null) {
+            result = callRT("boxArrayArgs", tree.pos,
+                            tree.elems.prepend(classLiteral(etype, etype.pos)));
+        } else {
+            result = callRT("boxArray", tree.pos, classLiteral(etype, etype.pos), tree);
+        }
     }
 
 // TODO: this is fiddlier

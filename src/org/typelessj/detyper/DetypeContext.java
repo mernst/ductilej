@@ -5,6 +5,7 @@ package org.typelessj.detyper;
 
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.tree.JCTree.JCExpression;
 
 /**
  * Used to compute scopes during the detyping process.
@@ -16,6 +17,9 @@ public class DetypeContext
 
     /** The parent of the anonymous inner class currently being created, if any. */
     public Symbol anonParent;
+
+    /** The type of the current array initializer element type, if any. */
+    public JCExpression arrayElemType;
 
     /**
      * Duplicates this context with the specified new scope.

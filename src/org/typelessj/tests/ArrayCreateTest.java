@@ -14,7 +14,10 @@ public class ArrayCreateTest
     @Test public void testArrayCreate ()
     {
         Integer foo = new Integer(5);
-        Number[][] nums = new Number[][] { { 4, 5f, 5 } };
+        Number[][] nums = new Number[][] { { foo, 5f, 5 } };
+        assertEquals(nums[0][0], foo);
+        assertEquals(nums[0][1], 5f);
+        assertEquals(nums[0][2], 5);
     }
 
     @Test public void testArrayCreateDimsCast ()
