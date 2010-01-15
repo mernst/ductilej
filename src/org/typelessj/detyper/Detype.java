@@ -404,12 +404,19 @@ public class Detype extends PathedTreeTranslator
 
         super.visitApply(tree);
 
-        // if this is a super() call, we leave it alone
+        // if this is a super() call, we can't call it reflectively
         if ((tree.meth instanceof JCIdent && TreeInfo.name(tree.meth) == _names._super) ||
             // TODO: we also leave super.someMethod() alone for now as well, though ideally we'll
             // be able to reflectively invoke such calls
             (tree.meth instanceof JCFieldAccess &&
              TreeInfo.name(((JCFieldAccess)tree.meth).selected) == _names._super)) {
+            // but if the method is defined in a library class, we need to cast the argument types
+            // back to the types it expects
+            if (msym == null) {
+                Debug.log("!!! Unable to resolve method for super()", "tree", tree);
+            } else if (!tree.args.isEmpty() && ASTUtil.isLibrary(msym.owner)) {
+                tree.args = castList(msym.type.asMethodType().argtypes, tree.args);
+            }
             return;
         }
 
