@@ -9,6 +9,7 @@ import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.TypeTags;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.jvm.ClassReader;
@@ -180,9 +181,20 @@ public class Resolver
             return null;
         }
 
+        Name mname = TreeInfo.name(mexpr.meth);
+        // if the method we're looking at is "super" then we need to do some wrangling
+        if (mname == _names._super) {
+            Type stype = _types.supertype(env.enclClass.sym.type);
+            if (stype.tag == TypeTags.CLASS) {
+                csym = (ClassSymbol)stype.tsym;
+                mname = _names.init;
+            } else {
+                Debug.log("Unable to process super()", "csym", csym);
+            }
+        }
+
         // TODO: the below uses _types.closure(), we need to make sure it doesn't end up caching
         // our fake ClassSymbols created for anonymous inner classes
-        Name mname = TreeInfo.name(mexpr.meth);
         List<MethodSymbol> mths = List.nil();
         for (Type type : _types.closure(csym.type)) {
             // Debug.log("Adding " + mname + " from " + type);
@@ -215,7 +227,20 @@ public class Resolver
         switch (expr.getTag()) {
         case JCTree.IDENT: {
             Name name = ((JCIdent)expr).name;
-            Symbol sym = (name == _names._this) ? env.enclClass.sym : findVar(env, name);
+            Symbol sym;
+            if (name == _names._this) {
+                sym = env.enclClass.sym;
+            } else if (name == _names._super) {
+                Type stype = _types.supertype(env.enclClass.sym.type);
+                if (stype.tag == TypeTags.CLASS) {
+                    sym = (ClassSymbol)stype.tsym;
+                } else {
+                    Debug.log("Unable to obtain supertype", "csym", env.enclClass.sym);
+                    return null;
+                }
+            } else {
+                sym = findVar(env, name);
+            }
             if (sym == null) {
                 return null; // no variable in scope with that name
             }
