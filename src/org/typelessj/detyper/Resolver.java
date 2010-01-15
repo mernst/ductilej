@@ -18,6 +18,7 @@ import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Name;
+import com.sun.tools.javac.util.Names;
 
 import org.typelessj.runtime.Debug;
 
@@ -153,7 +154,8 @@ public class Resolver
                                       // it out again later; then we need to be careful not to use
                                       // Types.closure()
             break;
-        case JCTree.SELECT:
+
+        case JCTree.SELECT: {
             // Debug.log("Finding type of receiver", "expr", ((JCFieldAccess)mexpr.meth).selected);
             Type rtype = resolveType(env, ((JCFieldAccess)mexpr.meth).selected);
             if (rtype == null) {
@@ -167,10 +169,12 @@ public class Resolver
             if (rtype.tsym instanceof ClassSymbol) {
                 csym = ((ClassSymbol)rtype.tsym);
             } else {
-                Debug.log("!!! Got non-ClassSymbol", "sym", rtype.tsym, "kind", rtype.tsym.kind);
+                Debug.log("!!! Got non-ClassSymbol", "expr", mexpr, "sym", rtype.tsym);
                 return null;
             }
             break;
+        }
+
         default:
             Debug.log("Method not ident or select?", "expr", mexpr);
             return null;
@@ -192,7 +196,7 @@ public class Resolver
 
         MethodSymbol best = pickMethod(env, mths, mexpr.args);
         if (best == null) {
-            Debug.log("Unable to resolve overload", "expr", mexpr, "mths", mths);
+            Debug.log("!!! Unable to resolve overload", "expr", mexpr, "mths", mths);
             return null;
         } else if (best.type == null) {
             Debug.log("Resolved method has no type information", "mth", best);
@@ -211,7 +215,7 @@ public class Resolver
         switch (expr.getTag()) {
         case JCTree.IDENT: {
             Name name = ((JCIdent)expr).name;
-            Symbol sym = findVar(env, name);
+            Symbol sym = (name == _names._this) ? env.enclClass.sym : findVar(env, name);
             if (sym == null) {
                 return null; // no variable in scope with that name
             }
@@ -255,7 +259,7 @@ public class Resolver
         case JCTree.NEWCLASS:
             // TODO: this isn't quite right since it doesn't return the correct symbol for
             // anonymous inner classes...
-            return resolveType(env, ((JCNewClass)expr).clazz);
+            return resolveAsType(env, ((JCNewClass)expr).clazz, false);
 
         case JCTree.INDEXED: {
             Type atype = resolveType(env, ((JCArrayAccess)expr).indexed);
@@ -341,6 +345,7 @@ public class Resolver
         _reader = ClassReader.instance(ctx);
         _types = Types.instance(ctx);
         _syms = Symtab.instance(ctx);
+        _names = Names.instance(ctx);
     }
 
     protected Symbol findMemberType (Env<DetypeContext> env, Name name, TypeSymbol c)
@@ -446,6 +451,7 @@ public class Resolver
     protected ClassReader _reader;
     protected Types _types;
     protected Symtab _syms;
+    protected Names _names;
 
     protected static final Context.Key<Resolver> RESOLVER_KEY = new Context.Key<Resolver>();
 }

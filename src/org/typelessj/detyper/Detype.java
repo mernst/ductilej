@@ -227,11 +227,11 @@ public class Detype extends PathedTreeTranslator
         // class, we need this in inLibraryOverrider() for our approximation approach
         Symbol oanonp = _env.info.anonParent;
         if (tree.def != null) {
-            Name cname = (tree.clazz instanceof JCTypeApply) ?
-                TreeInfo.fullName(((JCTypeApply)tree.clazz).clazz) : TreeInfo.fullName(tree.clazz);
-            _env.info.anonParent = _resolver.findType(_env, cname);
-            if (_env.info.anonParent == null) {
-                Debug.log("Pants! Unable to resolve type of anonymous inner parent", "name", cname);
+            Type atype = _resolver.resolveAsType(_env, tree.clazz, false);
+            if (atype == null) {
+                Debug.log("!!! Unable to resolve type of anon inner parent", "name", tree.clazz);
+            } else {
+                _env.info.anonParent = atype.tsym;
             }
 
             // we need to create a fake class symbol for our anonymous inner class and do our own
