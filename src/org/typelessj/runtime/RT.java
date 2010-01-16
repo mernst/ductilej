@@ -55,8 +55,6 @@ public class RT
 
         try {
             ctor.setAccessible(true);
-            // TODO: if this is a non-static inner class we need to shift the enclosing instance
-            // into position zero of the arguments (I think)
             @SuppressWarnings("unchecked") T inst = (T)ctor.newInstance(rargs);
             return inst;
         } catch (InstantiationException ie) {
@@ -234,7 +232,7 @@ public class RT
      */
     public static Object binop (String opcode, Object lhs, Object rhs)
     {
-        // TODO: this all needs to be much more sophisticated
+        // TODO: this all needs to be much more sophisticated in the face of type errors
         if ("PLUS".equals(opcode)) {
             if (lhs instanceof String || rhs instanceof String) {
                 return String.valueOf(lhs) + String.valueOf(rhs);
@@ -273,18 +271,24 @@ public class RT
 
         } else if ("CONDITIONAL_OR".equals(opcode)) {
             return ((Boolean)lhs).booleanValue() ? true : ((Boolean)rhs).booleanValue();
+
+        } else if ("OR".equals(opcode)) {
+            return ((Number)lhs).intValue() | ((Number)rhs).intValue();
+
+        } else if ("AND".equals(opcode)) {
+            return ((Number)lhs).intValue() & ((Number)rhs).intValue();
+
+        } else if ("XOR".equals(opcode)) {
+            return ((Number)lhs).intValue() ^ ((Number)rhs).intValue();
+
+        } else if ("REMAINDER".equals(opcode)) {
+            return ((Number)lhs).intValue() % ((Number)rhs).intValue();
         }
 
 // TODO: implement
-//         DIVIDE(BinaryTree.class),
-//         REMAINDER(BinaryTree.class),
-//         MINUS(BinaryTree.class),
 //         LEFT_SHIFT(BinaryTree.class),
 //         RIGHT_SHIFT(BinaryTree.class),
 //         UNSIGNED_RIGHT_SHIFT(BinaryTree.class),
-//         AND(BinaryTree.class),
-//         XOR(BinaryTree.class),
-//         OR(BinaryTree.class),
 //         MULTIPLY_ASSIGNMENT(CompoundAssignmentTree.class),
 //         DIVIDE_ASSIGNMENT(CompoundAssignmentTree.class),
 //         REMAINDER_ASSIGNMENT(CompoundAssignmentTree.class),
@@ -297,7 +301,7 @@ public class RT
 //         XOR_ASSIGNMENT(CompoundAssignmentTree.class),
 //         OR_ASSIGNMENT(CompoundAssignmentTree.class),
 
-        return null;
+        throw new IllegalArgumentException("Binop not yet implemented: " + opcode);
     }
 
     /**
