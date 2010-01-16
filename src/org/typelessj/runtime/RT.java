@@ -128,7 +128,9 @@ public class RT
         }
 
         try {
-            return findField(clazz, fname).get(target);
+            Field field = findField(clazz, fname);
+            field.setAccessible(true);
+            return field.get(target);
         } catch (NoSuchFieldException nsfe) {
             throw new RuntimeException(nsfe);
         } catch (IllegalAccessException iae) {
@@ -335,7 +337,20 @@ public class RT
      */
     public static <T> T checkedCast (Class<T> clazz, Object value)
     {
-        return clazz.cast(value); // TODO: catch CCE and trigger context dump
+        Class<?> ptype = WRAPPERS.get(clazz);
+        try {
+            if (ptype == null) {
+                return clazz.cast(value);
+            } else {
+                @SuppressWarnings("unchecked") T cvalue = (T)ptype.cast(value);
+                return cvalue;
+            }
+        } catch (ClassCastException cce) {
+            String vclass = (value == null) ? "<none>" : value.getClass().getName();
+            Debug.log("Runtime cast failure", "target", clazz, "value", value, "vclass", vclass);
+            // TODO: trigger context dump, terminate program?
+            throw cce;
+        }
     }
 
     /**
