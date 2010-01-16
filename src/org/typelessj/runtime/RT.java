@@ -458,29 +458,21 @@ public class RT
         }
 
         // TODO: if argument mismatch, clarify that, if total method lacking, clarify that
-        throw new NoSuchMethodError("Can't find method " + clazz.getSimpleName() + "." + mname);
+        throw new NoSuchMethodError(
+            "Can't find method " + clazz + "." + mname + " (" + args.length + " args)");
     }
 
+    /**
+     * A helper for {@link #findMethod}.
+     */
     protected static List<Method> collectMethods (
         List<Method> into, String mname, Class<?> clazz, Object[] args)
     {
-      METHODS:
         for (Method method : clazz.getDeclaredMethods()) {
             Class<?>[] ptypes = method.getParameterTypes();
-            if (!method.getName().equals(mname)) {
-                continue METHODS;
+            if (method.getName().equals(mname) && isApplicable(ptypes, method.isVarArgs(), args)) {
+                into.add(method);
             }
-            if (!(ptypes.length == args.length ||
-                  (method.isVarArgs() && (ptypes.length-1) <= args.length))) {
-                continue METHODS;
-            }
-            for (int ii = 0; ii < args.length; ii++) {
-                Class<?> ptype = ptypes[ii].isPrimitive() ? WRAPPERS.get(ptypes[ii]) : ptypes[ii];
-                if (args[ii] != null && !ptype.isAssignableFrom(args[ii].getClass())) {
-                    continue METHODS;
-                }
-            }
-            into.add(method);
         }
         Class<?> parent = clazz.getSuperclass();
         if (parent != null) {
@@ -508,23 +500,50 @@ public class RT
 //         } while (target != null);
 //         // TODO: sort them by best to worst match; return the first one
 
-      CTORS:
         for (Constructor<?> ctor : clazz.getDeclaredConstructors()) {
             Class<?>[] ptypes = ctor.getParameterTypes();
-            if (ptypes.length != args.length) {
-                continue CTORS;
+            if (isApplicable(ptypes, ctor.isVarArgs(), args)) {
+                return ctor; // TODO: enumerate and select best match like findMethod()
             }
-            // debug("Checking " + ctor.getName() + " for match", "ptypes", ptypes, "args", args);
-            for (int ii = 0; ii < args.length; ii++) {
-                Class<?> ptype = ptypes[ii].isPrimitive() ? WRAPPERS.get(ptypes[ii]) : ptypes[ii];
-                if (args[ii] != null && !ptype.isAssignableFrom(args[ii].getClass())) {
-                    continue CTORS;
-                }
-            }
-            return ctor;
         }
         Class<?> parent = clazz.getSuperclass();
         return (parent == null) ? null : findConstructor(parent, args);
+    }
+
+    /**
+     * Returns true if a method or constructor with the supplied arguments and variable arity can
+     * be called with the supplied arguments.
+     */
+    protected static boolean isApplicable (Class<?>[] ptypes, boolean isVarArgs, Object[] args)
+    {
+        if (!(ptypes.length == args.length || (isVarArgs && (ptypes.length-1) <= args.length))) {
+            return false;
+        }
+
+        // make sure all fixed arity arguments match
+        int fpcount = isVarArgs ? ptypes.length-1 : ptypes.length;
+        for (int ii = 0; ii < fpcount; ii++) {
+            Class<?> ptype = ptypes[ii].isPrimitive() ? WRAPPERS.get(ptypes[ii]) : ptypes[ii];
+            if (args[ii] != null && !ptype.isAssignableFrom(args[ii].getClass())) {
+                return false;
+            }
+        }
+
+// TODO: should we leave this out, or is there some better check we can do given that detyped
+// varargs becomes foo(Object vargs) and library varargs is foo(T[] vargs); maybe only enforce type
+// if we see an actual array type (since we then know we have to cast)
+
+//         // make sure all variable artity arguments match
+//         if (isVarArgs) {
+//             Class<?> ptype = ptypes[fpcount].isPrimitive() ?
+//                 WRAPPERS.get(ptypes[fpcount]) : ptypes[fpcount];
+//             for (int ii = fpcount; ii < args.length; ii++) {
+//                 if (args[ii] != null && !ptype.isAssignableFrom(args[ii].getClass())) {
+//                     return false;
+//                 }
+//             }
+//         }
+        return true;
     }
 
     protected static boolean isEqualTo (Object lhs, Object rhs)
