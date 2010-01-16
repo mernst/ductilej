@@ -4,7 +4,6 @@ TypelessJ TODO
 Evaluation
 - Look at untyped program in Eclipse to get a feel for the impact of the red
 squigglies
-- Bring case study program to type correctness, record notes on the process
 
 Open issues
 - What math ops are legal for Character (+ and -, but * and /?)
@@ -28,12 +27,13 @@ Open issues
 - Need to do the "right" thing with == (assuming there is a right thing),
   i.e. if == is called on boxed integers, we need to unbox and compare, but ==
   called on one or two references should compare references.
+- We need to preserve information on variable arity methods. Right now:
+  log(String message, Object... args) becomes log(Object message, Object args)
+  which is going to confuse RT.invoke() which tries to reconstruct variable
+  arity argument arrays.
 
 Detyper
-- Handle field selection in lvalue position (i.e. foo.bar += baz)
 - See if we can add an import for org.typelessj.runtime.RT to avoid verbose dumps
-- Handle array initialization expressions (new int[] { 1, 2, 3, 4})
-- Insert cast to proper return type for overridden library methods
 - Casting array dimension exprs to Integer isn't sufficient, they might
   (legally) be a Long (or other integer type) which we need to coerce
 - Implement overloaded method combination plus value+type boxing plus dynamic
