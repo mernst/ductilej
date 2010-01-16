@@ -9,7 +9,10 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 
 import com.google.common.collect.ImmutableMap;
@@ -94,22 +97,7 @@ public class RT
         if (receiver == null) {
             throw new NullPointerException();
         }
-
-        Method method = findMethod(mname, receiver.getClass(), args);
-        if (method == null) {
-            // TODO: if argument mismatch, clarify that, if total method lacking, clarify that
-            throw new NoSuchMethodError("Can't find method " +
-                                        receiver.getClass().getSimpleName() + "." + mname);
-        }
-
-        try {
-            method.setAccessible(true); // TODO: cache which methods we've toggled if slow
-            return method.invoke(receiver, args);
-        } catch (IllegalAccessException iae) {
-            throw new RuntimeException(iae);
-        } catch (InvocationTargetException ite) {
-            throw new RuntimeException(unwrap(ite.getCause()));
-        }
+        return invoke(findMethod(mname, receiver.getClass(), args), receiver, args);
     }
 
     /**
@@ -118,20 +106,7 @@ public class RT
      */
     public static Object invokeStatic (String mname, Class<?> clazz, Object... args)
     {
-        Method method = findMethod(mname, clazz, args);
-        if (method == null) {
-            throw new NoSuchMethodError("Unable to find method " + mname +
-                                        " (" + Arrays.asList(args) + ")"); // TODO
-        }
-
-        try {
-            method.setAccessible(true); // TODO: cache which methods we've toggled if slow
-            return method.invoke(null, args);
-        } catch (IllegalAccessException iae) {
-            throw new RuntimeException(iae);
-        } catch (InvocationTargetException ite) {
-            throw new RuntimeException(unwrap(ite.getCause()));
-        }
+        return invoke(findMethod(mname, clazz, args), null, args);
     }
 
     /**
@@ -413,31 +388,86 @@ public class RT
     }
 
     /**
+     * Invokes the specified method with the supplied arguments.
+     */
+    protected static Object invoke (Method method, Object receiver, Object... args)
+    {
+        // Debug.log("Invoking " + method, "recv", receiver, "args", args);
+
+        // if this method is varargs we need to extract the variable arguments, place them into an
+        // Object[] and create a new args array that has the varargs array in the final position
+        Object[] aargs = args;
+        if (method.isVarArgs()) {
+            int fpcount = method.getParameterTypes().length-1;
+            Object[] vargs = new Object[args.length-fpcount];
+            System.arraycopy(args, fpcount, vargs, 0, args.length-fpcount);
+            aargs = new Object[fpcount+1];
+            System.arraycopy(args, 0, aargs, 0, fpcount);
+            aargs[fpcount] = vargs;
+        }
+
+        try {
+            method.setAccessible(true); // TODO: cache which methods we've toggled if slow
+            return method.invoke(receiver, aargs);
+        } catch (IllegalAccessException iae) {
+            throw new RuntimeException(iae);
+        } catch (InvocationTargetException ite) {
+            throw new RuntimeException(unwrap(ite.getCause()));
+        }
+    }
+
+    /**
      * A helper for {@link #invoke} and {@link #invokeStatic}.
      *
-     * TODO: throw NoSuchMethodError from here instead of having the caller do it (which means
-     * we'll need to keep track of the top-level class as we recurse, etc.)
+     * @throws NoSuchMethodError if a best matching method could not be found.
      */
-    protected static Method findMethod (String mname, Class<?> clazz, Object... args)
+    protected static Method findMethod (String mname, Class<?> clazz, Object[] args)
     {
-        // TODO: this needs to be much smarter :)
+        // TODO: this needs to follow the algorithm in JLS 15.12.2.1
+        List<Method> methods = collectMethods(new ArrayList<Method>(), mname, clazz, args);
+
+        // first look for matching non-varargs methods
+        for (Method m : methods) {
+            if (!m.isVarArgs()) {
+                return m;
+            }
+        }
+
+        // now look for any method
+        if (methods.size() > 0) {
+            return methods.get(0);
+        }
+
+        // TODO: if argument mismatch, clarify that, if total method lacking, clarify that
+        throw new NoSuchMethodError("Can't find method " + clazz.getSimpleName() + "." + mname);
+    }
+
+    protected static List<Method> collectMethods (
+        List<Method> into, String mname, Class<?> clazz, Object[] args)
+    {
       METHODS:
         for (Method method : clazz.getDeclaredMethods()) {
             Class<?>[] ptypes = method.getParameterTypes();
-            if (!method.getName().equals(mname) || ptypes.length != args.length) {
+            if (!method.getName().equals(mname)) {
                 continue METHODS;
             }
-            // debug("Checking " + method.getName() + " for match", "ptypes", ptypes, "args", args);
+            if (!(ptypes.length == args.length ||
+                  (method.isVarArgs() && (ptypes.length-1) <= args.length))) {
+                continue METHODS;
+            }
             for (int ii = 0; ii < args.length; ii++) {
                 Class<?> ptype = ptypes[ii].isPrimitive() ? WRAPPERS.get(ptypes[ii]) : ptypes[ii];
                 if (args[ii] != null && !ptype.isAssignableFrom(args[ii].getClass())) {
                     continue METHODS;
                 }
             }
-            return method;
+            into.add(method);
         }
         Class<?> parent = clazz.getSuperclass();
-        return (parent == null) ? null : findMethod(mname, parent, args);
+        if (parent != null) {
+            collectMethods(into, mname, parent, args);
+        }
+        return into;
     }
 
     /**
