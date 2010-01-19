@@ -167,8 +167,11 @@ public class Resolver
                 Debug.log("Can't resolve receiver type", "expr", mexpr);
                 return null;
             }
-            if (rtype.tsym instanceof ClassSymbol) {
-                csym = ((ClassSymbol)rtype.tsym);
+            if (rtype instanceof Type.ArrayType) {
+                // if the receiver is an array, then only Object method can be called on it
+                csym = (ClassSymbol)_syms.objectType.tsym;
+            } else if (rtype.tsym instanceof ClassSymbol) {
+                csym = (ClassSymbol)rtype.tsym;
             } else {
                 Debug.log("!!! Got non-ClassSymbol", "expr", mexpr, "sym", rtype.tsym);
                 return null;
