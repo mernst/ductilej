@@ -136,6 +136,7 @@
       <compilerarg value="-processor"/>
       <compilerarg value="org.typelessj.detyper.Processor"/>
       <compilerarg value="-Aorg.typelessj.showclass=${showclass}"/>
+      <compilerarg value="-Aorg.typelessj.debug=${debug}"/>
       <include name="**/tests/${test}*Test.java"/>
     </javac>
 

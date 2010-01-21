@@ -13,6 +13,9 @@ import org.typelessj.util.LogBuilder;
  */
 public class Debug
 {
+    /** Whether or not debug logging is enabled. */
+    public static boolean debug = false;
+
     /**
      * Emits a debug message to stdout.
      *
@@ -21,7 +24,7 @@ public class Debug
      */
     public static void log (String message, Object... args)
     {
-        if (DEBUG) {
+        if (debug) {
             System.out.println(format(message, args));
         }
     }
@@ -111,6 +114,4 @@ public class Debug
         }
         return getField(clazz.getSuperclass(), fname);
     }
-
-    protected static final boolean DEBUG = Boolean.getBoolean("debug");
 }
