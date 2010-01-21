@@ -147,13 +147,30 @@ public class Resolver
      */
     public MethodSymbol resolveMethod (Env<DetypeContext> env, JCMethodInvocation mexpr)
     {
-        ClassSymbol csym;
+        Name mname = TreeInfo.name(mexpr.meth);
+        List<ClassSymbol> csyms;
+
         switch (mexpr.meth.getTag()) {
         case JCTree.IDENT:
-            csym = env.enclClass.sym; // TODO: we need to create a ClassSymbol while processing
-                                      // inner classes and stuff it into enclClass.sym, then clear
-                                      // it out again later; then we need to be careful not to use
-                                      // Types.closure()
+            // if the method we're looking at is super(...) then we need to do some wrangling
+            if (mname == _names._super) {
+                Type stype = _types.supertype(env.enclClass.sym.type);
+                if (stype.tag == TypeTags.CLASS) {
+                    csyms = List.of((ClassSymbol)stype.tsym);
+                    mname = _names.init;
+                } else {
+                    Debug.log("Unable to process super()", "csym", env.enclClass.sym);
+                    return null;
+                }
+
+            // otherwise it's a method call with an implicit receiver, so we need to look for the
+            // method in the enclosing class and all outer enclosing classes
+            } else {
+                csyms = List.nil();
+                for (Env<DetypeContext> cenv = env; cenv != null; cenv = cenv.outer) {
+                    csyms = csyms.append(cenv.enclClass.sym);
+                }
+            }
             break;
 
         case JCTree.SELECT: {
@@ -169,9 +186,9 @@ public class Resolver
             }
             if (rtype instanceof Type.ArrayType) {
                 // if the receiver is an array, then only Object method can be called on it
-                csym = (ClassSymbol)_syms.objectType.tsym;
+                csyms = List.of((ClassSymbol)_syms.objectType.tsym);
             } else if (rtype.tsym instanceof ClassSymbol) {
-                csym = (ClassSymbol)rtype.tsym;
+                csyms = List.of((ClassSymbol)rtype.tsym);
             } else {
                 Debug.log("!!! Got non-ClassSymbol", "expr", mexpr, "sym", rtype.tsym);
                 return null;
@@ -184,25 +201,15 @@ public class Resolver
             return null;
         }
 
-        Name mname = TreeInfo.name(mexpr.meth);
-        // if the method we're looking at is "super" then we need to do some wrangling
-        if (mname == _names._super) {
-            Type stype = _types.supertype(env.enclClass.sym.type);
-            if (stype.tag == TypeTags.CLASS) {
-                csym = (ClassSymbol)stype.tsym;
-                mname = _names.init;
-            } else {
-                Debug.log("Unable to process super()", "csym", csym);
-            }
-        }
-
         // TODO: the below uses _types.closure(), we need to make sure it doesn't end up caching
         // our fake ClassSymbols created for anonymous inner classes
         List<MethodSymbol> mths = List.nil();
-        for (Type type : _types.closure(csym.type)) {
-            // Debug.log("Adding " + mname + " from " + type);
-            Scope scope = ((ClassSymbol)type.tsym).members_field;
-            mths = mths.appendList(lookupMethods(scope, mname));
+        for (ClassSymbol csym : csyms) {
+            for (Type type : _types.closure(csym.type)) {
+                // Debug.log("Adding " + mname + "()s from " + type);
+                Scope scope = ((ClassSymbol)type.tsym).members_field;
+                mths = mths.appendList(lookupMethods(scope, mname));
+            }
         }
 
         // finally add static imported methods
