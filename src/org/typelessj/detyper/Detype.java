@@ -251,7 +251,7 @@ public class Detype extends PathedTreeTranslator
         if (tree.def != null) {
             Type atype = _resolver.resolveAsType(_env, tree.clazz, false);
             if (atype == null) {
-                Debug.log("!!! Unable to resolve type of anon inner parent", "name", tree.clazz);
+                Debug.warn("Unable to resolve type of anon inner parent", "name", tree.clazz);
             } else {
                 _env.info.anonParent = atype.tsym;
             }
@@ -440,7 +440,7 @@ public class Detype extends PathedTreeTranslator
             // but if the method is defined in a library class, we need to cast the argument types
             // back to the types it expects
             if (msym == null) {
-                Debug.log("!!! Unable to resolve method for super()", "tree", tree);
+                Debug.warn("Unable to resolve method for super()", "tree", tree);
             } else if (!tree.args.isEmpty() && ASTUtil.isLibrary(msym.owner)) {
                 tree.args = castList(msym.type.asMethodType().argtypes, tree.args);
             }
@@ -498,7 +498,7 @@ public class Detype extends PathedTreeTranslator
 
         // we have to apply our checked cast *after* we transform the switch expression
         if (type == null) {
-            Debug.log("!!! Can't resolve type for switch " + tree.selector);
+            Debug.warn("Can't resolve type for switch " + tree.selector);
 
         } else if (Flags.isEnum(type.tsym)) {
             // type.toString() gives us back a source representation of the type

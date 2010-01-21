@@ -25,6 +25,17 @@ public class Debug
     }
 
     /**
+     * Emits a warning message to stdout.
+     *
+     * @param args key/value pairs, (e.g. "age", someAge, "size", someSize) which will be appended
+     * to the log message as [age=someAge, size=someSize].
+     */
+    public static void warn (String message, Object... args)
+    {
+        System.out.println("!!! " + format(message, args));
+    }
+
+    /**
      * Formats a debug message.
      *
      * @param args key/value pairs, (e.g. "age", someAge, "size", someSize) which will be appended
