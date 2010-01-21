@@ -21,7 +21,9 @@ public class Debug
      */
     public static void log (String message, Object... args)
     {
-        System.out.println(format(message, args));
+        if (DEBUG) {
+            System.out.println(format(message, args));
+        }
     }
 
     /**
@@ -109,4 +111,6 @@ public class Debug
         }
         return getField(clazz.getSuperclass(), fname);
     }
+
+    protected static final boolean DEBUG = Boolean.getBoolean("debug");
 }
