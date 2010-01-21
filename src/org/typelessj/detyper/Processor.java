@@ -55,6 +55,7 @@ public class Processor extends AbstractProcessor
 
         // note our options
         _showclass = "true".equalsIgnoreCase(procenv.getOptions().get(SHOWCLASS_ARG));
+        Debug.debug = "true".equalsIgnoreCase(procenv.getOptions().get(DEBUG_ARG));
 
         Debug.log("Detyper running", "vers", procenv.getSourceVersion());
     }
@@ -86,9 +87,10 @@ public class Processor extends AbstractProcessor
 
     protected Trees _trees;
     protected Detype _detype;
-
-    // -Aorg.typelessj.showclass=true causes classes to be printed after detyping
     protected boolean _showclass;
 
+    // -Aorg.typelessj.debug=true causes debug log messages to be printed
+    protected static final String DEBUG_ARG = "org.typelessj.debug";
+    // -Aorg.typelessj.showclass=true causes classes to be printed after detyping
     protected static final String SHOWCLASS_ARG = "org.typelessj.showclass";
 }
