@@ -168,6 +168,9 @@ public class Detype extends PathedTreeTranslator
 //                      "vtype", what(tree.vartype), "init", tree.init,
 //                      "sym", ASTUtil.expand(tree.sym));
             tree.vartype = _tmaker.Ident(_names.fromString("Object"));
+            if ((tree.mods.flags & Flags.VARARGS) != 0) {
+                tree.vartype = _tmaker.TypeArray(tree.vartype);
+            }
 
         } else {
             Debug.log("Not transforming", "def", tree, "path", path, "isLib", inLibraryOverrider());
@@ -785,7 +788,7 @@ public class Detype extends PathedTreeTranslator
             return List.nil();
         }
         return toTypeArgs(params.tail).prepend(
-            _tmaker.VarDef(_tmaker.Modifiers(Flags.FINAL),
+            _tmaker.VarDef(_tmaker.Modifiers(params.head.mods.flags | Flags.FINAL),
                            params.head.name.append(_names.fromString(TP_SUFFIX)),
                            params.head.vartype, null));
     }
