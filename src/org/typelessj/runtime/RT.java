@@ -22,6 +22,9 @@ import com.google.common.collect.ImmutableMap;
  */
 public class RT
 {
+    /** A suffix appended to signature mangled method names. */
+    public static final String MM_SUFFIX = "$M";
+
     /**
      * Invokes the constructor of the supplied class, with the specified arguments and returns the
      * newly created instance.
@@ -409,20 +412,41 @@ public class RT
     /**
      * Invokes the specified method with the supplied arguments.
      */
-    protected static Object invoke (Method method, Object receiver, Object... args)
+    protected static Object invoke (Method method, Object receiver, Object... rargs)
     {
         // Debug.log("Invoking " + method, "recv", receiver, "args", args);
 
+        boolean isMangled = isMangled(method);
+        int pcount = method.getParameterTypes().length;
+        if (isMangled) {
+            pcount /= 2;
+        }
+
         // if this method is varargs we need to extract the variable arguments, place them into an
         // Object[] and create a new args array that has the varargs array in the final position
-        Object[] aargs = args;
+        Object[] aargs = rargs;
         if (method.isVarArgs()) {
-            int fpcount = method.getParameterTypes().length-1;
-            Object[] vargs = new Object[args.length-fpcount];
-            System.arraycopy(args, fpcount, vargs, 0, args.length-fpcount);
+            int fpcount = pcount-1;
+            Object[] vargs = new Object[rargs.length-fpcount];
+            System.arraycopy(rargs, fpcount, vargs, 0, rargs.length-fpcount);
             aargs = new Object[fpcount+1];
-            System.arraycopy(args, 0, aargs, 0, fpcount);
+            System.arraycopy(rargs, 0, aargs, 0, fpcount);
             aargs[fpcount] = vargs;
+        }
+
+        // if this method is mangled, we need to add dummy arguments in the type-carrying parameter
+        // positions
+        if (isMangled) {
+            Object[] margs = new Object[pcount*2];
+            System.arraycopy(aargs, 0, margs, 0, pcount);
+            Class<?>[] ptypes = method.getParameterTypes();
+            for (int ii = pcount; ii < ptypes.length; ii++) {
+                // if the argument is a primitive type, DUMMIES will contain a dummy value for that
+                // type, otherwise it will return null which is the desired dummy value for all
+                // non-primitive types
+                margs[ii] = DUMMIES.get(ptypes[ii]);
+            }
+            aargs = margs;
         }
 
         try {
@@ -470,7 +494,12 @@ public class RT
     {
         for (Method method : clazz.getDeclaredMethods()) {
             Class<?>[] ptypes = method.getParameterTypes();
-            if (method.getName().equals(mname) && isApplicable(ptypes, method.isVarArgs(), args)) {
+            String cmname = method.getName();
+            boolean isMangled = isMangled(method);
+            if (isMangled) {
+                cmname = cmname.substring(0, cmname.length()-MM_SUFFIX.length());
+            }
+            if (cmname.equals(mname) && isApplicable(ptypes, isMangled, method.isVarArgs(), args)) {
                 into.add(method);
             }
         }
@@ -500,9 +529,10 @@ public class RT
 //         } while (target != null);
 //         // TODO: sort them by best to worst match; return the first one
 
+        boolean isMangled = false; // TODO: if class is @Transformed then mangled
         for (Constructor<?> ctor : clazz.getDeclaredConstructors()) {
             Class<?>[] ptypes = ctor.getParameterTypes();
-            if (isApplicable(ptypes, ctor.isVarArgs(), args)) {
+            if (isApplicable(ptypes, isMangled, ctor.isVarArgs(), args)) {
                 return ctor; // TODO: enumerate and select best match like findMethod()
             }
         }
@@ -514,16 +544,21 @@ public class RT
      * Returns true if a method or constructor with the supplied arguments and variable arity can
      * be called with the supplied arguments.
      */
-    protected static boolean isApplicable (Class<?>[] ptypes, boolean isVarArgs, Object[] args)
+    protected static boolean isApplicable (Class<?>[] ptypes, boolean isMangled, boolean isVarArgs,
+                                           Object[] args)
     {
-        if (!(ptypes.length == args.length || (isVarArgs && (ptypes.length-1) <= args.length))) {
+        int pcount = isMangled ? ptypes.length/2 : ptypes.length;
+        if (!(pcount == args.length || (isVarArgs && (pcount-1) <= args.length))) {
             return false;
         }
 
         // make sure all fixed arity arguments match
-        int fpcount = isVarArgs ? ptypes.length-1 : ptypes.length;
+        int fpcount = isVarArgs ? pcount-1 : pcount, poff = isMangled ? pcount : 0;
         for (int ii = 0; ii < fpcount; ii++) {
-            Class<?> ptype = ptypes[ii].isPrimitive() ? WRAPPERS.get(ptypes[ii]) : ptypes[ii];
+            Class<?> ptype = ptypes[poff + ii];
+            if (ptype.isPrimitive()) {
+                ptype = WRAPPERS.get(ptype);
+            }
             if (args[ii] != null && !ptype.isAssignableFrom(args[ii].getClass())) {
                 return false;
             }
@@ -535,8 +570,8 @@ public class RT
 
 //         // make sure all variable artity arguments match
 //         if (isVarArgs) {
-//             Class<?> ptype = ptypes[fpcount].isPrimitive() ?
-//                 WRAPPERS.get(ptypes[fpcount]) : ptypes[fpcount];
+//             Class<?> ptype = ptypes[poff+fpcount].isPrimitive() ?
+//                 WRAPPERS.get(ptypes[poff+fpcount]) : ptypes[poff+fpcount];
 //             for (int ii = fpcount; ii < args.length; ii++) {
 //                 if (args[ii] != null && !ptype.isAssignableFrom(args[ii].getClass())) {
 //                     return false;
@@ -599,6 +634,11 @@ public class RT
         return (other == Long.class) ? Double.class : Float.class;
     }
 
+    protected static boolean isMangled (Method method)
+    {
+        return method.getName().endsWith(MM_SUFFIX);
+    }
+
     /**
      * Locates and returns the value of the secret reference to a non-static inner-class's
      * enclosing class.  We need this when we're constructing a non-static inner-class and have
@@ -642,6 +682,18 @@ public class RT
         put(Long.TYPE, Long.class).
         put(Float.TYPE, Float.class).
         put(Double.TYPE, Double.class).
+        build();
+
+    protected static final Map<Class<?>, Object> DUMMIES =
+        ImmutableMap.<Class<?>, Object>builder().
+        put(Boolean.TYPE, false).
+        put(Byte.TYPE, (byte)0).
+        put(Character.TYPE, (char)0).
+        put(Short.TYPE, (short)0).
+        put(Integer.TYPE, 0).
+        put(Long.TYPE, 0l).
+        put(Float.TYPE, 0f).
+        put(Double.TYPE, 0d).
         build();
 
     protected static final Class<?>[] PROMOTE_ORDER = {

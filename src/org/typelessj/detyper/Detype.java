@@ -115,12 +115,28 @@ public class Detype extends PathedTreeTranslator
         _env.enclMethod = tree;
         _env.info.scope.owner = tree.sym;
 
+        // if we're not in a library overrider, prepare our type-carrying arguments (before we call
+        // super which will erase our argument's types)
+        boolean isLib = inLibraryOverrider();
+        // TEMP: don't sigmangle constructors
+        List<JCVariableDecl> sigargs = isLib || (tree.name == _names.init) ?
+            List.<JCVariableDecl>nil() : toTypeArgs(tree.params);
+
         // now we can call super and translate our children
         super.visitMethodDef(tree);
 
         // transform the return type if we're not in a library overrider and it is not void
-        if (tree.restype != null && !ASTUtil.isVoid(tree.restype) && !inLibraryOverrider()) {
+        if (tree.restype != null && !ASTUtil.isVoid(tree.restype) && !isLib) {
             tree.restype = _tmaker.Ident(_names.fromString("Object"));
+        }
+
+        // if we have type-carrying arguments to append, do so now
+        if (!sigargs.isEmpty()) {
+            // if we're signature mangling a non-constructor, note that in its name
+            if (tree.name != _names.init) {
+                tree.name = tree.name.append(_names.fromString(RT.MM_SUFFIX));
+            }
+            tree.params = tree.params.appendList(sigargs);
         }
 
         // restore our previous environment
@@ -763,6 +779,17 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
+    protected List<JCVariableDecl> toTypeArgs (List<JCVariableDecl> params)
+    {
+        if (params.isEmpty()) {
+            return List.nil();
+        }
+        return toTypeArgs(params.tail).prepend(
+            _tmaker.VarDef(_tmaker.Modifiers(Flags.FINAL),
+                           params.head.name.append(_names.fromString(TP_SUFFIX)),
+                           params.head.vartype, null));
+    }
+
     protected static String what (JCTree node)
     {
         if (node == null) {
@@ -795,5 +822,6 @@ public class Detype extends PathedTreeTranslator
     protected Annotate _annotate;
     protected TreeMaker _rootmaker;
 
+    protected static final String TP_SUFFIX = "$T";
     protected static final Context.Key<Detype> DETYPE_KEY = new Context.Key<Detype>();
 }
