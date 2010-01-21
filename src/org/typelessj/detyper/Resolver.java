@@ -91,13 +91,15 @@ public class Resolver
      */
     public Symbol findType (Env<DetypeContext> env, Name name)
     {
+        // TODO: handle type variables; not yet sure how that is appropriately done
+
         for (Env<DetypeContext> env1 = env; env1.outer != null; env1 = env1.outer) {
             Symbol sym = lookup(env1.info.scope, name, Kinds.TYP);
             if (sym != null) {
                 return sym;
             }
             if (env1.enclClass.sym == null) {
-                Debug.log("TODO: can't findType in inner class", "name", name); // TODO
+                Debug.warn("Can't findType in inner class", "name", name); // TODO
                 continue;
             }
             sym = findMemberType(env, name, env1.enclClass.sym);
@@ -184,13 +186,16 @@ public class Resolver
                 Debug.log("Can't resolve receiver type", "expr", mexpr);
                 return null;
             }
+            while (rtype.tag == TypeTags.TYPEVAR) {
+                rtype = rtype.getUpperBound();
+            }
             if (rtype instanceof Type.ArrayType) {
                 // if the receiver is an array, then only Object method can be called on it
                 csyms = List.of((ClassSymbol)_syms.objectType.tsym);
             } else if (rtype.tsym instanceof ClassSymbol) {
                 csyms = List.of((ClassSymbol)rtype.tsym);
             } else {
-                Debug.log("!!! Got non-ClassSymbol", "expr", mexpr, "sym", rtype.tsym);
+                Debug.warn("Got non-ClassSymbol", "expr", mexpr, "sym", rtype.tsym);
                 return null;
             }
             break;
@@ -205,8 +210,14 @@ public class Resolver
         // our fake ClassSymbols created for anonymous inner classes
         List<MethodSymbol> mths = List.nil();
         for (ClassSymbol csym : csyms) {
+            if (csym.type == null || csym.type.isPrimitive()) {
+                Debug.warn("Can't resolve method for symbol, missing or primitive type",
+                           "csym", csym, "type", csym.type);
+                continue;
+            }
+            // Debug.log("Adding " + mname + "()s from symbol " + csym);
             for (Type type : _types.closure(csym.type)) {
-                // Debug.log("Adding " + mname + "()s from " + type);
+                // Debug.log("Adding " + mname + "()s from type " + type);
                 Scope scope = ((ClassSymbol)type.tsym).members_field;
                 mths = mths.appendList(lookupMethods(scope, mname));
             }
@@ -218,7 +229,7 @@ public class Resolver
 
         MethodSymbol best = pickMethod(env, mths, mexpr.args);
         if (best == null) {
-            Debug.log("!!! Unable to resolve overload", "expr", mexpr, "mths", mths);
+            Debug.warn("Unable to resolve overload", "expr", mexpr, "mths", mths);
             return null;
         } else if (best.type == null) {
             Debug.log("Resolved method has no type information", "mth", best);
