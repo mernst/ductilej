@@ -165,6 +165,11 @@ public class Resolver
                     return null;
                 }
 
+            // if the method we're looking at is this(...), we also need to do some wrangling
+            } else if (mname == _names._this) {
+                csyms = List.of(env.enclClass.sym);
+                mname = _names.init;
+
             // otherwise it's a method call with an implicit receiver, so we need to look for the
             // method in the enclosing class and all outer enclosing classes
             } else {
