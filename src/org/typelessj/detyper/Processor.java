@@ -30,7 +30,7 @@ import org.typelessj.util.ASTUtil;
  * The main entry point for the detyping processor.
  */
 @SupportedAnnotationTypes("*")
-@SupportedOptions({Processor.SHOWCLASS_ARG})
+@SupportedOptions({Processor.SHOWCLASS_ARG, Processor.DEBUG_ARG})
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public class Processor extends AbstractProcessor
 {
@@ -73,7 +73,7 @@ public class Processor extends AbstractProcessor
 //                       "sym.mems", ASTUtil.expand(unit.packge.members_field.elems.sym));
             _detype.detype(unit);
             if (_showclass) {
-                Debug.log(""+unit);
+                System.out.println(""+unit);
             }
         }
         return false;
