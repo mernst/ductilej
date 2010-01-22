@@ -21,8 +21,8 @@ public class DetypeContext
     /** The type of the current array initializer element type, if any. */
     public JCExpression arrayElemType;
 
-    /** True if we're in the middle of processing a call to super(). */
-    public boolean inSuperCons;
+    /** True if we're in the middle of processing a call to this() or super(). */
+    public boolean inChainedCons;
 
     /**
      * Duplicates this context with the specified new scope.

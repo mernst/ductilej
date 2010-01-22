@@ -421,18 +421,19 @@ public class Detype extends PathedTreeTranslator
         // resolve the called method before we transform the leaves of this tree
         MethodSymbol msym = _resolver.resolveMethod(_env, tree);
 
-        // we need to track whether we're processing the arguments of a super() constructor because
-        // that is a "static" context in that it is illegal to reference "this" during that time;
-        // there's no nice way to represent that in path() so instead we track it explicitly and
-        // make use of it in inStatic()... elegance--.
-        boolean isSuperCons = (TreeInfo.name(tree.meth) == _names._super),
-            oldInSuperCons = _env.info.inSuperCons;
-        _env.info.inSuperCons = _env.info.inSuperCons || isSuperCons;
+        // we need to track whether we're processing the arguments of a this() or super()
+        // constructor because that is a "static" context in that it is illegal to reference "this"
+        // during that time; there's no nice way to represent that in path() so instead we track it
+        // explicitly and make use of it in inStatic()... elegance--.
+        boolean isChainedCons = (TreeInfo.name(tree.meth) == _names._super ||
+                                 TreeInfo.name(tree.meth) == _names._this);
+        boolean oldInChainedCons = _env.info.inChainedCons;
+        _env.info.inChainedCons = _env.info.inChainedCons || isChainedCons;
         super.visitApply(tree);
-        _env.info.inSuperCons = oldInSuperCons;
+        _env.info.inChainedCons = oldInChainedCons;
 
-        // if this is a super() call, we can't call it reflectively
-        if (isSuperCons ||
+        // if this is a chained constructor call, we can't call it reflectively
+        if (isChainedCons ||
             // TODO: we also leave super.someMethod() alone for now as well, though ideally we'll
             // be able to reflectively invoke such calls
             (tree.meth instanceof JCFieldAccess &&
@@ -663,7 +664,7 @@ public class Detype extends PathedTreeTranslator
     }
 
     protected boolean inStatic () {
-        return _env.info.inSuperCons || (_env.enclMethod == null) ||
+        return _env.info.inChainedCons || (_env.enclMethod == null) ||
             (_env.enclMethod.mods != null && (_env.enclMethod.mods.flags & Flags.STATIC) != 0);
     }
 
