@@ -38,6 +38,6 @@ public class VarArgsTest
 
     protected static void log (String message, Object... args)
     {
-        System.out.println(message + " " + args);
+        // System.out.println(message + " " + args);
     }
 }
