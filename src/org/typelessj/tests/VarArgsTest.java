@@ -11,22 +11,21 @@ import static org.junit.Assert.*;
  */
 public class VarArgsTest
 {
-// TODO: instate when we have overload resolution handled
-//     @Test public void testRuntimeSelect ()
-//     {
-//         assertEquals(foo("one", "two", "three"), "foo(String,Integer...");
-//         assertEquals(foo("one", 2, 3), "foo(String,Integer...");
-//     }
+    @Test public void testRuntimeSelect ()
+    {
+        assertEquals(foo("one", "two", "three"), "foo(String,Integer...");
+        assertEquals(foo("one", 2, 3), "foo(String,Integer...");
+    }
 
-//     protected static String foo (String one, String... two)
-//     {
-//         return "foo(String,String...)";
-//     }
+    protected static String foo (String one, String... two)
+    {
+        return "foo(String,String...)";
+    }
 
-//     protected static String foo (String one, Integer... two)
-//     {
-//         return "foo(String,Integer...)";
-//     }
+    protected static String foo (String one, Integer... two)
+    {
+        return "foo(String,Integer...)";
+    }
 
     @Test public void testVarArgs ()
     {
