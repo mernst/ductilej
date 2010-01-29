@@ -52,6 +52,16 @@ Runtime
   calling typed library methods (transformed methods as well)
 - We need to convert Object[] back to the requested type of the receiver when
   passing an array into a library method
+- Create a version of dynamicCast that accepts an additional type parameter and
+  internally casts its result to it, use that to avoid annoying warnings when
+  dynamically casting to the upper bound of a type parameter:
+    public void add (T elem) {
+        super.add(RT.<T>dynamicCast(Object.class, elem));
+    }
+  Could probably define it to ensure that the upper bound is actually kosher:
+    public static <T> T dynamicCast (Class<? extends T> clazz, Object value)
+  but then it wouldn't work for contravariant type parameters, so it's probably
+  best to just take a Class<?> argument.
 
 Later
 - Ambiguous overload handling, use this approach:
