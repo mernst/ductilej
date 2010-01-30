@@ -432,10 +432,8 @@ public class Detype extends PathedTreeTranslator
         super.visitApply(tree);
         _env.info.inChainedCons = oldInChainedCons;
 
-        // if this is a chained constructor call, we can't call it reflectively
+        // if this is a chained constructor call or super.foo(), we can't call it reflectively
         if (isChainedCons ||
-            // TODO: we also leave super.someMethod() alone for now as well, though ideally we'll
-            // be able to reflectively invoke such calls
             (tree.meth instanceof JCFieldAccess &&
              TreeInfo.name(((JCFieldAccess)tree.meth).selected) == _names._super)) {
             // but if the method is defined in a library class, we need to cast the argument types
@@ -443,6 +441,8 @@ public class Detype extends PathedTreeTranslator
             if (msym == null) {
                 Debug.warn("Unable to resolve method for super()", "tree", tree);
             } else if (!tree.args.isEmpty() && ASTUtil.isLibrary(msym.owner)) {
+                // TODO: we need to convert type symbols in the method type to the names used by
+                // the subclass since they may differ from the superclass
                 tree.args = castList(msym.type.asMethodType().argtypes, tree.args);
             }
             return;
@@ -778,8 +778,22 @@ public class Detype extends PathedTreeTranslator
         if (list.isEmpty()) {
             return list;
         } else {
-            JCExpression clazz = mkFA(params.head.toString(), list.head.pos);
-            return castList(params.tail, list.tail).prepend(checkedCast(clazz, list.head));
+            Type ptype = params.head;
+            boolean needStaticCast = false;
+            while (ptype.tag == TypeTags.TYPEVAR) {
+                ptype = ptype.getUpperBound();
+                needStaticCast = true;
+            }
+            JCExpression clazz = mkFA(ptype.toString(), list.head.pos);
+            JCExpression cexpr = checkedCast(clazz, list.head);
+            // if we dynamically cast our expression to a type variable's upper bound, we need to
+            // cast the result of our dynamic cast back to the type variable to restore the
+            // necessary generic type (such a static cast is always safe)
+            if (needStaticCast) {
+                // TODO: do this with type arguments on checkedCast -> RT.<T>checkedCast()
+                cexpr = _tmaker.TypeCast(_tmaker.Ident(params.head.tsym.name), cexpr);
+            }
+            return castList(params.tail, list.tail).prepend(cexpr);
         }
     }
 
