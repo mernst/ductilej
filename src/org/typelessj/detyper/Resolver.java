@@ -386,7 +386,9 @@ public class Resolver
             // it doesn't exist, fall through
         }
 
-        Debug.log("Assuming Object for candidate type", "expr", expr);
+        if (assumeObject) {
+            Debug.log("Assuming Object for candidate type", "expr", expr);
+        }
         return assumeObject ? _syms.objectType : null;
     }
 
