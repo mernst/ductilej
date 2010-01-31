@@ -52,6 +52,30 @@ public class InnerClassTest
         assertEquals(map.get(5), 10);
     }
 
+    @Test public void testLocalInNonStaticContext () {
+        class Foo {
+            public int bar;
+            public Foo (int bar) {
+                this.bar = bar;
+            }
+        }
+        assertEquals(new Foo(5).bar, 5);
+    }
+
+    @Test public void testLocalIntStaticContext () {
+        assertEquals(testStaticLocal(42), 42);
+    }
+
+    protected static int testStaticLocal (int value) {
+        class LocalInStaticContext {
+            public int foo;
+            public LocalInStaticContext (int foo) {
+                this.foo = foo;
+            }
+        }
+        return new LocalInStaticContext(value).foo;
+    }
+
     // test inner class handling with no enclosing member
     protected Value _value = new Value() {
         public int value () {
