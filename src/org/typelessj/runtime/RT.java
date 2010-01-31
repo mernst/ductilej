@@ -35,10 +35,11 @@ public class RT
      */
     public static <T> T newInstance (Class<T> clazz, Object encl, Object... args)
     {
-        // if this is a non-static inner class, we need to shift a reference to the containing
-        // class onto the constructor arguments
+        // if this is an inner class (local, anonymous or non-static member), we need to shift a
+        // reference to the containing class onto the constructor arguments
         Object[] rargs;
-        if (clazz.isMemberClass() && !Modifier.isStatic(clazz.getModifiers())) {
+        if (clazz.isLocalClass() || clazz.isAnonymousClass() || 
+            (clazz.isMemberClass() && !Modifier.isStatic(clazz.getModifiers()))) {
             rargs = new Object[args.length+1];
             // our enclosing instance may be an instance of the inner class or an instance of the
             // enclosing class, in the former case, we need to extract the secret reference to the
