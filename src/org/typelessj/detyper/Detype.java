@@ -569,6 +569,19 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
+    @Override public void visitTypeCast (JCTypeCast tree) {
+        super.visitTypeCast(tree);
+        Type ctype = _resolver.resolveAsType(_env, tree.clazz, false);
+        if (ctype != null) {
+            if (!(tree.clazz instanceof JCExpression)) {
+                Debug.warn("Got cast to non-JCExpression node?", "tree", tree);
+            } else {
+                result = callRT("noteCast", tree.pos,
+                                classLiteral((JCExpression)tree.clazz, tree.pos), tree.expr);
+            }
+        }
+    }
+
     @Override public void visitIndexed (JCArrayAccess tree) {
         super.visitIndexed(tree);
 
