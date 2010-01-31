@@ -386,6 +386,20 @@ public class RT
     }
 
     /**
+     * Notes that the code contained a cast to the specified type. Does not fail with a
+     * ClassCastException if the types do not match, rather notes the discrepancy and allows the
+     * code to proceed.
+     */
+    public static Object noteCast (Class<?> clazz, Object value)
+    {
+        // casts of null are NOOPs
+        if (value != null) {
+            // TODO: check whether the value is of the specified type
+        }
+        return value;
+    }
+
+    /**
      * Converts the supplied value to a boolean. Supplying any non-Boolean instance will result in
      * a runtime failure.
      */
