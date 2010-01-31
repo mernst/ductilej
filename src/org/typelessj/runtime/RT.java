@@ -35,11 +35,10 @@ public class RT
      */
     public static <T> T newInstance (Class<T> clazz, Object encl, Object... args)
     {
-        // if this is an inner class (local, anonymous or non-static member), we need to shift a
-        // reference to the containing class onto the constructor arguments
+        // if this is an inner class in a non-static context, we need to shift a reference to the
+        // containing class onto the constructor arguments
         Object[] rargs;
-        if (clazz.isLocalClass() || clazz.isAnonymousClass() || 
-            (clazz.isMemberClass() && !Modifier.isStatic(clazz.getModifiers()))) {
+        if (isInnerInNonStaticContext(clazz)) {
             rargs = new Object[args.length+1];
             // our enclosing instance may be an instance of the inner class or an instance of the
             // enclosing class, in the former case, we need to extract the secret reference to the
@@ -638,6 +637,18 @@ public class RT
     protected static boolean isMangled (Method method)
     {
         return method.getName().endsWith(MM_SUFFIX);
+    }
+
+    protected static boolean isInnerInNonStaticContext (Class<?> clazz)
+    {
+        if (clazz.isLocalClass() || clazz.isAnonymousClass()) {
+            // a local or anonymous class must be declared in a method or a constructor, in the
+            // latter case, we are guaranteed to be in a non-static context
+            Method em = clazz.getEnclosingMethod();
+            return (em == null) || !Modifier.isStatic(em.getModifiers());
+        } else {
+            return clazz.isMemberClass() && !Modifier.isStatic(clazz.getModifiers());
+        }
     }
 
     /**
