@@ -27,6 +27,27 @@ public class SwitchTest
         assertEquals(switchEnum(Code.B), "B");
     }
 
+    @Test public void testCastedSwitch ()
+    {
+        char c = '0';
+        int v;
+        switch ((int)c) {
+        case 0: v = 0; break;
+        default: v = 1; break;
+        }
+        assertEquals(v, 1);
+    }
+
+    @Test public void testArithExprSwitch ()
+    {
+        int v = 10;
+        switch (v % 5) {
+        case 0: v = 0; break;
+        default: v = 1; break;
+        }
+        assertEquals(v, 0);
+    }
+
     protected int switchArg (int value)
     {
         switch (value) {
