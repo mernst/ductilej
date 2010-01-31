@@ -142,12 +142,13 @@
 
     <taskdef name="unit" classpathref="build.classpath"
       classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask"/>
-    <unit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
+    <unit printsummary="off" haltonfailure="yes" fork="yes">
       <classpath>
         <pathelement location="${classes.dir}"/>
         <pathelement location="${dtclass.dir}"/>
         <path refid="build.classpath"/>
       </classpath>
+      <jvmarg value="-Dorg.typelessj.debug=${debug}"/>
       <formatter type="brief" usefile="false"/>
       <batchtest>
         <fileset dir="${src.dir}">
