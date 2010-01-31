@@ -14,7 +14,7 @@ import org.typelessj.util.LogBuilder;
 public class Debug
 {
     /** Whether or not debug logging is enabled. */
-    public static boolean debug = false;
+    public static boolean debug = Boolean.getBoolean("org.typelessj.debug");
 
     /**
      * Emits a debug message to stdout.
