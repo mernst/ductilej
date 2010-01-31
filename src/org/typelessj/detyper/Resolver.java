@@ -288,7 +288,7 @@ public class Resolver
                 Debug.log("Missed formal parameter in arglist?", "expr", expr, "msym", msym);
                 return null;
             }
-            Debug.log("Can't resolveType() of expr", "expr", expr, "sym.owner", sym.owner);
+            Debug.warn("Can't resolveType() of expr", "expr", expr, "sym.owner", sym.owner);
             return null;
         }
 
@@ -312,6 +312,12 @@ public class Resolver
             // anonymous inner classes...
             return resolveAsType(env, ((JCNewClass)expr).clazz, false);
 
+        case JCTree.TYPECAST:
+            return resolveAsType(env, ((JCTypeCast)expr).clazz, false);
+
+        case JCTree.PARENS:
+            return resolveType(env, ((JCParens)expr).expr);
+
         case JCTree.INDEXED: {
             Type atype = resolveType(env, ((JCArrayAccess)expr).indexed);
             if (atype instanceof Type.ArrayType) {
@@ -322,8 +328,12 @@ public class Resolver
             }
         }
 
+        case JCTree.LITERAL:
+            return _syms.typeOfTag[((JCLiteral)expr).typetag];
+
         default:
-            Debug.log("Can't resolveType() of expr", "tag", expr.getTag(), "expr", expr);
+            Debug.warn("Can't resolveType() of expr", "tag", expr.getTag(), "expr", expr,
+                       "etype", expr.getClass().getSimpleName());
             return null;
         }
     }
@@ -338,7 +348,7 @@ public class Resolver
      * @param assumeObject if true, an unresolvable type will be interpreted as java.lang.Object,
      * if false, null will be returned instead.
      */
-    public Type resolveAsType (Env<DetypeContext> env, JCExpression expr, boolean assumeObject)
+    public Type resolveAsType (Env<DetypeContext> env, JCTree expr, boolean assumeObject)
     {
         // if this is a primitive type, return its predef type
         if (expr.getTag() == JCTree.TYPEIDENT) {
