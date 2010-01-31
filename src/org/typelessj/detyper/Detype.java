@@ -81,6 +81,22 @@ public class Detype extends PathedTreeTranslator
     @Override public void visitClassDef (JCClassDecl tree) {
         Debug.log("Entering class '" + tree.name + "'", "sym", tree.sym);
 
+        // for local and anonymous classes, we need to create a fake class symbol and do our own
+        // partial Enter on it to obtain enough symbol information to keep everything working
+        boolean fakeEntered = false;
+        if (tree.sym == null) {
+            Symbol encsym = (_env.enclMethod == null) ? _env.enclClass.sym : _env.enclMethod.sym;
+            ClassSymbol csym = new ClassSymbol(0, tree.name, encsym);
+            csym.members_field = new Scope(csym); // TODO: do we want a next?
+// TODO: enter methods, etc.
+//             tree.accept(new TreeScanner() {
+//                 @Override public void visitMethodDef (JCMethodDecl tree) {
+//                 }
+//             });
+            tree.sym = csym;
+            fakeEntered = true;
+        }
+
         // note the environment of the class we're processing
         Env<DetypeContext> oenv = _env;
         _env = _env.dup(tree, oenv.info.dup(tree.sym.members_field.dupUnshared()));
@@ -93,15 +109,20 @@ public class Detype extends PathedTreeTranslator
                 mkFA(Transformed.class.getName(), tree.pos), List.<JCExpression>nil());
             tree.mods.annotations = tree.mods.annotations.prepend(a);
 
-            // since the annotations AST has already been resolved into type symbols, we have to
-            // manually add a type symbol for annotation to the ClassSymbol
-            tree.sym.attributes_field = tree.sym.attributes_field.prepend(
-                Backdoor.enterAnnotation(_annotate, a, _syms.annotationType,
-                                         _enter.getEnv(tree.sym)));
+            if (!fakeEntered) {
+                // since the annotations AST has already been resolved into type symbols, we have
+                // to manually add a type symbol for annotation to the ClassSymbol
+                tree.sym.attributes_field = tree.sym.attributes_field.prepend(
+                    Backdoor.enterAnnotation(_annotate, a, _syms.annotationType,
+                                             _enter.getEnv(tree.sym)));
+            }
         }
 
         super.visitClassDef(tree);
         _env = oenv;
+        if (fakeEntered) {
+            tree.sym = null;
+        }
 
         Debug.log("Leaving class " + tree.name);
     }
@@ -255,23 +276,6 @@ public class Detype extends PathedTreeTranslator
             } else {
                 _env.info.anonParent = atype.tsym;
             }
-
-            // we need to create a fake class symbol for our anonymous inner class and do our own
-            // partial Enter on it to obtain enough symbol information to keep everything working
-            Symbol encsym = (_env.enclMethod == null) ? _env.enclClass.sym : _env.enclMethod.sym;
-            ClassSymbol csym = new ClassSymbol(0, tree.def.name, encsym);
-            csym.members_field = new Scope(csym); // TODO: do we want a next?
-            if (tree.def.sym != null) {
-                Debug.log("Eh? Anon-inner-class already has a symbol!?");
-            } else {
-                tree.def.sym = csym;
-            }
-
-// TODO: enter methods, etc.
-//             tree.def.accept(new TreeScanner() {
-//                 @Override public void visitMethodDef (JCMethodDecl tree) {
-//                 }
-//             });
         }
         super.visitNewClass(tree);
 
@@ -322,9 +326,6 @@ public class Detype extends PathedTreeTranslator
                     Debug.log("Unable to resolve overload", "ctors", ctors, "args", tree.args);
                 }
             }
-
-            // clear out the fake symbol we created for our anonymous inner class
-            tree.def.sym = null;
         }
 
         // finally restore our previous anonymous parent
