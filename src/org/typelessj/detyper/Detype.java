@@ -369,14 +369,6 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
-// TODO: this is fiddlier
-//         @Override public void visitThrow (JCThrow tree) {
-//             super.visitThrow(tree);
-
-//             // add a cast to Throwable on the expression being thrown since we will have detyped it
-//             tree.expr = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Throwable")), tree.expr);
-//         }
-
     @Override public void visitSelect (JCFieldAccess tree) {
         super.visitSelect(tree);
 
@@ -441,10 +433,12 @@ public class Detype extends PathedTreeTranslator
             // back to the types it expects
             if (msym == null) {
                 Debug.warn("Unable to resolve method for super()", "tree", tree);
+
             } else if (!tree.args.isEmpty() && ASTUtil.isLibrary(msym.owner)) {
-                // TODO: we need to convert type symbols in the method type to the names used by
-                // the subclass since they may differ from the superclass
-                tree.args = castList(msym.type.asMethodType().argtypes, tree.args);
+                // we need to convert any formal type parameters on this method (as defined in the
+                // super class) to the actuals provided by our class in the extends clause
+                Type mtype = convertSuperMethod(msym, _env.enclClass.sym);
+                tree.args = castList(mtype.asMethodType().argtypes, tree.args);
             }
             return;
         }
@@ -681,8 +675,18 @@ public class Detype extends PathedTreeTranslator
         return callRT("binop", opcode.pos, opcode, lhs, rhs);
     }
 
-    protected JCExpression checkedCast (JCExpression clazz, JCExpression expr) {
+    protected JCMethodInvocation checkedCast (JCExpression clazz, JCExpression expr) {
         return callRT("checkedCast", expr.pos, classLiteral(clazz, expr.pos), expr);
+    }
+
+    protected JCMethodInvocation typeVarCast (JCExpression clazz, JCExpression expr, Type ptype) {
+        JCMethodInvocation inv = callRT(
+            "typeVarCast", expr.pos, classLiteral(clazz, expr.pos), expr);
+        // we specify the return type of the dynamic cast explicitly so that we can supply the
+        // concrete upper bound as the runtime class but still retain the type variable as our
+        // static return type, e.g.: T val = RT.<T>checkedCast(Object.class, oval)
+        inv.typeargs = List.<JCExpression>of(_tmaker.Ident(ptype.tsym.name));
+        return inv;
     }
 
     protected JCMethodInvocation callRT (String method, int pos, JCExpression... args) {
@@ -764,6 +768,20 @@ public class Detype extends PathedTreeTranslator
             unwrapExns(cvname, catchers.tail));
     }
 
+    protected Type convertSuperMethod (MethodSymbol msym, ClassSymbol sym)
+    {
+        // if the class is not a class, just return the method type as originally defined
+        if (sym.type.tag != TypeTags.CLASS) {
+            return msym.type;
+        } else {
+            // otherwise obtain the type of sym's super class with formal type parameters bound to
+            // the actuals provided when sym extended it
+            Type stype = ((Type.ClassType)sym.type).supertype_field;
+            // then substitute those actuals for formals in the method's type
+            return _types.subst(msym.type, msym.owner.type.allparams(), stype.allparams());
+        }
+    }
+
     protected List<JCExpression> castIntList (List<JCExpression> list)
     {
         if (list.isEmpty()) {
@@ -778,24 +796,21 @@ public class Detype extends PathedTreeTranslator
     {
         if (list.isEmpty()) {
             return list;
-        } else {
-            Type ptype = params.head;
-            boolean needStaticCast = false;
-            while (ptype.tag == TypeTags.TYPEVAR) {
-                ptype = ptype.getUpperBound();
-                needStaticCast = true;
-            }
-            JCExpression clazz = mkFA(ptype.toString(), list.head.pos);
-            JCExpression cexpr = checkedCast(clazz, list.head);
-            // if we dynamically cast our expression to a type variable's upper bound, we need to
-            // cast the result of our dynamic cast back to the type variable to restore the
-            // necessary generic type (such a static cast is always safe)
-            if (needStaticCast) {
-                // TODO: do this with type arguments on checkedCast -> RT.<T>checkedCast()
-                cexpr = _tmaker.TypeCast(_tmaker.Ident(params.head.tsym.name), cexpr);
-            }
-            return castList(params.tail, list.tail).prepend(cexpr);
         }
+
+        // if the type in question is a type variable, find its upper bound
+        Type ptype = params.head;
+        boolean needTypeVarCast = false;
+        while (ptype.tag == TypeTags.TYPEVAR) {
+            ptype = ptype.getUpperBound();
+            needTypeVarCast = true;
+        }
+
+        JCExpression clazz = mkFA(ptype.toString(), list.head.pos);
+        JCMethodInvocation cexpr = needTypeVarCast ?
+            typeVarCast(clazz, list.head, params.head) : checkedCast(clazz, list.head);
+
+        return castList(params.tail, list.tail).prepend(cexpr);
     }
 
     protected List<JCVariableDecl> toTypeArgs (List<JCVariableDecl> params)

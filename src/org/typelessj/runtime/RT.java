@@ -361,6 +361,31 @@ public class RT
     }
 
     /**
+     * Casts the supplied value to the specified type. Triggers full context dump if the cast will
+     * fail and we are forced to abort execution with a ClassCastException.
+     *
+     * <p>Note: we don't allow the type parameter of the supplied class to specify the return type
+     * because we need to be able to supply the class literal for the upper bound of a type
+     * variable but force the result type to be that of the type variable. For example given a type
+     * variable <code>T</code> with upper bound <code>Object</code> we want to be able to do:
+     * <code>T val = RT.<T>checkedCast(Object.class, oval)</code>
+     */
+    public static <T> T typeVarCast (Class<?> clazz, Object value)
+    {
+        try {
+            // the upper bound of a type variable will never be a primitive type, so we don't need
+            // to check WRAPPERS like we do in checkedCast()
+            @SuppressWarnings("unchecked") T cvalue = (T)clazz.cast(value);
+            return cvalue;
+        } catch (ClassCastException cce) {
+            String vclass = (value == null) ? "<none>" : value.getClass().getName();
+            Debug.log("Runtime cast failure", "target", clazz, "value", value, "vclass", vclass);
+            // TODO: trigger context dump, terminate program?
+            throw cce;
+        }
+    }
+
+    /**
      * Converts the supplied value to a boolean. Supplying any non-Boolean instance will result in
      * a runtime failure.
      */
