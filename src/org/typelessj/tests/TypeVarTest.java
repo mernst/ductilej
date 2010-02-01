@@ -23,6 +23,6 @@ public class TypeVarTest
     @Test public void testSuperCast () {
         MyList<Integer> list = new MyList<Integer>();
         list.add(5);
-        assertEquals(list.get(0), 5);
+        assertEquals(list.get(0), Integer.valueOf(5));
     }
 }

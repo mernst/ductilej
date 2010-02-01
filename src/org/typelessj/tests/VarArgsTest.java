@@ -13,8 +13,8 @@ public class VarArgsTest
 {
     @Test public void testRuntimeSelect ()
     {
-        assertEquals(foo("one", "two", "three"), "foo(String,Integer...");
-        assertEquals(foo("one", 2, 3), "foo(String,Integer...");
+        assertEquals(foo("one", "two", "three"), "foo(String,String...)");
+        assertEquals(foo("one", 2, 3), "foo(String,Integer...)");
     }
 
     protected static String foo (String one, String... two)
@@ -31,7 +31,7 @@ public class VarArgsTest
     {
         // make sure none of the following throw MethodNotFoundError
         log("one");
-        log("one", new String[] { "two", "three" });
+        log("one", (Object)new String[] { "two", "three" });
         log("one", "two", "three");
     }
 

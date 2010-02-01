@@ -175,7 +175,7 @@
       </classpath>
       <compilerarg value="-Xlint"/>
       <compilerarg value="-Xlint:-serial"/>
-      <include name="**/tests/${test}*Tests.java"/>
+      <include name="**/tests/${test}*Test.java"/>
     </javac>
 
     <taskdef name="unit" classpathref="build.classpath"
@@ -189,7 +189,7 @@
       <formatter type="brief" usefile="false"/>
       <batchtest>
         <fileset dir="${src.dir}">
-          <include name="**/tests/${test}*.java"/>
+          <include name="**/tests/${test}*Test.java"/>
         </fileset>
       </batchtest>
     </unit>
