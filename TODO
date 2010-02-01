@@ -27,10 +27,6 @@ Open issues
 - Need to do the "right" thing with == (assuming there is a right thing),
   i.e. if == is called on boxed integers, we need to unbox and compare, but ==
   called on one or two references should compare references.
-- We need to preserve information on variable arity methods. Right now:
-  log(String message, Object... args) becomes log(Object message, Object args)
-  which is going to confuse RT.invoke() which tries to reconstruct variable
-  arity argument arrays.
 
 Detyper
 - See if we can add an import for org.typelessj.runtime.RT to avoid verbose dumps
@@ -41,8 +37,6 @@ Detyper
 - Extract main() detection into ASTUtil, make it correct
 - Record original type information when transforming JCVariableDecl, somehow
   pass that along to all runtime methods so that they can provide better feedback
-- Record original type information when transforming JCMethodDecl and store
-  that in annotations preserved at runtime for use by RT.invoke()
 - Add RT.asEnum() and use that instead of RT.checkedCast() so that we can
   handle more runtime errors gracefully
 
@@ -52,16 +46,6 @@ Runtime
   calling typed library methods (transformed methods as well)
 - We need to convert Object[] back to the requested type of the receiver when
   passing an array into a library method
-- Create a version of dynamicCast that accepts an additional type parameter and
-  internally casts its result to it, use that to avoid annoying warnings when
-  dynamically casting to the upper bound of a type parameter:
-    public void add (T elem) {
-        super.add(RT.<T>dynamicCast(Object.class, elem));
-    }
-  Could probably define it to ensure that the upper bound is actually kosher:
-    public static <T> T dynamicCast (Class<? extends T> clazz, Object value)
-  but then it wouldn't work for contravariant type parameters, so it's probably
-  best to just take a Class<?> argument.
 
 Later
 - Ambiguous overload handling, use this approach:
