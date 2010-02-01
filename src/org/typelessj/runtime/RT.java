@@ -422,6 +422,8 @@ public class RT
     {
         if (value instanceof Number) {
             return ((Number)value).intValue();
+        } else if (value instanceof Character) {
+            return (int)(Character)value;
         } else {
             String type = (value == null) ? null : value.getClass().getSimpleName();
             throw new ClassCastException("Needed numeric type, got " + type);
