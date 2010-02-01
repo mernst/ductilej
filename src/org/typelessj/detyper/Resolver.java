@@ -328,6 +328,37 @@ public class Resolver
             }
         }
 
+        case JCTree.CONDEXPR:
+            // obtain the type of a ?: expr from the true part (could cause confusion if the types
+            // don't match, but should work for our purposes)
+            return resolveType(env, ((JCConditional)expr).truepart);
+
+        case JCTree.OR: // ||
+        case JCTree.AND: // &&
+        case JCTree.EQ: // ==
+        case JCTree.NE: // !=
+        case JCTree.LT: // <
+        case JCTree.GT: // >
+        case JCTree.LE: // <=
+        case JCTree.GE: // >=
+            return _syms.typeOfTag[TypeTags.BOOLEAN];
+
+        case JCTree.BITOR: // |
+        case JCTree.BITXOR: // ^
+        case JCTree.BITAND: // &
+        case JCTree.SL: // <<
+        case JCTree.SR: // >>
+        case JCTree.USR: // >>>
+        case JCTree.MINUS: // -
+        case JCTree.MUL: // *
+        case JCTree.DIV: // /
+        case JCTree.MOD: // %
+            return _syms.typeOfTag[TypeTags.INT]; // TODO: is this true?
+
+        case JCTree.PLUS: // +
+            // TODO: handle string concatenation
+            return _syms.typeOfTag[TypeTags.INT];
+
         case JCTree.LITERAL:
             return _syms.typeOfTag[((JCLiteral)expr).typetag];
 
