@@ -356,11 +356,18 @@ public class Resolver
             return _syms.typeOfTag[TypeTags.INT]; // TODO: is this true?
 
         case JCTree.PLUS: // +
-            // TODO: handle string concatenation
-            return _syms.typeOfTag[TypeTags.INT];
+            // if lhs is string, then expr is string, otherwise expr is int
+            if (resolveType(env, ((JCBinary)expr).lhs) == _syms.stringType) {
+                return _syms.stringType;
+            } else {
+                return _syms.typeOfTag[TypeTags.INT];
+            }
 
-        case JCTree.LITERAL:
-            return _syms.typeOfTag[((JCLiteral)expr).typetag];
+        case JCTree.LITERAL: {
+            int tag = ((JCLiteral)expr).typetag;
+            // TODO: are there other literals that don't have direct type tag mapping?
+            return (tag == TypeTags.CLASS) ? _syms.stringType : _syms.typeOfTag[tag];
+        }
 
         default:
             Debug.warn("Can't resolveType() of expr", "tag", expr.getTag(), "expr", expr,
