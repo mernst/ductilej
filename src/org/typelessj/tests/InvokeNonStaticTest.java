@@ -28,4 +28,9 @@ public class InvokeNonStaticTest
         int val2 = bar.triple(3);
         assertTrue(val2 == 9);
     }
+
+    @Test public void testStringLitReceiver ()
+    {
+        assertEquals("foo".length(), 3);
+    }
 }
