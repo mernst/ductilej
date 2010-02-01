@@ -38,6 +38,18 @@ public class SwitchTest
         assertEquals(v, 1);
     }
 
+    @Test public void testCharSwitch ()
+    {
+        char c = '0';
+        int v;
+        switch (c) {
+        case 0: v = 0; break;
+        case '0': v = 1; break;
+        default: v = 2; break;
+        }
+        assertEquals(v, 1);
+    }
+
     @Test public void testArithExprSwitch ()
     {
         int v = 10;
