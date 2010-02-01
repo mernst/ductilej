@@ -6,6 +6,7 @@ package org.typelessj.tests;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Map;
 
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -49,7 +50,7 @@ public class InnerClassTest
         Map<Integer,Integer> map = new HashMap<Integer,Integer>(size) {
         };
         map.put(5, 10);
-        assertEquals(map.get(5), 10);
+        assertEquals(map.get(5), Integer.valueOf(10));
     }
 
     @Test public void testLocalInNonStaticContext () {
