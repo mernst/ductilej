@@ -3,11 +3,13 @@
 
 package org.typelessj.detyper;
 
+import java.lang.reflect.Field;
 import java.util.Set;
 
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Flags;
+import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.code.Symbol;
@@ -77,7 +79,11 @@ public class Detype extends PathedTreeTranslator
 
         // TODO: everything in AttrContext is helpfully package protected, yay!
         // copy over detype context parts that are useful to attr context
-        // aenv.info.scope = env.info.scope;
+        try {
+            _acScope.set(aenv.info, env.info.scope);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
 
         return aenv;
     }
@@ -101,29 +107,18 @@ public class Detype extends PathedTreeTranslator
 
     @Override public void visitTopLevel (JCCompilationUnit tree) {
         _tmaker = _rootmaker.forToplevel(tree);
-
-        // Debug.log("Named-import scope", "scope", tree.namedImportScope);
-        // Debug.log("Star-import scope", "scope", tree.starImportScope);
         super.visitTopLevel(tree);
     }
 
     @Override public void visitClassDef (JCClassDecl tree) {
-        Debug.log("Entering class '" + tree.name + "'", "sym", tree.sym);
+        Debug.log("Visiting class '" + tree.name + "'", "sym", tree.sym);
 
-        // for local and anonymous classes, we need to create a fake class symbol and do our own
-        // partial Enter on it to obtain enough symbol information to keep everything working
-        boolean fakeEntered = false;
+        // local classes have not been entered yet, so we will manually cause entering to happen
+        // now; javac will overwrite our bogus symbol data later during the attrib phase
+        // if ((_env.info.scope.owner.kind & (Kinds.VAR | Kinds.MTH)) != 0) {
         if (tree.sym == null) {
-            Symbol encsym = (_env.enclMethod == null) ? _env.enclClass.sym : _env.enclMethod.sym;
-            ClassSymbol csym = new ClassSymbol(0, tree.name, encsym);
-            csym.members_field = new Scope(csym); // TODO: do we want a next?
-// TODO: enter methods, etc.
-//             tree.accept(new TreeScanner() {
-//                 @Override public void visitMethodDef (JCMethodDecl tree) {
-//                 }
-//             });
-            tree.sym = csym;
-            fakeEntered = true;
+            Backdoor.classEnter.invoke(_enter, tree, toAttrEnv(_env));
+            Debug.log("Entered inner class '" + tree.name + "'", "sym", tree.sym);
         }
 
         // note the environment of the class we're processing
@@ -138,20 +133,15 @@ public class Detype extends PathedTreeTranslator
                 mkFA(Transformed.class.getName(), tree.pos), List.<JCExpression>nil());
             tree.mods.annotations = tree.mods.annotations.prepend(a);
 
-            if (!fakeEntered) {
-                // since the annotations AST has already been resolved into type symbols, we have
-                // to manually add a type symbol for annotation to the ClassSymbol
-                tree.sym.attributes_field = tree.sym.attributes_field.prepend(
-                    Backdoor.enterAnnotation(_annotate, a, _syms.annotationType,
-                                             _enter.getEnv(tree.sym)));
-            }
+            // since the annotations AST has already been resolved into type symbols, we have
+            // to manually add a type symbol for annotation to the ClassSymbol
+            tree.sym.attributes_field = tree.sym.attributes_field.prepend(
+                Backdoor.enterAnnotation.invoke(
+                    _annotate, a, _syms.annotationType, _enter.getEnv(tree.sym)));
         }
 
         super.visitClassDef(tree);
         _env = oenv;
-        if (fakeEntered) {
-            tree.sym = null;
-        }
 
         Debug.log("Leaving class " + tree.name);
     }
@@ -295,9 +285,12 @@ public class Detype extends PathedTreeTranslator
 //         Debug.log("Class instantiation", "typeargs", tree.typeargs, "class", what(tree.clazz),
 //                   "args", tree.args);
 
+        // we need a new environment here to keep our Env tree isomorphic to javac's
+        Env<DetypeContext> oenv = _env;
+        _env = _env.dup(tree, oenv.info.dup());
+
         // if we see an anonymous inner class declaration, resolve the type of the to-be-created
         // class, we need this in inLibraryOverrider() for our approximation approach
-        Symbol oanonp = _env.info.anonParent;
         if (tree.def != null) {
             Type atype = _resolver.resolveAsType(_env, tree.clazz, false);
             if (atype == null) {
@@ -357,8 +350,8 @@ public class Detype extends PathedTreeTranslator
             }
         }
 
-        // finally restore our previous anonymous parent
-        _env.info.anonParent = oanonp;
+        // finally restore our previous environment
+        _env = oenv;
     }
 
     @Override public void visitNewArray (JCNewArray tree) {
@@ -908,4 +901,18 @@ public class Detype extends PathedTreeTranslator
 
     protected static final String TP_SUFFIX = "$T";
     protected static final Context.Key<Detype> DETYPE_KEY = new Context.Key<Detype>();
+
+    protected static Field _acScope;
+    static {
+        try {
+            for (Field f : AttrContext.class.getDeclaredFields()) {
+                if (f.getName().equals("scope")) {
+                    _acScope = f;
+                    _acScope.setAccessible(true);
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

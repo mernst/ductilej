@@ -34,4 +34,12 @@ public class DetypeContext
         ctx.anonParent = anonParent;
         return ctx;
     }
+
+    /**
+     * Duplicates this context with the same scope.
+     */
+    public DetypeContext dup ()
+    {
+        return dup(this.scope);
+    }
 }
