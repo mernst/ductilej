@@ -48,6 +48,7 @@ public class InnerClassTest
     @Test public void testAnonLibraryInst () {
         int size = 25;
         Map<Integer,Integer> map = new HashMap<Integer,Integer>(size) {
+            // nothing to see here, move it along
         };
         map.put(5, 10);
         assertEquals(map.get(5), Integer.valueOf(10));

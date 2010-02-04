@@ -14,6 +14,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.comp.Annotate;
 import com.sun.tools.javac.comp.AttrContext;
+import com.sun.tools.javac.comp.Enter;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.comp.Resolve;
 import com.sun.tools.javac.tree.JCTree.*;
@@ -24,94 +25,66 @@ import com.sun.tools.javac.util.Name;
 /**
  * Does some backdoor reflective invocation of useful javac internal methods.
  */
-public class Backdoor
+public class Backdoor<T>
 {
+    public static final Backdoor<Attribute.Compound> enterAnnotation =
+        newBackdoor(Annotate.class, "enterAnnotation", 3);
+    public static final Backdoor<Type> classEnter =
+        newBackdoor(Enter.class, "classEnter", 2);
+    public static final Backdoor<Symbol> resolveMethod =
+        newBackdoor(Resolve.class, "resolveMethod", 5);
+    public static final Backdoor<Symbol> resolveConstructor =
+        newBackdoor(Resolve.class, "resolveConstructor", 5);
+    public static final Backdoor<Symbol> resolveQualifiedMethod =
+        newBackdoor(Resolve.class, "resolveQualifiedMethod", 6);
+
     /**
      * Initializes the backdoor, looking up methods that we will invoke reflectively.
      */
     public static boolean init (ProcessingEnvironment procenv)
     {
-        if (_enterAnnotation == null) {
-            _enterAnnotation = findMethod(procenv, Annotate.class, "enterAnnotation", 3);
-            _resolveMethod = findMethod(procenv, Resolve.class, "resolveMethod", 5);
-            _resolveConstructor = findMethod(procenv, Resolve.class, "resolveConstructor", 5);
-            _resolveQualifiedMethod = findMethod(procenv, Resolve.class, "resolveQualifiedMethod", 6);
+        boolean haveErrors = !_errors.isEmpty();
+        for (String error : _errors) {
+            procenv.getMessager().printMessage(Diagnostic.Kind.WARNING, error);
         }
-        return (_enterAnnotation != null);
+        _errors = List.nil();
+        return haveErrors;
     }
 
-    /**
-     * Invokes {@link Annotate#enterAnnotation} reflectively.
-     */
-    public static Attribute.Compound enterAnnotation (
-        Annotate annotate, JCAnnotation a, Type expected, Env<AttrContext> env)
+    public T invoke (Object receiver, Object... args)
     {
         try {
-            return (Attribute.Compound)_enterAnnotation.invoke(annotate, a, expected, env);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    /**
-     * Invokes {@link Resolve#resolveConstructor} reflectively.
-     */
-    public static Symbol resolveConstructor (
-        Resolve resolve, JCDiagnostic.DiagnosticPosition pos, Env<AttrContext> env,
-        Type site, List<Type> argtypes, List<Type> typeargtypes) {
-        try {
-            return (Symbol)_resolveConstructor.invoke(
-                resolve, pos, env, site, argtypes, typeargtypes);
+            @SuppressWarnings("unchecked") T result = (T)_method.invoke(receiver, args);
+            return result;
         } catch (Exception e) {
             throw new RuntimeException(unwrap(e));
         }
     }
 
-    /**
-     * Invokes {@link Resolve#resolveMethod} reflectively.
-     */
-    public static Symbol resolveMethod (
-        Resolve resolve, JCDiagnostic.DiagnosticPosition pos, Env<AttrContext> env,
-        Name name, List<Type> argtypes, List<Type> typeargtypes) {
-        try {
-            return (Symbol)_resolveMethod.invoke(resolve, pos, env, name, argtypes, typeargtypes);
-        } catch (Exception e) {
-            throw new RuntimeException(unwrap(e));
-        }
-    }
-
-    /**
-     * Invokes {@link Resolve#resolveQualifiedMethod} reflectively.
-     */
-    public static Symbol resolveQualifiedMethod (
-        Resolve resolve, JCDiagnostic.DiagnosticPosition pos, Env<AttrContext> env,
-        Type site, Name name, List<Type> argtypes, List<Type> typeargtypes) {
-        try {
-            return (Symbol)_resolveQualifiedMethod.invoke(
-                resolve, pos, env, site, name, argtypes, typeargtypes);
-        } catch (Exception e) {
-            throw new RuntimeException(unwrap(e));
-        }
-    }
-
-    protected static Method findMethod (ProcessingEnvironment procenv, Class<?> clazz,
-                                        String name, int argCount)
+    protected Backdoor (Class<?> clazz, String name, int argCount)
     {
+        String error = null;
         try {
             for (Method m : clazz.getDeclaredMethods()) {
                 if (m.getName().equals(name) && m.getParameterTypes().length == argCount) {
                     m.setAccessible(true);
-                    return m;
+                    _method = m;
+                    break;
                 }
             }
-            procenv.getMessager().printMessage(Diagnostic.Kind.WARNING, "Unable to locate " +
-                                               clazz.getSimpleName() + "." + name + " method.");
+            error = "Unable to locate " + clazz.getSimpleName() + "." + name + " method.";
         } catch (Exception e) {
             e.printStackTrace();
-            procenv.getMessager().printMessage(Diagnostic.Kind.WARNING, "Unable to access " +
-                                               clazz.getSimpleName() + "." + name + " method.");
+            error = "Unable to access " + clazz.getSimpleName() + "." + name + " method.";
         }
-        return null;
+        if (error != null) {
+            _errors = _errors.prepend(error);
+        }
+    }
+
+    protected static <T> Backdoor<T> newBackdoor (Class<?> clazz, String name, int argCount)
+    {
+        return new Backdoor<T>(clazz, name, argCount);
     }
 
     protected static Throwable unwrap (Throwable t)
@@ -119,8 +92,6 @@ public class Backdoor
         return (t instanceof RuntimeException && t.getCause() != null) ? unwrap(t.getCause()) : t;
     }
 
-    protected static Method _enterAnnotation;
-    protected static Method _resolveMethod;
-    protected static Method _resolveConstructor;
-    protected static Method _resolveQualifiedMethod;
+    protected Method _method;
+    protected static List<String> _errors = List.nil();
 }

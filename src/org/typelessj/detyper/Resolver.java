@@ -20,6 +20,7 @@ import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.FatalError;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Name;
@@ -171,13 +172,13 @@ public class Resolver
                 }
                 Debug.log("Resolving " + mname + "<" + resolveTypes(env, mexpr.typeargs) + ">" +
                           "(" + resolveTypes(env, mexpr.args) + ")");
-                sym = Backdoor.resolveConstructor(
+                sym = Backdoor.resolveConstructor.invoke(
                     _resolve, mexpr.pos(), Detype.toAttrEnv(env), site,
                     resolveTypes(env, mexpr.args), resolveTypes(env, mexpr.typeargs));
             } else {
                 Debug.log("Resolving " + mname + "<" + resolveTypes(env, mexpr.typeargs) + ">" +
                           "(" + resolveTypes(env, mexpr.args) + ")");
-                sym = Backdoor.resolveMethod(
+                sym = Backdoor.resolveMethod.invoke(
                     _resolve, mexpr.pos(), Detype.toAttrEnv(env), mname,
                     resolveTypes(env, mexpr.args), resolveTypes(env, mexpr.typeargs));
             }
@@ -203,7 +204,7 @@ public class Resolver
 
             // pass the buck to javac's Resolve to do the heavy lifting
             JavaFileObject ofile = _log.useSource(env.toplevel.getSourceFile());
-            Symbol sym = Backdoor.resolveQualifiedMethod(
+            Symbol sym = Backdoor.resolveQualifiedMethod.invoke(
                 _resolve, mexpr.pos(), Detype.toAttrEnv(env), rtype, mname,
                 resolveTypes(env, mexpr.args), resolveTypes(env, mexpr.typeargs));
             _log.useSource(ofile);
@@ -216,114 +217,6 @@ public class Resolver
             return null;
         }
     }
-
-    /**
-     * Resolves the supplied method invocation into a symbol using information in the supplied
-     * context. Performs static resolution to choose between overloaded candidates.
-     */
-    public Symbol resolveMethodOld (Env<DetypeContext> env, JCMethodInvocation mexpr)
-    {
-        Name mname = TreeInfo.name(mexpr.meth);
-        List<ClassSymbol> csyms;
-
-        switch (mexpr.meth.getTag()) {
-        case JCTree.IDENT:
-            // if the method we're looking at is super(...) then we need to do some wrangling
-            if (mname == _names._super) {
-                Type stype = _types.supertype(env.enclClass.sym.type);
-                if (stype.tag == TypeTags.CLASS) {
-                    csyms = List.of((ClassSymbol)stype.tsym);
-                    mname = _names.init;
-                } else {
-                    Debug.log("Unable to process super()", "csym", env.enclClass.sym);
-                    return null;
-                }
-
-            // if the method we're looking at is this(...), we also need to do some wrangling
-            } else if (mname == _names._this) {
-                csyms = List.of(env.enclClass.sym);
-                mname = _names.init;
-
-            // otherwise it's a method call with an implicit receiver, so we need to look for the
-            // method in the enclosing class and all outer enclosing classes
-            } else {
-                csyms = List.nil();
-                for (Env<DetypeContext> cenv = env; cenv != null; cenv = cenv.outer) {
-                    csyms = csyms.append(cenv.enclClass.sym);
-                }
-            }
-            break;
-
-        case JCTree.SELECT: {
-            // Debug.log("Finding type of receiver", "expr", ((JCFieldAccess)mexpr.meth).selected);
-            Type rtype = resolveType(env, ((JCFieldAccess)mexpr.meth).selected);
-            if (rtype == null) {
-                // if the selectee is not a variable in scope, maybe it's a type name
-                rtype = resolveAsType(env, ((JCFieldAccess)mexpr.meth).selected, false);
-            }
-            if (rtype == null) {
-                Debug.log("Can't resolve receiver type", "expr", mexpr);
-                return null;
-            }
-            while (rtype.tag == TypeTags.TYPEVAR) {
-                rtype = rtype.getUpperBound();
-            }
-            if (rtype instanceof Type.ArrayType) {
-                // if the receiver is an array, then only Object method can be called on it
-                csyms = List.of((ClassSymbol)_syms.objectType.tsym);
-            } else if (rtype.tsym instanceof ClassSymbol) {
-                csyms = List.of((ClassSymbol)rtype.tsym);
-            } else {
-                Debug.warn("Got non-ClassSymbol", "expr", mexpr, "sym", rtype.tsym);
-                return null;
-            }
-            break;
-        }
-
-        default:
-            Debug.log("Method not ident or select?", "expr", mexpr);
-            return null;
-        }
-
-        // TODO: the below uses _types.closure(), we need to make sure it doesn't end up caching
-        // our fake ClassSymbols created for anonymous inner classes
-        List<MethodSymbol> mths = List.nil();
-        for (ClassSymbol csym : csyms) {
-            if (csym.type == null || csym.type.isPrimitive()) {
-                Debug.warn("Can't resolve method for symbol, missing or primitive type",
-                           "csym", csym, "type", csym.type);
-                continue;
-            }
-            // Debug.log("Adding " + mname + "()s from symbol " + csym);
-            for (Type type : _types.closure(csym.type)) {
-                // Debug.log("Adding " + mname + "()s from type " + type);
-                Scope scope = ((ClassSymbol)type.tsym).members_field;
-                mths = mths.appendList(lookupMethods(scope, mname));
-            }
-        }
-
-        // finally add static imported methods
-        mths = mths.appendList(lookupMethods(env.toplevel.namedImportScope, mname));
-        mths = mths.appendList(lookupMethods(env.toplevel.starImportScope, mname));
-
-        MethodSymbol best = pickMethod(env, mths, mexpr.args);
-        if (best == null) {
-            Debug.warn("Unable to resolve overload", "expr", mexpr, "mths", mths);
-            return null;
-        } else if (best.type == null) {
-            Debug.log("Resolved method has no type information", "mth", best);
-            return null;
-        } else {
-            return best;
-        }
-    }
-
-//     public Type resolveExprType (Env<DetypeContext> env, JCExpression expr)
-//     {
-//         return Backdoor.resolveConstructor(
-//             _resolve, mexpr.pos(), Detype.toAttrEnv(env), site,
-//             resolveTypes(env, mexpr.args), resolveTypes(env, mexpr.typeargs));
-//     }
 
     /**
      * Returns the symbol representing the type of the supplied expression. Currently handles bare
@@ -394,12 +287,18 @@ public class Resolver
                 Debug.warn("Unable to resolve receiver of field select: " + expr);
                 return null;
             }
-            Symbol sym = lookup(((ClassSymbol)type.tsym).members_field, facc.name, Kinds.VAR);
-            if (sym == null) {
+
+            // OMG: a public method in Resolve, it is teh miracle!
+            // (amusingly, this method is not actually used anywhere, Lower.lookupField() calls it
+            // and nothing calls Lower.lookupField(); it will probably disappear at some point and
+            // I'll have to add Backdoor.findField())
+            try {
+                return _resolve.resolveInternalField(
+                    expr.pos(), Detype.toAttrEnv(env), type, facc.name).type;
+            } catch (FatalError fe) {
                 Debug.warn("Unable to locate field in receiver", "recv", type, "field", facc.name);
                 return null;
             }
-            return sym.type;
         }
 
         case JCTree.APPLY: {
@@ -453,6 +352,16 @@ public class Resolver
         case JCTree.MUL: // *
         case JCTree.DIV: // /
         case JCTree.MOD: // %
+            return _syms.typeOfTag[TypeTags.INT]; // TODO: is this true?
+
+        case JCTree.POS: // +
+        case JCTree.NEG: // -
+        case JCTree.NOT: // !
+        case JCTree.COMPL: // ~
+        case JCTree.PREINC: // ++ _
+        case JCTree.PREDEC: // -- _
+        case JCTree.POSTINC: // _ ++
+        case JCTree.POSTDEC: // _ --
             return _syms.typeOfTag[TypeTags.INT]; // TODO: is this true?
 
         case JCTree.PLUS: // +
@@ -563,7 +472,7 @@ public class Resolver
 
     protected Symbol findMemberType (Env<DetypeContext> env, Name name, TypeSymbol c)
     {
-        // Debug.log("Checking for " + name + " as member of " + c + " " + c.members());
+        Debug.log("Checking for " + name + " as member of " + c);
         Symbol sym = first(c.members().lookup(name), Kinds.TYP);
         if (sym != null) {
             return sym;
