@@ -33,12 +33,12 @@ public class OverloadTest
         }
     }
 
-    protected Ord toOrd (String value)
+    protected static Ord toOrd (String value)
     {
         return Enum.valueOf(Ord.class, value);
     }
 
-    protected Ord toOrd (int value)
+    protected static Ord toOrd (int value)
     {
         switch (value) {
         case 1: return Ord.ONE;
