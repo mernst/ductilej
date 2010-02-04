@@ -32,10 +32,10 @@ public class Backdoor
     public static boolean init (ProcessingEnvironment procenv)
     {
         if (_enterAnnotation == null) {
-            _enterAnnotation = findMethod(procenv, Annotate.class, "enterAnnotation");
-            _resolveMethod = findMethod(procenv, Resolve.class, "resolveMethod");
-            _resolveConstructor = findMethod(procenv, Resolve.class, "resolveConstructor");
-            _resolveQualifiedMethod = findMethod(procenv, Resolve.class, "resolveQualifiedMethod");
+            _enterAnnotation = findMethod(procenv, Annotate.class, "enterAnnotation", 3);
+            _resolveMethod = findMethod(procenv, Resolve.class, "resolveMethod", 5);
+            _resolveConstructor = findMethod(procenv, Resolve.class, "resolveConstructor", 5);
+            _resolveQualifiedMethod = findMethod(procenv, Resolve.class, "resolveQualifiedMethod", 6);
         }
         return (_enterAnnotation != null);
     }
@@ -94,11 +94,12 @@ public class Backdoor
         }
     }
 
-    protected static Method findMethod (ProcessingEnvironment procenv, Class<?> clazz, String name)
+    protected static Method findMethod (ProcessingEnvironment procenv, Class<?> clazz,
+                                        String name, int argCount)
     {
         try {
             for (Method m : clazz.getDeclaredMethods()) {
-                if (m.getName().equals(name)) {
+                if (m.getName().equals(name) && m.getParameterTypes().length == argCount) {
                     m.setAccessible(true);
                     return m;
                 }
