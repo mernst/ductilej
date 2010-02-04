@@ -69,12 +69,6 @@ public class ASTUtil
             return false; // TODO: under what circumstances are we supplied with a null symbol?
         }
 
-        if (sym instanceof Symbol.TypeSymbol) {
-            Debug.warn("Asked whether type symbol is library? '" + sym + "'");
-            Thread.dumpStack();
-            return false; // TODO
-        }
-
         if (!(sym instanceof Symbol.ClassSymbol)) {
             // TODO: this is assuming that if the containing class of an inner class is
             // transformed, then every inner class therein is transformed; this may or may not be
