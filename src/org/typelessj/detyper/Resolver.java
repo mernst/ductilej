@@ -169,12 +169,14 @@ public class Resolver
                         site = _types.supertype(site);
                     }
                 }
-                // Debug.log("Resolving constructor " + mexpr);
+                Debug.log("Resolving " + mname + "<" + resolveTypes(env, mexpr.typeargs) + ">" +
+                          "(" + resolveTypes(env, mexpr.args) + ")");
                 sym = Backdoor.resolveConstructor(
                     _resolve, mexpr.pos(), Detype.toAttrEnv(env), site,
                     resolveTypes(env, mexpr.args), resolveTypes(env, mexpr.typeargs));
             } else {
-                // Debug.log("Resolving method " + mexpr);
+                Debug.log("Resolving " + mname + "<" + resolveTypes(env, mexpr.typeargs) + ">" +
+                          "(" + resolveTypes(env, mexpr.args) + ")");
                 sym = Backdoor.resolveMethod(
                     _resolve, mexpr.pos(), Detype.toAttrEnv(env), mname,
                     resolveTypes(env, mexpr.args), resolveTypes(env, mexpr.typeargs));
@@ -195,9 +197,9 @@ public class Resolver
                 return null;
             }
 
-//             Debug.log("Resolving '" + mexpr + "'", "recv", rtype,
-//                       "args",  resolveTypes(env, mexpr.args),
-//                       "types", resolveTypes(env, mexpr.typeargs));
+            Debug.log("Resolving {" + rtype + "}." + mname +
+                      "<" + resolveTypes(env, mexpr.typeargs) + ">" +
+                      "(" + resolveTypes(env, mexpr.args) + ")");
 
             // pass the buck to javac's Resolve to do the heavy lifting
             JavaFileObject ofile = _log.useSource(env.toplevel.getSourceFile());
@@ -517,8 +519,9 @@ public class Resolver
         }
         Symbol type = findType(env, fname);
         if (type instanceof ClassSymbol) {
-            // Debug.log("Found scoped type " + type);
-            return ((ClassSymbol)type).type;
+            // we want to return the erasure of our type because we want to do all of our
+            // resolution with raw types to avoid having to property handle type parameters
+            return type.erasure_field == null ? type.type : type.erasure_field;
         }
 
         // maybe the selection is a class and the selectee is a member class
