@@ -195,8 +195,9 @@ public class Resolver
                 return null;
             }
 
-            // Debug.log("Resolving '" + mexpr + "' with '" + resolveTypes(env, mexpr.args) +
-            //           "' and '" + resolveTypes(env, mexpr.typeargs) + "'");
+//             Debug.log("Resolving '" + mexpr + "'", "recv", rtype,
+//                       "args",  resolveTypes(env, mexpr.args),
+//                       "types", resolveTypes(env, mexpr.typeargs));
 
             // pass the buck to javac's Resolve to do the heavy lifting
             JavaFileObject ofile = _log.useSource(env.toplevel.getSourceFile());

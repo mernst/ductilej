@@ -440,6 +440,15 @@ public class Detype extends PathedTreeTranslator
 //         Debug.log("Method invocation", "typeargs", tree.typeargs, "method", what(tree.meth),
 //                   "args", tree.args, "varargs", tree.varargsElement);
 
+        // if we're inside the constructor of an enum and see the synthesized super() call, we have
+        // to skip our processing because Enum has no super class constructor and actually javac
+        // will be transforming the whole enum declaration later
+        Name mname = TreeInfo.name(tree.meth);
+        if (mname == _names._super && Flags.isEnum(_env.enclClass.sym)) {
+            result = tree;
+            return;
+        }
+
         // resolve the called method before we transform the leaves of this tree
         Symbol msym = _resolver.resolveMethod(_env, tree);
 
@@ -447,8 +456,7 @@ public class Detype extends PathedTreeTranslator
         // constructor because that is a "static" context in that it is illegal to reference "this"
         // during that time; there's no nice way to represent that in path() so instead we track it
         // explicitly and make use of it in inStatic()... elegance--.
-        boolean isChainedCons = (TreeInfo.name(tree.meth) == _names._super ||
-                                 TreeInfo.name(tree.meth) == _names._this);
+        boolean isChainedCons = (mname == _names._super || mname == _names._this);
         boolean oldInChainedCons = _env.info.inChainedCons;
         _env.info.inChainedCons = _env.info.inChainedCons || isChainedCons;
         super.visitApply(tree);
