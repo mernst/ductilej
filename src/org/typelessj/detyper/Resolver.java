@@ -3,6 +3,8 @@
 
 package org.typelessj.detyper;
 
+import javax.tools.JavaFileObject;
+
 import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol.*;
@@ -12,12 +14,14 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTags;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.comp.Env;
+import com.sun.tools.javac.comp.Resolve;
 import com.sun.tools.javac.jvm.ClassReader;
 import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
+import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 
@@ -147,7 +151,74 @@ public class Resolver
      * Resolves the supplied method invocation into a symbol using information in the supplied
      * context. Performs static resolution to choose between overloaded candidates.
      */
-    public MethodSymbol resolveMethod (Env<DetypeContext> env, JCMethodInvocation mexpr)
+    public Symbol resolveMethod (Env<DetypeContext> env, JCMethodInvocation mexpr)
+    {
+        Name mname = TreeInfo.name(mexpr.meth);
+
+        switch (mexpr.meth.getTag()) {
+        case JCTree.IDENT: {
+            JavaFileObject ofile = _log.useSource(env.toplevel.getSourceFile());
+            Symbol sym;
+            // pass the buck to javac's Resolve to do the heavy lifting
+            if (mname == _names._this || mname == _names._super) {
+                Type site = env.enclClass.sym.type;
+                if (mname == _names._super) {
+                    if (site == _syms.objectType) {
+                        site = _types.createErrorType(_syms.objectType);
+                    } else {
+                        site = _types.supertype(site);
+                    }
+                }
+                // Debug.log("Resolving constructor " + mexpr);
+                sym = Backdoor.resolveConstructor(
+                    _resolve, mexpr.pos(), Detype.toAttrEnv(env), site,
+                    resolveTypes(env, mexpr.args), resolveTypes(env, mexpr.typeargs));
+            } else {
+                // Debug.log("Resolving method " + mexpr);
+                sym = Backdoor.resolveMethod(
+                    _resolve, mexpr.pos(), Detype.toAttrEnv(env), mname,
+                    resolveTypes(env, mexpr.args), resolveTypes(env, mexpr.typeargs));
+            }
+            _log.useSource(ofile);
+            // Debug.log("Asked javac to resolve method " + mexpr + " got " + sym);
+            return sym;
+        }
+
+        case JCTree.SELECT: {
+            Type rtype = resolveType(env, ((JCFieldAccess)mexpr.meth).selected);
+            if (rtype == null) {
+                // if the selectee is not a variable in scope, maybe it's a type name
+                rtype = resolveAsType(env, ((JCFieldAccess)mexpr.meth).selected, false);
+            }
+            if (rtype == null) {
+                Debug.warn("Can't resolve receiver type", "expr", mexpr);
+                return null;
+            }
+
+            // Debug.log("Resolving '" + mexpr + "' with '" + resolveTypes(env, mexpr.args) +
+            //           "' and '" + resolveTypes(env, mexpr.typeargs) + "'");
+
+            // pass the buck to javac's Resolve to do the heavy lifting
+            JavaFileObject ofile = _log.useSource(env.toplevel.getSourceFile());
+            Symbol sym = Backdoor.resolveQualifiedMethod(
+                _resolve, mexpr.pos(), Detype.toAttrEnv(env), rtype, mname,
+                resolveTypes(env, mexpr.args), resolveTypes(env, mexpr.typeargs));
+            _log.useSource(ofile);
+            // Debug.log("Asked javac to resolve method " + mexpr + " got " + sym);
+            return sym;
+        }
+
+        default:
+            Debug.log("Method not ident or select?", "expr", mexpr);
+            return null;
+        }
+    }
+
+    /**
+     * Resolves the supplied method invocation into a symbol using information in the supplied
+     * context. Performs static resolution to choose between overloaded candidates.
+     */
+    public Symbol resolveMethodOld (Env<DetypeContext> env, JCMethodInvocation mexpr)
     {
         Name mname = TreeInfo.name(mexpr.meth);
         List<ClassSymbol> csyms;
@@ -244,6 +315,13 @@ public class Resolver
         }
     }
 
+//     public Type resolveExprType (Env<DetypeContext> env, JCExpression expr)
+//     {
+//         return Backdoor.resolveConstructor(
+//             _resolve, mexpr.pos(), Detype.toAttrEnv(env), site,
+//             resolveTypes(env, mexpr.args), resolveTypes(env, mexpr.typeargs));
+//     }
+
     /**
      * Returns the symbol representing the type of the supplied expression. Currently handles bare
      * identifiers (variables), field access, and return types of method invocation.
@@ -261,14 +339,15 @@ public class Resolver
                 if (stype.tag == TypeTags.CLASS) {
                     sym = (ClassSymbol)stype.tsym;
                 } else {
-                    Debug.log("Unable to obtain supertype", "csym", env.enclClass.sym);
+                    Debug.warn("Unable to obtain supertype", "csym", env.enclClass.sym);
                     return null;
                 }
             } else {
                 sym = findVar(env, name);
             }
             if (sym == null) {
-                return null; // no variable in scope with that name
+                // Debug.warn("Unable to resolve type of identifier '" + expr + "'.");
+                return resolveAsType(env, expr, false); // TODO: maybe assumeObject?
             }
             if (sym.type != null) {
                 return sym.type; // it's got a type, let's use it!
@@ -285,25 +364,43 @@ public class Resolver
                     }
                     idx++;
                 }
-                Debug.log("Missed formal parameter in arglist?", "expr", expr, "msym", msym);
+                Debug.warn("Missed formal parameter in arglist?", "expr", expr, "msym", msym);
                 return null;
             }
+
+            // try resolving the identifier as a type
             Debug.warn("Can't resolveType() of expr", "expr", expr, "sym.owner", sym.owner);
             return null;
         }
 
         case JCTree.SELECT: {
-            Type type = resolveType(env, ((JCFieldAccess)expr).selected);
+            JCFieldAccess facc = (JCFieldAccess)expr;
+            // if this is a ClassName.class expression, it must be handled specially
+            if (facc.name == _names._class) {
+                Type site = resolveAsType(env, facc.selected, false); // TODO: maybe assumeObject?
+                // we need to supply the correct type parameter for Class<T>
+                return new Type.ClassType(_syms.classType.getEnclosingType(),
+                                          List.of(_types.erasure(site)), _syms.classType.tsym);
+            }
+            // TODO: if LHS is an array and we're selecting length, we need to handle that
+            // specially as well
+
+            // otherwise this should be the selection of a field from an object
+            Type type = resolveType(env, facc.selected);
             if (type == null) {
+                Debug.warn("Unable to resolve receiver of field select: " + expr);
                 return null;
             }
-            Symbol sym = lookup(((ClassSymbol)type.tsym).members_field,
-                                ((JCFieldAccess)expr).name, Kinds.VAR);
-            return (sym == null) ? null : sym.type;
+            Symbol sym = lookup(((ClassSymbol)type.tsym).members_field, facc.name, Kinds.VAR);
+            if (sym == null) {
+                Debug.warn("Unable to locate field in receiver", "recv", type, "field", facc.name);
+                return null;
+            }
+            return sym.type;
         }
 
         case JCTree.APPLY: {
-            MethodSymbol msym = resolveMethod(env, (JCMethodInvocation)expr);
+            Symbol msym = resolveMethod(env, (JCMethodInvocation)expr);
             return (msym == null) ? null : msym.type.asMethodType().restype;
         }
 
@@ -323,7 +420,7 @@ public class Resolver
             if (atype instanceof Type.ArrayType) {
                 return ((Type.ArrayType)atype).elemtype;
             } else {
-                Debug.log("Can't resolveType() of array index expr", "expr", expr, "atype", atype);
+                Debug.warn("Can't resolveType() of array index expr", "expr", expr, "atype", atype);
                 return null;
             }
         }
@@ -374,6 +471,15 @@ public class Resolver
                        "etype", expr.getClass().getSimpleName());
             return null;
         }
+    }
+
+    /**
+     * Resolves the types of all expressions in the supplied list.
+     */
+    public List<Type> resolveTypes (Env<DetypeContext> env, List<JCExpression> exprs)
+    {
+        return exprs.isEmpty() ? List.<Type>nil() :
+            resolveTypes(env, exprs.tail).prepend(resolveType(env, exprs.head));
     }
 
     /**
@@ -447,6 +553,8 @@ public class Resolver
         _types = Types.instance(ctx);
         _syms = Symtab.instance(ctx);
         _names = Names.instance(ctx);
+        _resolve = Resolve.instance(ctx);
+        _log = Log.instance(ctx);
     }
 
     protected Symbol findMemberType (Env<DetypeContext> env, Name name, TypeSymbol c)
@@ -553,6 +661,8 @@ public class Resolver
     protected Types _types;
     protected Symtab _syms;
     protected Names _names;
+    protected Resolve _resolve;
+    protected Log _log;
 
     protected static final Context.Key<Resolver> RESOLVER_KEY = new Context.Key<Resolver>();
 }

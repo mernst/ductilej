@@ -17,6 +17,7 @@ import com.sun.tools.javac.code.TypeTags;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.comp.Annotate;
 import com.sun.tools.javac.comp.Attr;
+import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Enter;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.comp.MemberEnter;
@@ -51,6 +52,34 @@ public class Detype extends PathedTreeTranslator
             instance = new Detype(context);
         }
         return instance;
+    }
+
+    /**
+     * Converts the supplied detype context into an attr context. Note: the resulting context will
+     * not contain everything an AttrContext might normally contain. This is only usable in
+     * situations where you carefully verify that javac's internals aren't relying on things this
+     * conversion does not provide.
+     */
+    public static Env<AttrContext> toAttrEnv (Env<DetypeContext> env)
+    {
+        if (env == null) {
+            return null;
+        }
+
+        // copy over (translating along the way) our Env bits
+        Env<AttrContext> aenv = new Env<AttrContext>(env.tree, new AttrContext());
+        aenv.next = toAttrEnv(env.next);
+        aenv.outer = toAttrEnv(env.outer);
+        aenv.toplevel = env.toplevel;
+        aenv.enclClass = env.enclClass;
+        aenv.enclMethod = env.enclMethod;
+        aenv.baseClause = env.baseClause; // not used by detype
+
+        // TODO: everything in AttrContext is helpfully package protected, yay!
+        // copy over detype context parts that are useful to attr context
+        // aenv.info.scope = env.info.scope;
+
+        return aenv;
     }
 
     /**
@@ -412,7 +441,7 @@ public class Detype extends PathedTreeTranslator
 //                   "args", tree.args, "varargs", tree.varargsElement);
 
         // resolve the called method before we transform the leaves of this tree
-        MethodSymbol msym = _resolver.resolveMethod(_env, tree);
+        Symbol msym = _resolver.resolveMethod(_env, tree);
 
         // we need to track whether we're processing the arguments of a this() or super()
         // constructor because that is a "static" context in that it is illegal to reference "this"
@@ -781,7 +810,7 @@ public class Detype extends PathedTreeTranslator
             unwrapExns(cvname, catchers.tail));
     }
 
-    protected Type convertSuperMethod (MethodSymbol msym, ClassSymbol sym)
+    protected Type convertSuperMethod (Symbol msym, ClassSymbol sym)
     {
         // if the class is not a class, just return the method type as originally defined
         if (sym.type.tag != TypeTags.CLASS) {
