@@ -35,15 +35,4 @@ public class ArrayAccessTest
         }
         assertEquals(length, 11);
     }
-
-    @Test public void testResolveArrayLengthType ()
-    {
-        char[] foo = "one".toCharArray();
-        assertEquals(ident(foo.length), 3);
-    }
-
-    // used to test resolving type of array.length
-    protected static int ident (int value) {
-        return value;
-    }
 }
