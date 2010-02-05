@@ -3,7 +3,6 @@
 
 package org.typelessj.detyper;
 
-import java.lang.reflect.Field;
 import java.util.Set;
 
 import com.sun.source.tree.Tree;
@@ -77,13 +76,8 @@ public class Detype extends PathedTreeTranslator
         aenv.enclMethod = env.enclMethod;
         aenv.baseClause = env.baseClause; // not used by detype
 
-        // TODO: everything in AttrContext is helpfully package protected, yay!
         // copy over detype context parts that are useful to attr context
-        try {
-            _acScope.set(aenv.info, env.info.scope);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        Backdoor.setScope(aenv.info, env.info.scope);
 
         return aenv;
     }
@@ -121,9 +115,13 @@ public class Detype extends PathedTreeTranslator
             Debug.log("Entered inner class '" + tree.name + "'", "sym", tree.sym);
         }
 
+        Env<AttrContext> eenv = _enter.getEnv(tree.sym);
+        // Debug.log("Class attr context " + Backdoor.getScope(eenv.info));
+
         // note the environment of the class we're processing
         Env<DetypeContext> oenv = _env;
-        _env = _env.dup(tree, oenv.info.dup(tree.sym.members_field.dupUnshared()));
+        // _env = _env.dup(tree, oenv.info.dup(tree.sym.members_field.dupUnshared()));
+        _env = _env.dup(tree, oenv.info.dup(Backdoor.getScope(eenv.info)));
         _env.enclClass = tree;
         _env.outer = oenv;
 
@@ -418,14 +416,11 @@ public class Detype extends PathedTreeTranslator
 
         // if the selected expression is a static receiver (a class) then we don't want to
         // transform, otherwise we do
-        if (!isStaticReceiver(tree.selected)) {
+        if (!_resolver.isStaticSite(_env, tree.selected)) {
             // transform obj.field into RT.select(obj, "field")
             result = callRT("select", tree.pos,
                             _tmaker.Literal(TypeTags.CLASS, tree.name.toString()),
                             tree.selected);
-            // Debug.log("Transformed select " + tree + ": " + result);
-        } else {
-            // Debug.log("Not xforming select: " + tree + " (" + path + ")");
         }
     }
 
@@ -500,7 +495,7 @@ public class Detype extends PathedTreeTranslator
                 // because the receiver has "provisional" type (and we would naturally know nothing
                 // about it) TODO: look up a symbol for the receiver to confirm that it's untyped
                 Debug.log("Assuming non-static apply for unresolvable method: " + tree);
-            }            
+            }
 
             // convert to RT.invoke("method", this, args)
             recv = _tmaker.at(tree.meth.pos).Ident(_names._this);
@@ -665,40 +660,6 @@ public class Detype extends PathedTreeTranslator
         // single String[] argument
         return _env.enclMethod.getName().toString().equals("main") ||
             ASTUtil.isLibraryOverrider(_types, _env.enclMethod.sym);
-    }
-
-    protected boolean isStaticReceiver (JCExpression fa)
-    {
-        // Debug.log("isStaticReceiver(" + fa + ")");
-
-        // if we've already transformed this receiver, it will be a method invocation
-        if (!(fa instanceof JCIdent || fa instanceof JCFieldAccess)) {
-            return false;
-        }
-
-        // if it's some variable in scope (cheap test), it's not a static receiver
-        if (isScopedVar(fa)) {
-            return false;
-        }
-
-        // otherwise try resolving this expression as a type (or package)
-        return (_resolver.resolveType(_env, fa, Kinds.TYP | Kinds.PCK) != null);
-    }
-
-    protected boolean isScopedVar (JCExpression expr)
-    {
-        if (expr instanceof JCFieldAccess) {
-            return isScopedVar(((JCFieldAccess)expr).selected);
-
-        } else if (expr instanceof JCIdent) {
-            Name name = ((JCIdent)expr).name;
-            // 'this' is always a reference (for our purposes)
-            return name == _names._this || (_resolver.findVar(_env, name) != null);
-
-        } else {
-            Debug.log("isScopedVar on weird expr: " + expr);
-            return false;
-        }
     }
 
     protected boolean inStatic () {
@@ -901,18 +862,4 @@ public class Detype extends PathedTreeTranslator
 
     protected static final String TP_SUFFIX = "$T";
     protected static final Context.Key<Detype> DETYPE_KEY = new Context.Key<Detype>();
-
-    protected static Field _acScope;
-    static {
-        try {
-            for (Field f : AttrContext.class.getDeclaredFields()) {
-                if (f.getName().equals("scope")) {
-                    _acScope = f;
-                    _acScope.setAccessible(true);
-                }
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 }
