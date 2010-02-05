@@ -32,6 +32,7 @@ public class DetypeContext
         DetypeContext ctx = new DetypeContext();
         ctx.scope = scope;
         ctx.anonParent = anonParent;
+        ctx.inChainedCons = inChainedCons;
         return ctx;
     }
 
