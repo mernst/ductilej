@@ -191,7 +191,7 @@ public class Detype extends PathedTreeTranslator
         if (_env.tree.getTag() != JCTree.CLASSDEF) {
             // create a placeholder VarSymbol for this variable so that we can use it later
             // during some simple name resolution
-            Type vtype = _resolver.resolveAsType(_env, tree.vartype, true);
+            Type vtype = _resolver.resolveType(_env, tree.vartype, Kinds.TYP);
             _env.info.scope.enter(new VarSymbol(0, tree.name, vtype, _env.info.scope.owner));
         }
 
@@ -292,7 +292,7 @@ public class Detype extends PathedTreeTranslator
         // if we see an anonymous inner class declaration, resolve the type of the to-be-created
         // class, we need this in inLibraryOverrider() for our approximation approach
         if (tree.def != null) {
-            Type atype = _resolver.resolveAsType(_env, tree.clazz, false);
+            Type atype = _resolver.resolveType(_env, tree.clazz, Kinds.TYP);
             if (atype == null) {
                 Debug.warn("Unable to resolve type of anon inner parent", "name", tree.clazz);
             } else {
@@ -517,7 +517,7 @@ public class Detype extends PathedTreeTranslator
         // we need to determine the static type of the selector and cast back to that to avoid a
         // complex transformation of switch into an equivalent set of if statements nested inside a
         // one loop for loop (to preserve 'break' semantics)
-        Type type = _resolver.resolveType(_env, tree.selector);
+        Type type = _resolver.resolveType(_env, tree.selector, Kinds.VAL);
 
         // we have to look up the type *before* we transform the switch expression
         super.visitSwitch(tree);
@@ -601,7 +601,7 @@ public class Detype extends PathedTreeTranslator
 
     @Override public void visitTypeCast (JCTypeCast tree) {
         super.visitTypeCast(tree);
-        Type ctype = _resolver.resolveAsType(_env, tree.clazz, false);
+        Type ctype = _resolver.resolveType(_env, tree.clazz, Kinds.TYP);
         if (ctype != null) {
             if (!(tree.clazz instanceof JCExpression)) {
                 Debug.warn("Got cast to non-JCExpression node?", "tree", tree);
@@ -681,8 +681,8 @@ public class Detype extends PathedTreeTranslator
             return false;
         }
 
-        // otherwise try resolving this expression as a type
-        return (_resolver.resolveAsType(_env, fa, false) != null);
+        // otherwise try resolving this expression as a type (or package)
+        return (_resolver.resolveType(_env, fa, Kinds.TYP | Kinds.PCK) != null);
     }
 
     protected boolean isScopedVar (JCExpression expr)
