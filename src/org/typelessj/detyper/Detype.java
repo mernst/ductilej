@@ -94,6 +94,9 @@ public class Detype extends PathedTreeTranslator
             _env.enclClass = _predefClassDef;
             _env.info.scope = tree.namedImportScope;
             tree.accept(this);
+        } catch (RuntimeException rte) {
+            Debug.warn("Fatal error", "file", tree.sourcefile);
+            throw rte;
         } finally {
             _env = oenv;
         }
@@ -439,6 +442,7 @@ public class Detype extends PathedTreeTranslator
 
         // resolve the called method before we transform the leaves of this tree
         Symbol msym = _resolver.resolveMethod(_env, tree);
+        // Debug.log("Method invocation", "tree", tree, "sym", msym);
 
         // we need to track whether we're processing the arguments of a this() or super()
         // constructor because that is a "static" context in that it is illegal to reference "this"
@@ -534,39 +538,47 @@ public class Detype extends PathedTreeTranslator
 
     @Override public void visitIf (JCIf tree) {
         super.visitIf(tree);
-
         // we need to cast the if expression to boolean
-        tree.cond = callRT("asBoolean", tree.cond.pos, tree.cond);
+        tree.cond = condCast(tree.cond);
     }
 
     @Override public void visitConditional (JCConditional tree) {
         super.visitConditional(tree);
-
         // we need to cast the if expression to boolean
-        tree.cond = callRT("asBoolean", tree.cond.pos, tree.cond);
+        tree.cond = condCast(tree.cond);
     }
 
     @Override public void visitDoLoop (JCDoWhileLoop tree) {
         super.visitDoLoop(tree);
-
         // we need to cast the while expression to boolean
-        tree.cond = callRT("asBoolean", tree.cond.pos, tree.cond);
+        tree.cond = condCast(tree.cond);
     }
 
     @Override public void visitWhileLoop (JCWhileLoop tree) {
         super.visitWhileLoop(tree);
-
         // we need to cast the while expression to boolean
-        tree.cond = callRT("asBoolean", tree.cond.pos, tree.cond);
+        tree.cond = condCast(tree.cond);
+    }
+
+    /**
+     * Wraps a conditional expression in a call to {@link RT#asBoolean} iff the expression is not a
+     * literal that might be influencing static analysis of the underyling conditional.
+     */
+    protected JCExpression condCast (JCExpression expr)
+    {
+        switch (expr.getTag()) {
+        case JCTree.LITERAL: return expr;
+        // TODO: special handling for static final constants?
+        default: return callRT("asBoolean", expr.pos, expr);
+        }
     }
 
     @Override public void visitForLoop (JCForLoop tree) {
         super.visitForLoop(tree);
-
         // "for (;;)" will have null condition
         if (tree.cond != null) {
             // we need to cast the for condition expression to boolean
-            tree.cond = callRT("asBoolean", tree.cond.pos, tree.cond);
+            tree.cond = condCast(tree.cond);
         }
     }
 
@@ -594,14 +606,13 @@ public class Detype extends PathedTreeTranslator
 
     @Override public void visitTypeCast (JCTypeCast tree) {
         super.visitTypeCast(tree);
-        Type ctype = _resolver.resolveType(_env, tree.clazz, Kinds.TYP);
-        if (ctype != null) {
-            if (!(tree.clazz instanceof JCExpression)) {
-                Debug.warn("Got cast to non-JCExpression node?", "tree", tree);
-            } else {
-                result = callRT("noteCast", tree.pos,
-                                classLiteral((JCExpression)tree.clazz, tree.pos), tree.expr);
-            }
+
+        if (!(tree.clazz instanceof JCExpression)) {
+            Debug.warn("Got cast to non-JCExpression node?", "tree", tree);
+        } else if (!path().endsWith("Switch.Case")) {
+            Type ctype = _resolver.resolveType(_env, tree.clazz, Kinds.TYP);
+            result = callRT("noteCast", tree.pos,
+                            classLiteral((JCExpression)tree.clazz, tree.pos), tree.expr);
         }
     }
 
