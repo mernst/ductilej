@@ -390,13 +390,16 @@ public class Resolver
         case JCTree.POSTDEC: // _ --
             return _syms.typeOfTag[TypeTags.INT]; // TODO: is this true?
 
-        case JCTree.PLUS: // +
-            // if lhs is string, then expr is string, otherwise expr is int
-            if (resolveType(env, ((JCBinary)expr).lhs, pkind) == _syms.stringType) {
+        case JCTree.PLUS: { // +
+            // if lhs or rhs is string, then expr is string
+            Type lhs = resolveType(env, ((JCBinary)expr).lhs, pkind);
+            Type rhs = resolveType(env, ((JCBinary)expr).rhs, pkind);
+            if (lhs == _syms.stringType || rhs == _syms.stringType) {
                 return _syms.stringType;
             } else {
-                return _syms.typeOfTag[TypeTags.INT];
+                return lhs; // TODO: numeric promotion
             }
+        }
 
         case JCTree.LITERAL: {
             int tag = ((JCLiteral)expr).typetag;
@@ -415,6 +418,10 @@ public class Resolver
         case JCTree.TYPEAPPLY:
             // we ignore the type arguments and recurse down to the base type
             return resolveType(env, ((JCTypeApply)expr).clazz, Kinds.TYP);
+
+        case JCTree.NEWARRAY:
+            return new Type.ArrayType(
+                resolveType(env, ((JCNewArray)expr).elemtype, Kinds.TYP), _syms.arrayClass);
 
         default:
             Debug.warn("Can't resolveType() of expr", "tag", expr.getTag(), "expr", expr,
