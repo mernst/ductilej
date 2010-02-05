@@ -13,6 +13,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.comp.Annotate;
+import com.sun.tools.javac.comp.Attr;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Enter;
 import com.sun.tools.javac.comp.Env;
@@ -27,16 +28,22 @@ import com.sun.tools.javac.util.Name;
  */
 public class Backdoor<T>
 {
+    protected static List<String> _errors = List.nil(); // dang static initialization order
+
     public static final Backdoor<Attribute.Compound> enterAnnotation =
         newBackdoor(Annotate.class, "enterAnnotation", 3);
     public static final Backdoor<Type> classEnter =
         newBackdoor(Enter.class, "classEnter", 2);
+    public static final Backdoor<Symbol> resolveIdent =
+        newBackdoor(Resolve.class, "resolveIdent", 4);
     public static final Backdoor<Symbol> resolveMethod =
         newBackdoor(Resolve.class, "resolveMethod", 5);
     public static final Backdoor<Symbol> resolveConstructor =
         newBackdoor(Resolve.class, "resolveConstructor", 5);
     public static final Backdoor<Symbol> resolveQualifiedMethod =
         newBackdoor(Resolve.class, "resolveQualifiedMethod", 6);
+    public static final Backdoor<Symbol> selectSym =
+        newBackdoor(Attr.class, "selectSym", 5);
 
     /**
      * Initializes the backdoor, looking up methods that we will invoke reflectively.
@@ -48,7 +55,7 @@ public class Backdoor<T>
             procenv.getMessager().printMessage(Diagnostic.Kind.WARNING, error);
         }
         _errors = List.nil();
-        return haveErrors;
+        return !haveErrors;
     }
 
     public T invoke (Object receiver, Object... args)
@@ -59,6 +66,11 @@ public class Backdoor<T>
         } catch (Exception e) {
             throw new RuntimeException(unwrap(e));
         }
+    }
+
+    @Override public String toString ()
+    {
+        return _method.getName();
     }
 
     protected Backdoor (Class<?> clazz, String name, int argCount)
@@ -72,7 +84,9 @@ public class Backdoor<T>
                     break;
                 }
             }
-            error = "Unable to locate " + clazz.getSimpleName() + "." + name + " method.";
+            if (_method == null) {
+                error = "Unable to locate " + clazz.getSimpleName() + "." + name + " method.";
+            }
         } catch (Exception e) {
             e.printStackTrace();
             error = "Unable to access " + clazz.getSimpleName() + "." + name + " method.";
@@ -93,5 +107,4 @@ public class Backdoor<T>
     }
 
     protected Method _method;
-    protected static List<String> _errors = List.nil();
 }
