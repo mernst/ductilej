@@ -451,9 +451,7 @@ public class Detype extends PathedTreeTranslator
         _env.info.inChainedCons = oldInChainedCons;
 
         // if this is a chained constructor call or super.foo(), we can't call it reflectively
-        if (isChainedCons ||
-            (tree.meth instanceof JCFieldAccess &&
-             TreeInfo.name(((JCFieldAccess)tree.meth).selected) == _names._super)) {
+        if (isChainedCons || isSuperMethodCall(tree)) {
             // but if the method is defined in a library class, we need to cast the argument types
             // back to the types it expects
             if (msym == null) {
@@ -689,6 +687,7 @@ public class Detype extends PathedTreeTranslator
         // we specify the return type of the dynamic cast explicitly so that we can supply the
         // concrete upper bound as the runtime class but still retain the type variable as our
         // static return type, e.g.: T val = RT.<T>checkedCast(Object.class, oval)
+        Debug.log("Doing type var cast " + ptype.tsym, "params", ptype.tsym.getTypeParameters());
         inv.typeargs = List.<JCExpression>of(_tmaker.Ident(ptype.tsym.name));
         return inv;
     }
@@ -772,6 +771,12 @@ public class Detype extends PathedTreeTranslator
             unwrapExns(cvname, catchers.tail));
     }
 
+    protected boolean isSuperMethodCall (JCMethodInvocation tree)
+    {
+        return (tree.meth instanceof JCFieldAccess) &&
+            (TreeInfo.name(((JCFieldAccess)tree.meth).selected) == _names._super);
+    }
+
     protected Type convertSuperMethod (Symbol msym, ClassSymbol sym)
     {
         // if the class is not a class, just return the method type as originally defined
@@ -802,18 +807,10 @@ public class Detype extends PathedTreeTranslator
             return list;
         }
 
-        // if the type in question is a type variable, find its upper bound
-        Type ptype = params.head;
-        boolean needTypeVarCast = false;
-        while (ptype.tag == TypeTags.TYPEVAR) {
-            ptype = ptype.getUpperBound();
-            needTypeVarCast = true;
-        }
-
+        Type ptype = _types.erasure(params.head);
         JCExpression clazz = mkFA(ptype.toString(), list.head.pos);
-        JCMethodInvocation cexpr = needTypeVarCast ?
+        JCMethodInvocation cexpr = (ptype != params.head) ?
             typeVarCast(clazz, list.head, params.head) : checkedCast(clazz, list.head);
-
         return castList(params.tail, list.tail).prepend(cexpr);
     }
 
