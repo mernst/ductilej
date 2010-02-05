@@ -3,12 +3,14 @@
 
 package org.typelessj.detyper;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.tools.Diagnostic;
 
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type;
@@ -34,6 +36,8 @@ public class Backdoor<T>
         newBackdoor(Annotate.class, "enterAnnotation", 3);
     public static final Backdoor<Type> classEnter =
         newBackdoor(Enter.class, "classEnter", 2);
+    public static final Backdoor<Symbol> findIdent =
+        newBackdoor(Resolve.class, "findIdent", 3);
     public static final Backdoor<Symbol> resolveIdent =
         newBackdoor(Resolve.class, "resolveIdent", 4);
     public static final Backdoor<Symbol> resolveMethod =
@@ -56,6 +60,30 @@ public class Backdoor<T>
         }
         _errors = List.nil();
         return !haveErrors;
+    }
+
+    /**
+     * Extracts the 'scope' field from the supplied AttrContext.
+     */
+    public static Scope getScope (AttrContext info)
+    {
+        try {
+            return (Scope)_acScope.get(info);
+        } catch (Exception e) {
+            throw new RuntimeException(unwrap(e));
+        }
+    }
+
+    /**
+     * Updates the 'scope' field of the supplied AttrContext with the supplied scope.
+     */
+    public static void setScope (AttrContext info, Scope scope)
+    {
+        try {
+            _acScope.set(info, scope);
+        } catch (Exception e) {
+            throw new RuntimeException(unwrap(e));
+        }
     }
 
     public T invoke (Object receiver, Object... args)
@@ -107,4 +135,18 @@ public class Backdoor<T>
     }
 
     protected Method _method;
+
+    protected static Field _acScope;
+    static {
+        try {
+            for (Field f : AttrContext.class.getDeclaredFields()) {
+                if (f.getName().equals("scope")) {
+                    _acScope = f;
+                    _acScope.setAccessible(true);
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
