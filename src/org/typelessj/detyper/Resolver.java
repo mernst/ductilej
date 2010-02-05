@@ -279,7 +279,7 @@ public class Resolver
             if (sym.kind >= Kinds.ERR) {
                 Debug.warn("Unable to resolve type of ident", "expr", expr, "sym", sym);
             }
-            return sym.type; // sym.erasure(_types);
+            return sym.type;
         }
 
         case JCTree.SELECT: {
@@ -289,7 +289,7 @@ public class Resolver
 //                 Type site = resolveAsType(env, facc.selected, false); // TODO: maybe assumeObject?
 //                 // we need to supply the correct type parameter for Class<T>
 //                 return new Type.ClassType(_syms.classType.getEnclosingType(),
-//                                           List.of(_types.erasure(site)), _syms.classType.tsym);
+//                                           List.of(site), _syms.classType.tsym);
 //             }
 //             // TODO: if LHS is an array and we're selecting length, we need to handle that
 //             // specially as well
@@ -312,13 +312,20 @@ public class Resolver
                 return null;
             }
 
+            // if the site is an array and the field is 'length', it's just an int (for some reason
+            // Attr.selectSym() doesn't handle .length)
+            if (site.tag == TypeTags.ARRAY && facc.name == _names.length) {
+                return _syms.typeOfTag[TypeTags.INT];
+            }
+
+            Debug.log("Resolving type symbol", "site", site, "facc", facc);
             sym = invoke(env, Backdoor.selectSym, _attr, facc, site, Detype.toAttrEnv(env),
                          Type.noType, pkind);
             if (sym == null) {
                 Debug.warn("Unable to resolve symbol for field select", "expr", expr, "site", site);
                 return null;
             }
-            return sym.type; // sym.erasure(_types);
+            return sym.type;
         }
 
         case JCTree.APPLY:
