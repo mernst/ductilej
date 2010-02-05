@@ -687,9 +687,41 @@ public class Detype extends PathedTreeTranslator
         // we specify the return type of the dynamic cast explicitly so that we can supply the
         // concrete upper bound as the runtime class but still retain the type variable as our
         // static return type, e.g.: T val = RT.<T>checkedCast(Object.class, oval)
-        Debug.log("Doing type var cast " + ptype.tsym, "params", ptype.tsym.getTypeParameters());
-        inv.typeargs = List.<JCExpression>of(_tmaker.Ident(ptype.tsym.name));
+        inv.typeargs = List.<JCExpression>of(typeToTree(ptype, expr.pos));
         return inv;
+    }
+
+    protected JCExpression typeToTree (Type type, int pos)
+    {
+        switch (type.tag) {
+        case TypeTags.CLASS: {
+            // TODO: enclosing class?
+            JCExpression clazz = mkFA(type.tsym.getQualifiedName().toString(), pos);
+            return type.getTypeArguments().isEmpty() ? clazz :
+                _tmaker.at(pos).TypeApply(clazz, typesToTree(type.getTypeArguments(), pos));
+        }
+
+        case TypeTags.TYPEVAR:
+            return _tmaker.at(pos).Ident(type.tsym.name);
+            // TODO: do we need to worry about type.bound or type.lower?
+
+        case TypeTags.WILDCARD: {
+            Type.WildcardType wtype = (Type.WildcardType)type;
+            return _tmaker.at(pos).Wildcard(
+                _tmaker.at(pos).TypeBoundKind(wtype.kind), typeToTree(wtype.type, pos));
+            // TODO: if wtype.bound is not null we may need to wrap this all in a TypeParameter()?
+        }
+
+        default:
+            Debug.warn("Unsupported type in typeToTree", "type", type, "tag", type.tag);
+            return null;
+        }
+    }
+
+    protected List<JCExpression> typesToTree (List<Type> types, int pos)
+    {
+        return types.isEmpty() ? List.<JCExpression>nil() :
+            typesToTree(types.tail, pos).prepend(typeToTree(types.head, pos));
     }
 
     protected JCMethodInvocation callRT (String method, int pos, JCExpression... args) {
