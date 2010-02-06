@@ -188,12 +188,12 @@ public class Resolver
             Debug.log("Using expression type", "expr", expr, "pkind", pkind, "type", expr.type);
             return expr.type;
         }
-        Symbol sym = TreeInfo.symbol(expr);
 
         // Debug.log("Resolving type", "expr", expr, "pkind", pkind);
         switch (expr.getTag()) {
         case JCTree.IDENT: {
             Name name = TreeInfo.name(expr);
+            Symbol sym;
             if (name == _names._this) {
                 sym = env.enclClass.sym;
 //             } else if (name == _names._super) {
@@ -244,8 +244,8 @@ public class Resolver
             }
 
             // Debug.log("Resolving type symbol", "site", site, "facc", facc);
-            sym = invoke(env, Backdoor.selectSym, _attr, facc, site, Detype.toAttrEnv(env),
-                         Type.noType, pkind);
+            Symbol sym = invoke(env, Backdoor.selectSym, _attr, facc, site, Detype.toAttrEnv(env),
+                                Type.noType, pkind);
             if (sym == null) {
                 Debug.warn("Unable to resolve symbol for field select", "expr", expr, "site", site);
                 return null;
