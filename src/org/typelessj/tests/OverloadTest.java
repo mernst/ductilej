@@ -3,6 +3,10 @@
 
 package org.typelessj.tests;
 
+import java.io.StringWriter;
+import java.util.ArrayList;
+import java.util.List;
+
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -31,6 +35,19 @@ public class OverloadTest
         case TWO: assertTrue(true); break;
         case THREE: assertTrue(false); break;
         }
+    }
+
+    @Test public void testTypeParamToConcrete ()
+    {
+        StringWriter out = new StringWriter();
+        List<String> strs = new ArrayList<String>();
+        strs.add("one");
+        strs.add("two");
+        strs.add("three");
+        for (int ii = 0, ll = strs.size(); ii < ll; ii++) {
+            out.write(strs.get(ii)); // A get() -> String get()
+        }
+        assertEquals(out.toString(), "onetwothree");
     }
 
     protected static Ord toOrd (String value)
