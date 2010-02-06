@@ -84,9 +84,16 @@ public class RT
      */
     public static Object boxArrayArgs (Class<?> etype, Object... elems)
     {
-        // TODO: we may want to create an array of the supplied element type and copy the supplied
-        // Object[] values thereinto
-        return elems;
+        try {
+            // try to put the values into an array of the requested type
+            Object tarray = Array.newInstance(etype, elems.length);
+            for (int ii = 0, ll = elems.length; ii < ll; ii++) {
+                Array.set(tarray, ii, elems[ii]);
+            }
+            return tarray;
+        } catch (ArrayStoreException ase) {
+            return elems; // fall back to an object array to contain the values
+        }
     }
 
     /**
@@ -510,6 +517,26 @@ public class RT
         // TODO: this needs to follow the algorithm in JLS 15.12.2.1
         List<Method> methods = collectMethods(new ArrayList<Method>(), mname, clazz, args);
 
+        // no ambiguity, no problem!
+        if (methods.size() == 1) {
+            return methods.get(0);
+        }
+
+        // look for an exact type match (simplifies life for now)
+      METHOD:
+        for (Method m : methods) {
+            Class<?>[] ptypes = m.getParameterTypes();
+            int pcount = m.getName().endsWith("$M") ? ptypes.length/2 : ptypes.length;
+            int poff = ptypes.length - pcount;
+            for (int ii = 0, ll = Math.min(args.length, pcount); ii < ll; ii++) {
+                Class<?> ptype = boxType(ptypes[poff+ii]);
+                if (args[ii] != null && !ptype.equals(args[ii].getClass())) {
+                    continue METHOD;
+                }
+            }
+            return m;
+        }
+
         // first look for matching non-varargs methods
         for (Method m : methods) {
             if (!m.isVarArgs()) {
@@ -596,10 +623,7 @@ public class RT
         // make sure all fixed arity arguments match
         int fpcount = isVarArgs ? pcount-1 : pcount, poff = isMangled ? pcount : 0;
         for (int ii = 0; ii < fpcount; ii++) {
-            Class<?> ptype = ptypes[poff + ii];
-            if (ptype.isPrimitive()) {
-                ptype = WRAPPERS.get(ptype);
-            }
+            Class<?> ptype = boxType(ptypes[poff + ii]);
             if (args[ii] != null && !ptype.isAssignableFrom(args[ii].getClass())) {
                 return false;
             }
@@ -611,8 +635,7 @@ public class RT
 
 //         // make sure all variable artity arguments match
 //         if (isVarArgs) {
-//             Class<?> ptype = ptypes[poff+fpcount].isPrimitive() ?
-//                 WRAPPERS.get(ptypes[poff+fpcount]) : ptypes[poff+fpcount];
+//             Class<?> ptype = boxType(ptypes[poff+fpcount]);
 //             for (int ii = fpcount; ii < args.length; ii++) {
 //                 if (args[ii] != null && !ptype.isAssignableFrom(args[ii].getClass())) {
 //                     return false;
@@ -711,6 +734,11 @@ public class RT
         } catch (IllegalAccessException iae) {
             throw new RuntimeException("Failure accessing enclosing reference", iae);
         }
+    }
+
+    protected static Class<?> boxType (Class<?> type)
+    {
+        return type.isPrimitive() ? WRAPPERS.get(type) : type;
     }
 
     protected static Throwable unwrap (Throwable t)
