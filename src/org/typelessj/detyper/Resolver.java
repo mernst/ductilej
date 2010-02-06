@@ -196,15 +196,6 @@ public class Resolver
             Symbol sym;
             if (name == _names._this) {
                 sym = env.enclClass.sym;
-//             } else if (name == _names._super) {
-//                 Type stype = _types.supertype(env.enclClass.sym.type);
-//                 if (stype.tag == TypeTags.CLASS) {
-//                     sym = (ClassSymbol)stype.tsym;
-//                 } else {
-//                     Debug.warn("Class has non-class 'super'?", "csym", env.enclClass.sym,
-//                                "stype", stype);
-//                     return null;
-//                 }
             } else {
                 // Debug.log("Resoving ident", "name", name, "pkind", pkind);
                 sym = invoke(env, Backdoor.resolveIdent, _resolve,
