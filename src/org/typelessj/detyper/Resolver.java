@@ -345,6 +345,9 @@ public class Resolver
             return new Type.ArrayType(
                 resolveType(env, ((JCNewArray)expr).elemtype, Kinds.TYP), _syms.arrayClass);
 
+        case JCTree.ASSIGN:
+            return resolveType(env, ((JCAssign)expr).lhs, Kinds.VAR);
+
         default:
             Debug.warn("Can't resolveType() of expr", "tag", expr.getTag(), "expr", expr,
                        "etype", expr.getClass().getSimpleName());
