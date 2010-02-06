@@ -443,6 +443,10 @@ public class Detype extends PathedTreeTranslator
         // resolve the called method before we transform the leaves of this tree
         Symbol msym = _resolver.resolveMethod(_env, tree);
         // Debug.log("Method invocation", "tree", tree, "sym", msym);
+        if (msym.kind >= Kinds.ERR) {
+            result = tree; // abort! (error will have been logged)
+            return;
+        }
 
         // we need to track whether we're processing the arguments of a this() or super()
         // constructor because that is a "static" context in that it is illegal to reference "this"
