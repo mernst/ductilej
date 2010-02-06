@@ -183,10 +183,10 @@ public class Resolver
      */
     public Type resolveType (Env<DetypeContext> env, JCTree expr, int pkind)
     {
-        // we already have a resolved symbol and type, just use that
-        Symbol sym = TreeInfo.symbol(expr);
-        if (sym != null) {
-            return sym.type;
+        // if we already have a resolved type, just use that
+        if (expr.type != null) {
+            Debug.log("Using expression type", "expr", expr, "pkind", pkind, "type", expr.type);
+            return expr.type;
         }
 
         // Debug.log("Resolving type", "expr", expr, "pkind", pkind);
