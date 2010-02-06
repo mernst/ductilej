@@ -14,12 +14,12 @@ public class ArrayTypeTest
     @Test public void testResolveArrayLengthType ()
     {
         char[] foo = "one".toCharArray();
-        assertEquals(noop(foo.length), 1);
+        assertEquals(1, noop(foo.length));
     }
 
     @Test public void testResolveArrayType ()
     {
-        assertEquals(noop(new Integer[] { 1, 2, 3}), 2);
+        assertEquals(2, noop(new Integer[] { 1, 2, 3 }));
     }
 
     protected static void noop (Object value) {
