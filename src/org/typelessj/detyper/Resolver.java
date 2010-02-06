@@ -188,6 +188,7 @@ public class Resolver
             Debug.log("Using expression type", "expr", expr, "pkind", pkind, "type", expr.type);
             return expr.type;
         }
+        Symbol sym = TreeInfo.symbol(expr);
 
         // Debug.log("Resolving type", "expr", expr, "pkind", pkind);
         switch (expr.getTag()) {
