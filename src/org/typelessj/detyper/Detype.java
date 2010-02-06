@@ -468,7 +468,7 @@ public class Detype extends PathedTreeTranslator
             } else if (!tree.args.isEmpty() && ASTUtil.isLibrary(msym.owner)) {
                 // we need to convert any formal type parameters on this method (as defined in the
                 // super class) to the actuals provided by our class in the extends clause
-                Type mtype = convertSuperMethod(msym, _env.enclClass.sym);
+                Type mtype = _types.memberType(_env.enclClass.sym.type, msym);
                 tree.args = castList(mtype.asMethodType().argtypes, tree.args);
             }
             return;
@@ -822,20 +822,6 @@ public class Detype extends PathedTreeTranslator
     {
         return (tree.meth instanceof JCFieldAccess) &&
             (TreeInfo.name(((JCFieldAccess)tree.meth).selected) == _names._super);
-    }
-
-    protected Type convertSuperMethod (Symbol msym, ClassSymbol sym)
-    {
-        // if the class is not a class, just return the method type as originally defined
-        if (sym.type.tag != TypeTags.CLASS) {
-            return msym.type;
-        } else {
-            // otherwise obtain the type of sym's super class with formal type parameters bound to
-            // the actuals provided when sym extended it
-            Type stype = ((Type.ClassType)sym.type).supertype_field;
-            // then substitute those actuals for formals in the method's type
-            return _types.subst(msym.type, msym.owner.type.allparams(), stype.allparams());
-        }
     }
 
     protected List<JCExpression> castIntList (List<JCExpression> list)
