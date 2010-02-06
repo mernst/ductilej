@@ -340,6 +340,7 @@ public class Detype extends PathedTreeTranslator
             // isLibrary() will return false if anonParent is null (which could happen if we fail
             // to resolve its type above)
             if (!tree.args.isEmpty() && ASTUtil.isLibrary(_env.info.anonParent)) {
+                // TODO: switch this to resolve method
                 List<MethodSymbol> ctors = _resolver.lookupMethods(
                     _env.info.anonParent.members(), _names.init);
                 MethodSymbol best = _resolver.pickMethod(_env, ctors, tree.args);
@@ -441,7 +442,7 @@ public class Detype extends PathedTreeTranslator
         }
 
         // resolve the called method before we transform the leaves of this tree
-        Symbol msym = _resolver.resolveMethod(_env, tree);
+        Symbol msym = _resolver.resolveMethod(_env, tree).msym;
         // Debug.log("Method invocation", "tree", tree, "sym", msym);
         if (msym.kind >= Kinds.ERR) {
             result = tree; // abort! (error will have been logged)
