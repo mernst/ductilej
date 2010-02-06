@@ -34,6 +34,16 @@ import org.typelessj.runtime.Debug;
  */
 public class Resolver
 {
+    /** Used to return data from {@link #resolveMethod}. */
+    public static class Apply {
+        public final Type site;
+        public final Symbol msym;
+        public Apply (Type site, Symbol msym) {
+            this.site = site;
+            this.msym = msym;
+        }
+    }
+
     /**
      * Returns our simple symbol resolver.
      */
@@ -57,24 +67,6 @@ public class Resolver
     }
 
     /**
-     * Locates the closest variable symbol in the supplied context with the specified name.
-     * Returns null if no match is found.
-     */
-    public Symbol findVar (Env<DetypeContext> env, Name name)
-    {
-        return find(env, name, Kinds.VAR);
-    }
-
-    /**
-     * Locates the closest method symbol in the supplied context with the specified name.  Returns
-     * null if no match is found.
-     */
-    public Symbol findMethod (Env<DetypeContext> env, Name name)
-    {
-        return find(env, name, Kinds.MTH);
-    }
-
-    /**
      * Selects the closest matching method from the supplied list of overloaded methods given the
      * supplied actual argument expressions. Currently only handles arity overloading, in the
      * future the giant pile of effort will be expended to make it handle type-based overloading
@@ -92,79 +84,21 @@ public class Resolver
     }
 
     /**
-     * Locates the closest type symbol in the supplied context with the specified name.  Returns
-     * null if no match is found.
-     */
-    public Symbol findType (Env<DetypeContext> env, Name name)
-    {
-        // TODO: handle type variables; not yet sure how that is appropriately done
-
-        for (Env<DetypeContext> env1 = env; env1.outer != null; env1 = env1.outer) {
-            Symbol sym = lookup(env1.info.scope, name, Kinds.TYP);
-            if (sym != null) {
-                return sym;
-            }
-            if (env1.enclClass.sym == null) {
-                Debug.warn("Can't findType in inner class", "name", name); // TODO
-                continue;
-            }
-            sym = findMemberType(env, name, env1.enclClass.sym);
-            if (sym != null) {
-                return sym;
-            }
-        }
-
-        // then we have to check named imports
-        Symbol sym = lookup(env.toplevel.namedImportScope, name, Kinds.TYP);
-        if (sym != null) {
-            return sym;
-        }
-
-        // then we check package members (for unqualified references to types in our package)
-        sym = lookup(env.toplevel.packge.members(), name, Kinds.TYP);
-        if (sym != null) {
-            return sym;
-        }
-
-        // finally we check star imports
-        sym = lookup(env.toplevel.starImportScope, name, Kinds.TYP);
-        if (sym != null) {
-            return sym;
-        }
-
-//         if (env.tree.getTag() != JCTree.IMPORT) {
-//             sym = findGlobalType(env, env.toplevel.namedImportScope, name);
-//             if (sym.exists()) return sym;
-//             else if (sym.kind < bestSoFar.kind) bestSoFar = sym;
-
-//             sym = findGlobalType(env, env.toplevel.packge.members(), name);
-//             if (sym.exists()) return sym;
-//             else if (sym.kind < bestSoFar.kind) bestSoFar = sym;
-
-//             sym = findGlobalType(env, env.toplevel.starImportScope, name);
-//             if (sym.exists()) return sym;
-//             else if (sym.kind < bestSoFar.kind) bestSoFar = sym;
-//         }
-
-        return null;
-    }
-
-    /**
      * Resolves the supplied method invocation into a symbol using information in the supplied
      * context. Performs static resolution to choose between overloaded candidates.
      */
-    public Symbol resolveMethod (Env<DetypeContext> env, JCMethodInvocation mexpr)
+    public Apply resolveMethod (Env<DetypeContext> env, JCMethodInvocation mexpr)
     {
         Name mname = TreeInfo.name(mexpr.meth);
 
         switch (mexpr.meth.getTag()) {
         case JCTree.IDENT: {
             Symbol sym;
+            Type site = env.enclClass.sym.type;
             List<Type> tatypes = resolveTypes(env, mexpr.typeargs, Kinds.TYP);
-            List<Type> atypes = resolveRawTypes(env, mexpr.args, Kinds.VAL);
+            List<Type> atypes = resolveTypes(env, mexpr.args, Kinds.VAL);
             // pass the buck to javac's Resolve to do the heavy lifting
             if (mname == _names._this || mname == _names._super) {
-                Type site = env.enclClass.sym.type;
                 if (mname == _names._super) {
                     if (site == _syms.objectType) {
                         site = _types.createErrorType(_syms.objectType);
@@ -184,14 +118,14 @@ public class Resolver
                 Debug.warn("Unable to resolve method", "expr", mexpr);
             }
             // Debug.log("Asked javac to resolve method " + mexpr + " got " + sym);
-            return sym;
+            return new Apply(site, sym);
         }
 
         case JCTree.SELECT: {
             // we erase the type parameters from the site because we want javac to ignore the type
             // arguments when resolving our method (to be maximally lenient)
             // Debug.log("Resolving method receiver", "expr", mexpr);
-            Type site = resolveRawType(
+            Type site = resolveType(
                 env, ((JCFieldAccess)mexpr.meth).selected, Kinds.VAL | Kinds.TYP);
             if (site == null) {
                 Debug.warn("Can't resolve receiver type", "expr", mexpr);
@@ -201,7 +135,7 @@ public class Resolver
 
             // pass the buck to javac's Resolve to do the heavy lifting
             List<Type> tatypes = resolveTypes(env, mexpr.typeargs, Kinds.TYP);
-            List<Type> atypes = resolveRawTypes(env, mexpr.args, Kinds.VAL);
+            List<Type> atypes = resolveTypes(env, mexpr.args, Kinds.VAL);
             // Debug.log("Resolving {" + site + "}." + mname + "<" + tatypes + ">(" + atypes + ")");
             Symbol sym = invoke(env, Backdoor.resolveQualifiedMethod, _resolve, mexpr.pos(),
                                 Detype.toAttrEnv(env), site, mname, atypes, tatypes);
@@ -209,12 +143,11 @@ public class Resolver
                 Debug.warn("Unable to resolve method", "expr", mexpr, "site", site);
             }
             // Debug.log("Asked javac to resolve method " + mexpr + " got " + sym);
-            return sym;
+            return new Apply(site, sym);
         }
 
         default:
-            Debug.log("Method not ident or select?", "expr", mexpr);
-            return null;
+            throw new IllegalArgumentException("Method not ident or select? " + mexpr);
         }
     }
 
@@ -284,15 +217,6 @@ public class Resolver
 
         case JCTree.SELECT: {
             JCFieldAccess facc = (JCFieldAccess)expr;
-//             // if this is a ClassName.class expression, it must be handled specially
-//             if (facc.name == _names._class) {
-//                 Type site = resolveAsType(env, facc.selected, false); // TODO: maybe assumeObject?
-//                 // we need to supply the correct type parameter for Class<T>
-//                 return new Type.ClassType(_syms.classType.getEnclosingType(),
-//                                           List.of(site), _syms.classType.tsym);
-//             }
-//             // TODO: if LHS is an array and we're selecting length, we need to handle that
-//             // specially as well
 
             // determine the expected kind of the qualifier expression
             int skind = 0;
@@ -318,7 +242,7 @@ public class Resolver
                 return _syms.typeOfTag[TypeTags.INT];
             }
 
-            Debug.log("Resolving type symbol", "site", site, "facc", facc);
+            // Debug.log("Resolving type symbol", "site", site, "facc", facc);
             sym = invoke(env, Backdoor.selectSym, _attr, facc, site, Detype.toAttrEnv(env),
                          Type.noType, pkind);
             if (sym == null) {
@@ -328,9 +252,11 @@ public class Resolver
             return sym.type;
         }
 
-        case JCTree.APPLY:
-            sym = resolveMethod(env, (JCMethodInvocation)expr);
-            return (sym == null) ? null : sym.type.asMethodType().restype;
+        case JCTree.APPLY: {
+            Apply app = resolveMethod(env, (JCMethodInvocation)expr);
+            Type mtype = _types.memberType(app.site, app.msym);
+            return (app == null) ? null : mtype.asMethodType().restype;
+        }
 
         case JCTree.NEWCLASS:
             // TODO: this isn't quite right since it doesn't return the correct symbol for
@@ -415,9 +341,13 @@ public class Resolver
             return (etype == null) ? null : new Type.ArrayType(etype, etype.tsym);
         }
 
-        case JCTree.TYPEAPPLY:
-            // we ignore the type arguments and recurse down to the base type
-            return resolveType(env, ((JCTypeApply)expr).clazz, Kinds.TYP);
+        case JCTree.TYPEAPPLY: {
+            JCTypeApply tapp = (JCTypeApply)expr;
+            Type clazz = resolveType(env, tapp.clazz, Kinds.TYP);
+            List<Type> actuals = resolveTypes(env, tapp.arguments, Kinds.TYP);
+            Type clazzOuter = clazz.getEnclosingType();
+            return new Type.ClassType(clazzOuter, actuals, clazz.tsym);
+        }
 
         case JCTree.NEWARRAY:
             return new Type.ArrayType(
@@ -481,64 +411,6 @@ public class Resolver
         _resolve = Resolve.instance(ctx);
         _attr = Attr.instance(ctx);
         _log = Log.instance(ctx);
-    }
-
-    protected Symbol findMemberType (Env<DetypeContext> env, Name name, TypeSymbol c)
-    {
-        Debug.log("Checking for " + name + " as member of " + c);
-        Symbol sym = first(c.members().lookup(name), Kinds.TYP);
-        if (sym != null) {
-            return sym;
-        }
-
-        return null; // TODO: scan supertypes and interfaces
-
-//         Type st = types.supertype(c.type);
-//         if (st != null && st.tag == CLASS) {
-//             sym = findMemberType(env, site, name, st.tsym);
-//             if (sym.kind < bestSoFar.kind) bestSoFar = sym;
-//         }
-//         for (List<Type> l = types.interfaces(c.type);
-//              bestSoFar.kind != AMBIGUOUS && l.nonEmpty();
-//              l = l.tail) {
-//             sym = findMemberType(env, site, name, l.head.tsym);
-//             if (bestSoFar.kind < AMBIGUOUS && sym.kind < AMBIGUOUS &&
-//                 sym.owner != bestSoFar.owner)
-//                 bestSoFar = new AmbiguityError(bestSoFar, sym);
-//             else if (sym.kind < bestSoFar.kind)
-//                 bestSoFar = sym;
-//         }
-    }
-
-    protected Symbol find (Env<DetypeContext> env, Name name, int kind)
-    {
-        if (name == null) {
-            Debug.log("Asked to lookup null name...", new Throwable());
-            return null;
-        }
-
-        // first we check our local environment
-        for ( ; env.outer != null; env = env.outer) {
-            // Debug.log("Lookup", "name", name, "kind", kind, "scope", env.info.scope);
-            Symbol sym = lookup(env.info.scope, name, kind);
-            if (sym != null) {
-                return sym;
-            }
-        }
-
-        // then we have to check named imports
-        Symbol sym = lookup(env.toplevel.namedImportScope, name, kind);
-        if (sym != null) {
-            return sym;
-        }
-
-        // finally we check star imports
-        sym = lookup(env.toplevel.starImportScope, name, kind);
-        if (sym != null) {
-            return sym;
-        }
-
-        return null;
     }
 
     protected <T> T invoke (Env<DetypeContext> env, Backdoor<T> door,
