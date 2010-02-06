@@ -284,6 +284,7 @@ public class Resolver
         case JCTree.GT: // >
         case JCTree.LE: // <=
         case JCTree.GE: // >=
+        case JCTree.NOT: // !
             return _syms.typeOfTag[TypeTags.BOOLEAN];
 
         case JCTree.BITOR: // |
@@ -300,7 +301,6 @@ public class Resolver
 
         case JCTree.POS: // +
         case JCTree.NEG: // -
-        case JCTree.NOT: // !
         case JCTree.COMPL: // ~
         case JCTree.PREINC: // ++ _
         case JCTree.PREDEC: // -- _
