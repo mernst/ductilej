@@ -4,7 +4,9 @@
 package org.typelessj.tests;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.Test;
@@ -35,5 +37,12 @@ public class TypeVarTest
         Map<Class<?>, Integer> foo = new HashMap<Class<?>, Integer>();
         foo.put(TypeVarTest.class, 5);
         assertEquals(Integer.valueOf(5), foo.get(TypeVarTest.class));
+    }
+
+    @Test public void testTVarInstantiate () {
+        List<Integer> intlist = new ArrayList<Integer>();
+        Integer[] intvec = new Integer[] { 1, 2, 3, 4 };
+        intlist.addAll(Arrays.asList(intvec));
+        assertEquals(Integer.valueOf(1), intlist.get(0));
     }
 }

@@ -46,6 +46,8 @@ public class Backdoor<T>
         newBackdoor(Resolve.class, "resolveConstructor", 5);
     public static final Backdoor<Symbol> resolveQualifiedMethod =
         newBackdoor(Resolve.class, "resolveQualifiedMethod", 6);
+    public static final Backdoor<Type> instantiate =
+        newBackdoor(Resolve.class, "instantiate", 8);
     public static final Backdoor<Symbol> selectSym =
         newBackdoor(Attr.class, "selectSym", 5);
 
