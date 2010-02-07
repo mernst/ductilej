@@ -442,7 +442,11 @@ public class Detype extends PathedTreeTranslator
         }
 
         // resolve the called method before we transform the leaves of this tree
-        Symbol msym = _resolver.resolveMethod(_env, tree).msym;
+        Symbol msym = _resolver.resolveMethod(_env, tree, new Resolver.ToResult<Symbol>() {
+            public Symbol apply (Type site, Symbol msym, List<Type> atypes, List<Type> tatypes) {
+                return msym;
+            }
+        });
         // Debug.log("Method invocation", "tree", tree, "sym", msym);
         if (msym.kind >= Kinds.ERR) {
             result = tree; // abort! (error will have been logged)
