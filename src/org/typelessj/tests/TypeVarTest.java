@@ -6,6 +6,7 @@ package org.typelessj.tests;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -37,6 +38,12 @@ public class TypeVarTest
         Map<Class<?>, Integer> foo = new HashMap<Class<?>, Integer>();
         foo.put(TypeVarTest.class, 5);
         assertEquals(Integer.valueOf(5), foo.get(TypeVarTest.class));
+
+        // iter.next() will resolve to type ? which we need to promote to Object before trying to
+        // resolve the type of String.valueOf(); this tests that rigamarole
+        for (Iterator<?> iter = foo.values().iterator(); iter.hasNext(); ) {
+            assertEquals("5", String.valueOf(iter.next()));
+        }
     }
 
     @Test public void testTVarInstantiate () {

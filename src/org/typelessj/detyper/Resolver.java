@@ -91,6 +91,13 @@ public class Resolver
         // resolve our argument and type argument types
         List<Type> atypes = resolveTypes(env, mexpr.args, Kinds.VAL);
         List<Type> tatypes = resolveTypes(env, mexpr.typeargs, Kinds.TYP);
+
+        // convert any wildcard types to their erasure; I'm not sure why or whether this is
+        // strictly necessary, but Resolve's method throw assertion failures if I don't...
+        atypes = eraseWildcards(atypes);
+
+        // if we failed to resolve any of our argument types, we need to stop now and return an
+        // error symbol
         if (tatypes.contains(null) || atypes.contains(null)) {
             return f.apply(null, _syms.errSymbol, atypes, tatypes);
         }
@@ -442,6 +449,13 @@ public class Resolver
         } finally {
             _log.useSource(ofile);
         }
+    }
+
+    protected List<Type> eraseWildcards (List<Type> types)
+    {
+        if (types.isEmpty()) return List.<Type>nil();
+        return eraseWildcards(types.tail).prepend(
+            ((types.head.tag == TypeTags.WILDCARD) ? _types.erasure(types.head) : types.head));
     }
 
     protected static Symbol lookup (Scope scope, Name name, int kind)
