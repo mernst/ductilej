@@ -5,6 +5,7 @@ package org.typelessj.detyper;
 
 import javax.tools.JavaFileObject;
 
+import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol.*;
@@ -339,6 +340,13 @@ public class Resolver
             List<Type> actuals = resolveTypes(env, tapp.arguments, Kinds.TYP);
             Type clazzOuter = clazz.getEnclosingType();
             return new Type.ClassType(clazzOuter, actuals, clazz.tsym);
+        }
+
+        case JCTree.WILDCARD: {
+            JCWildcard wc = (JCWildcard)expr;
+            Type type = (wc.kind.kind == BoundKind.UNBOUND) ? _syms.objectType :
+                resolveType(env, wc.inner, Kinds.TYP);
+            return new Type.WildcardType(type, wc.kind.kind, _syms.boundClass);
         }
 
         case JCTree.NEWARRAY:
