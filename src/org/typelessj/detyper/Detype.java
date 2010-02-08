@@ -156,6 +156,11 @@ public class Detype extends PathedTreeTranslator
         _env.enclMethod = tree;
         _env.info.scope.owner = tree.sym;
 
+        // enter all type parameters into the local method scope
+        for (List<JCTypeParameter> l = tree.typarams; l.nonEmpty(); l = l.tail) {
+            _env.info.scope.enterIfAbsent(l.head.type.tsym);
+        }
+
         // if we're not in a library overrider, prepare our type-carrying arguments (before we call
         // super which will erase our argument's types)
         boolean isLib = inLibraryOverrider();
@@ -619,9 +624,11 @@ public class Detype extends PathedTreeTranslator
         if (!(tree.clazz instanceof JCExpression)) {
             Debug.warn("Got cast to non-JCExpression node?", "tree", tree);
         } else if (!path().endsWith("Switch.Case")) {
-            Type ctype = _resolver.resolveType(_env, tree.clazz, Kinds.TYP);
-            result = callRT("noteCast", tree.pos,
-                            classLiteral((JCExpression)tree.clazz, tree.pos), tree.expr);
+            // TODO: if the cast expression contains type variables, we need to compute their upper
+            // bound and note a cast to that upper bound
+            result = tree.expr;
+//             result = callRT("noteCast", tree.pos,
+//                             classLiteral((JCExpression)tree.clazz, tree.pos), tree.expr);
         }
     }
 
@@ -815,7 +822,7 @@ public class Detype extends PathedTreeTranslator
                               List.<JCExpression>nil()),
                 _tmaker.Ident(ctname)),
             _tmaker.Throw(
-                _tmaker.TypeCast(
+                _tmaker.TypeCast( // TODO: don't need the typecast if type is Throwable
                     _tmaker.Ident(ctname),
                     _tmaker.Apply(List.<JCExpression>nil(),
                                   _tmaker.Select(_tmaker.Ident(cvname), gcname),
