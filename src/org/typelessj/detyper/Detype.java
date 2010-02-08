@@ -190,7 +190,15 @@ public class Detype extends PathedTreeTranslator
     }
 
     @Override public void visitVarDef (JCVariableDecl tree) {
+        // if we're declaring an array, put its type in the arrayElemType as we may encounter a
+        // bare array initializer expression (i.e. int[] foo = { 1, 2, 3}) and we'll need to use
+        // this declared type when detyping the initializer
+        JCExpression oetype = _env.info.arrayElemType;
+        if (tree.vartype instanceof JCArrayTypeTree) {
+            _env.info.arrayElemType = tree.vartype;
+        }
         super.visitVarDef(tree);
+        _env.info.arrayElemType = oetype;
 
         // var symbols for member-level variables are already entered, we just want to handle
         // formal parameters and local variable declarations
@@ -365,12 +373,10 @@ public class Detype extends PathedTreeTranslator
         // determine the type of the array elements
         JCExpression etype = tree.elemtype;
         if (etype == null) {
-            // if we have no type, we're probably inside a multidimensional array initializer, so
-            // we obtain our type from our enclosing array initializer
-            if (!(_env.info.arrayElemType instanceof JCArrayTypeTree)) {
-                Debug.log("In nested array initializer but type is not array type?", "expr", tree,
-                          "etype", _env.info.arrayElemType);
-            } else {
+            // if we're seeing something like 'int[] foo = { 1, 2, 3 }' or we're inside a
+            // multidimensional initializer like 'int[][] foo = new int[] {{ 1, 2, 3}, { 1 }}'
+            // we'll have stuffed our element type into the context
+            if (_env.info.arrayElemType instanceof JCArrayTypeTree) {
                 etype = ((JCArrayTypeTree)_env.info.arrayElemType).elemtype;
             }
         }
