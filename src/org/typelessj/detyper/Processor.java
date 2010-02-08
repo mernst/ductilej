@@ -3,6 +3,9 @@
 
 package org.typelessj.detyper;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.PrintWriter;
 import java.util.Set;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -30,7 +33,7 @@ import org.typelessj.util.ASTUtil;
  * The main entry point for the detyping processor.
  */
 @SupportedAnnotationTypes("*")
-@SupportedOptions({Processor.SHOWCLASS_ARG, Processor.DEBUG_ARG})
+@SupportedOptions({Processor.SHOWCLASS_ARG, Processor.WRITECLASS_ARG, Processor.DEBUG_ARG})
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public class Processor extends AbstractProcessor
 {
@@ -55,6 +58,7 @@ public class Processor extends AbstractProcessor
 
         // note our options
         _showclass = "true".equalsIgnoreCase(procenv.getOptions().get(SHOWCLASS_ARG));
+        _writeclass = "true".equalsIgnoreCase(procenv.getOptions().get(WRITECLASS_ARG));
         Debug.debug = "true".equalsIgnoreCase(procenv.getOptions().get(DEBUG_ARG));
 
         Debug.log("Detyper running", "vers", procenv.getSourceVersion());
@@ -75,6 +79,16 @@ public class Processor extends AbstractProcessor
             if (_showclass) {
                 System.out.println(""+unit);
             }
+            if (_writeclass) {
+                File dout = new File(unit.getSourceFile().getName().replace(".java", ".djava"));
+                try {
+                    PrintWriter out = new PrintWriter(new FileWriter(dout));
+                    out.print(unit);
+                    out.close();
+                } catch (Exception e) {
+                    Debug.warn("Failure writing detyped output", "file", dout, "error", e);
+                }
+            }
         }
         return false;
     }
@@ -88,9 +102,12 @@ public class Processor extends AbstractProcessor
     protected Trees _trees;
     protected Detype _detype;
     protected boolean _showclass;
+    protected boolean _writeclass;
 
     // -Aorg.typelessj.debug=true causes debug log messages to be printed
     protected static final String DEBUG_ARG = "org.typelessj.debug";
     // -Aorg.typelessj.showclass=true causes classes to be printed after detyping
     protected static final String SHOWCLASS_ARG = "org.typelessj.showclass";
+    // -Aorg.typelessj.writeclass=true causes classes to be written to a .djava file after detyping
+    protected static final String WRITECLASS_ARG = "org.typelessj.writeclass";
 }
