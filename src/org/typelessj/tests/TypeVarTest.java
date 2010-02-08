@@ -52,4 +52,15 @@ public class TypeVarTest
         intlist.addAll(Arrays.asList(intvec));
         assertEquals(Integer.valueOf(1), intlist.get(0));
     }
+
+    public static <K,V> int countKeyLengths (Map<K, V> map)
+    {
+        int length = 0;
+        for (Map.Entry<K,V> entry : map.entrySet()) {
+            // tests having a receiver with type 'K'
+            K key = entry.getKey();
+            length = length + key.toString().length();
+        }
+        return length;
+    }
 }
