@@ -556,6 +556,12 @@ public class Detype extends PathedTreeTranslator
         tree.cond = condCast(tree.cond);
     }
 
+    @Override public void visitAssert (JCAssert tree) {
+        super.visitAssert(tree);
+        // we need to cast the assert expression to boolean
+        tree.cond = condCast(tree.cond);
+    }
+
     @Override public void visitConditional (JCConditional tree) {
         super.visitConditional(tree);
         // we need to cast the if expression to boolean
