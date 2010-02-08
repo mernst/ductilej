@@ -29,4 +29,10 @@ public class ArrayCreateTest
             assertTrue(nums2[0].length == dim2);
         }
     }
+
+    @Test public void testArrayInitializer ()
+    {
+        int[] data = { 1, 2, 3, 4 };
+        assertTrue(data[0] == 1);
+    }
 }
