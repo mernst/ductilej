@@ -138,9 +138,13 @@ public class Resolver
                 env, ((JCFieldAccess)mexpr.meth).selected, Kinds.VAL | Kinds.TYP);
             if (site == null) {
                 Debug.warn("Can't resolve receiver type", "expr", mexpr);
-                return null;
+                return f.apply(null, _syms.errSymbol, atypes, tatypes);
             }
             // Debug.log("Resolved method receiver", "expr", mexpr, "site", site);
+
+            // the receiver may also be a wildcard (or a type variable), in which case we need to
+            // erase as above
+            site = (site.tag == TypeTags.WILDCARD) ? _types.erasure(site) : site;
 
             // pass the buck to javac's Resolve to do the heavy lifting
             // Debug.log("Resolving {" + site + "}." + mname + "<" + tatypes + ">(" + atypes + ")");
