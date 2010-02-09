@@ -226,8 +226,11 @@ public class Detype extends PathedTreeTranslator
                 tree.vartype = _tmaker.TypeArray(tree.vartype);
             }
 
-        } else {
-            Debug.log("Not transforming", "def", tree, "path", path, "isLib", inLibraryOverrider());
+        // if our variable has an initializer expression and we opted not to detype the
+        // declaration, we need to cast the result of the initializer expression back to the
+        // correct type
+        } else if (tree.init != null) {
+            tree.init = checkedCast(tree.vartype, tree.init);
         }
     }
 

@@ -11,6 +11,10 @@ import static org.junit.Assert.*;
  */
 public class AssignTest
 {
+    // make sure the type of this initializer expression gets cast back to the declared type as we
+    // don't detype static final fields
+    public static final Boolean debug = Boolean.getBoolean("debug");
+
     public class MutableInt {
         public int value;
         public MutableInt (int value) {
