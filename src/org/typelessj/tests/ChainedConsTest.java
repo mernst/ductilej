@@ -13,8 +13,13 @@ public class ChainedConsTest
 {
     public static class A {
         public final int foo;
+
         public A (int foo) {
             this.foo = foo;
+        }
+
+        public A (String foo) {
+            this.foo = Integer.valueOf(foo);
         }
     }
 
@@ -29,8 +34,12 @@ public class ChainedConsTest
             super(foo);
         }
 
+        public C (String foo) {
+            super(foo);
+        }
+
         public C (int foo, int bar) {
-            this(foo);
+            this(""+foo);
         }
     }
 

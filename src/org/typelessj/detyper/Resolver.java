@@ -37,8 +37,11 @@ import org.typelessj.runtime.Debug;
 public class Resolver
 {
     /** Used to return data from {@link #resolveMethod}. */
-    public static interface ToResult<T> {
-        public T apply (Type site, Symbol msym, List<Type> argtypes, List<Type> typeargtypes);
+    public static class MethInfo {
+        public Type site;
+        public Symbol msym;
+        public List<Type> atypes;
+        public List<Type> tatypes;
     }
 
     /**
@@ -84,77 +87,80 @@ public class Resolver
      * Resolves the supplied method invocation into a symbol using information in the supplied
      * context. Performs static resolution to choose between overloaded candidates.
      */
-    public <T> T resolveMethod (Env<DetypeContext> env, JCMethodInvocation mexpr, ToResult<T> f)
+    public MethInfo resolveMethod (Env<DetypeContext> env, JCMethodInvocation mexpr)
     {
         Name mname = TreeInfo.name(mexpr.meth);
+        MethInfo mi = new MethInfo();
+        mi.msym = _syms.errSymbol; // assume failure! we're so optimistic
 
         // resolve our argument and type argument types
-        List<Type> atypes = resolveTypes(env, mexpr.args, Kinds.VAL);
-        List<Type> tatypes = resolveTypes(env, mexpr.typeargs, Kinds.TYP);
+        mi.atypes = resolveTypes(env, mexpr.args, Kinds.VAL);
+        mi.tatypes = resolveTypes(env, mexpr.typeargs, Kinds.TYP);
 
         // convert any wildcard types to their erasure; I'm not sure why or whether this is
         // strictly necessary, but Resolve's method throw assertion failures if I don't...
-        atypes = eraseWildcards(atypes);
+        mi.atypes = eraseWildcards(mi.atypes);
 
         // if we failed to resolve any of our argument types, we need to stop now and return an
         // error symbol
-        if (tatypes.contains(null) || atypes.contains(null)) {
-            return f.apply(null, _syms.errSymbol, atypes, tatypes);
+        if (mi.tatypes.contains(null) || mi.atypes.contains(null)) {
+            return mi;
         }
 
         switch (mexpr.meth.getTag()) {
         case JCTree.IDENT: {
             Symbol sym;
-            Type site = env.enclClass.sym.type;
+            mi.site = env.enclClass.sym.type;
             // pass the buck to javac's Resolve to do the heavy lifting
             if (mname == _names._this || mname == _names._super) {
                 if (mname == _names._super) {
-                    if (site == _syms.objectType) {
-                        site = _types.createErrorType(_syms.objectType);
+                    if (mi.site == _syms.objectType) {
+                        mi.site = _types.createErrorType(_syms.objectType);
                     } else {
-                        site = _types.supertype(site);
+                        mi.site = _types.supertype(mi.site);
                     }
                 }
-                // Debug.log("Resolving " + mname + "<" + tatypes + ">(" + atypes + ")");
-                sym = invoke(env, Backdoor.resolveConstructor, _resolve, mexpr.pos(),
-                             Detype.toAttrEnv(env), site, atypes, tatypes);
+                // Debug.log("Resolving " + mname + "<" + mi.tatypes + ">(" + mi.atypes + ")");
+                mi.msym = invoke(env, Backdoor.resolveConstructor, _resolve, mexpr.pos(),
+                                 Detype.toAttrEnv(env), mi.site, mi.atypes, mi.tatypes);
             } else {
-                // Debug.log("Resolving " + mname + "<" + tatypes + ">(" + atypes + ")");
-                sym = invoke(env, Backdoor.resolveMethod, _resolve, mexpr.pos(),
-                             Detype.toAttrEnv(env), mname, atypes, tatypes);
+                // Debug.log("Resolving " + mname + "<" + mi.tatypes + ">(" + mi.atypes + ")");
+                mi.msym = invoke(env, Backdoor.resolveMethod, _resolve, mexpr.pos(),
+                                 Detype.toAttrEnv(env), mname, mi.atypes, mi.tatypes);
             }
-            if (sym.kind >= Kinds.ERR) {
+            if (mi.msym.kind >= Kinds.ERR) {
                 Debug.warn("Unable to resolve method", "expr", mexpr);
             }
-            // Debug.log("Asked javac to resolve method " + mexpr + " got " + sym);
-            return f.apply(site, sym, atypes, tatypes);
+            // Debug.log("Asked javac to resolve method " + mexpr + " got " + mi.msym);
+            return mi;
         }
 
         case JCTree.SELECT: {
             // we erase the type parameters from the site because we want javac to ignore the type
             // arguments when resolving our method (to be maximally lenient)
             // Debug.log("Resolving method receiver", "expr", mexpr);
-            Type site = resolveType(
-                env, ((JCFieldAccess)mexpr.meth).selected, Kinds.VAL | Kinds.TYP);
-            if (site == null) {
+            mi.site = resolveType(env, ((JCFieldAccess)mexpr.meth).selected, Kinds.VAL | Kinds.TYP);
+            if (mi.site == null) {
                 Debug.warn("Can't resolve receiver type", "expr", mexpr);
-                return f.apply(null, _syms.errSymbol, atypes, tatypes);
+                return mi;
             }
-            // Debug.log("Resolved method receiver", "expr", mexpr, "site", site);
+            // Debug.log("Resolved method receiver", "expr", mexpr, "site", mi.site);
 
             // the receiver may also be a wildcard (or a type variable), in which case we need to
             // erase as above
-            site = (site.tag == TypeTags.WILDCARD) ? _types.erasure(site) : site;
+            if (mi.site.tag == TypeTags.WILDCARD) {
+                mi.site = _types.erasure(mi.site);
+            }
 
             // pass the buck to javac's Resolve to do the heavy lifting
-            // Debug.log("Resolving {" + site + "}." + mname + "<" + tatypes + ">(" + atypes + ")");
-            Symbol sym = invoke(env, Backdoor.resolveQualifiedMethod, _resolve, mexpr.pos(),
-                                Detype.toAttrEnv(env), site, mname, atypes, tatypes);
-            if (sym.kind >= Kinds.ERR) {
-                Debug.warn("Unable to resolve method", "expr", mexpr, "site", site);
+            // Debug.log("Resolving {"+mi.site+"}." + mname + "<"+mi.tatypes+">("+mi.atypes+")");
+            mi.msym = invoke(env, Backdoor.resolveQualifiedMethod, _resolve, mexpr.pos(),
+                             Detype.toAttrEnv(env), mi.site, mname, mi.atypes, mi.tatypes);
+            if (mi.msym.kind >= Kinds.ERR) {
+                Debug.warn("Unable to resolve method", "expr", mexpr, "site", mi.site);
             }
-            // Debug.log("Asked javac to resolve method " + mexpr + " got " + sym);
-            return f.apply(site, sym, atypes, tatypes);
+            // Debug.log("Asked javac to resolve method " + mexpr + " got " + mi.msym);
+            return mi;
         }
 
         default:
@@ -257,26 +263,24 @@ public class Resolver
 
         case JCTree.APPLY: {
             final Env<DetypeContext> fenv = env;
-            return resolveMethod(env, (JCMethodInvocation)expr, new ToResult<Type>() {
-                public Type apply (Type site, Symbol msym, List<Type> atypes, List<Type> tatypes) {
-                    if (msym.kind >= Kinds.ERR) {
-                        return null;
-                    }
-                    // if the method is universally quantified, we need to bind its type variables
-                    // based on the types of its actual arguments
-                    Type mtype;
-                    if (msym.type.tag == TypeTags.FORALL) {
-                        // Resolve.instantiate handles member type conversion for us
-                        boolean useVarargs = false; // TODO
-                        mtype = invoke(fenv, Backdoor.instantiate, _resolve, Detype.toAttrEnv(fenv),
-                                       site, msym, atypes, tatypes, true, useVarargs, new Warner());
-                    } else {
-                        // otherwise we just need to convert it to a member type
-                        mtype = _types.memberType(site, msym);
-                    }
-                    return mtype.asMethodType().restype;
-                }
-            });
+            MethInfo mi = resolveMethod(env, (JCMethodInvocation)expr);
+            if (mi.msym.kind >= Kinds.ERR) {
+                return null;
+            }
+            // if the method is universally quantified, we need to bind its type variables
+            // based on the types of its actual arguments
+            Type mtype;
+            if (mi.msym.type.tag == TypeTags.FORALL) {
+                // Resolve.instantiate handles member type conversion for us
+                boolean useVarargs = false; // TODO
+                mtype = invoke(fenv, Backdoor.instantiate, _resolve, Detype.toAttrEnv(fenv),
+                               mi.site, mi.msym, mi.atypes, mi.tatypes, true, useVarargs,
+                               new Warner());
+            } else {
+                // otherwise we just need to convert it to a member type
+                mtype = _types.memberType(mi.site, mi.msym);
+            }
+            return mtype.asMethodType().restype;
         }
 
         case JCTree.NEWCLASS:
