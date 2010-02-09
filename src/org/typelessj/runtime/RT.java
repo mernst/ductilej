@@ -49,11 +49,18 @@ public class RT
             rargs = args;
         }
 
-        Constructor<?> ctor = findConstructor(clazz, rargs);
+        boolean isMangled = (clazz.getAnnotation(Transformed.class) != null);
+        Constructor<?> ctor = findConstructor(clazz, isMangled, rargs);
         if (ctor == null) {
             // TODO: if argument mismatch, clarify that
             throw new NoSuchMethodError(Debug.format("Can't find constructor for " +
                                                      clazz.getSimpleName(), "args", rargs));
+        }
+
+        // if this method is mangled, we need to add dummy arguments in the type-carrying parameter
+        // positions
+        if (isMangled) {
+            rargs = addMangleArgs(ctor.getParameterTypes(), rargs);
         }
 
         try {
@@ -465,7 +472,8 @@ public class RT
         // Debug.log("Invoking " + method, "recv", receiver, "args", args);
 
         boolean isMangled = isMangled(method);
-        int pcount = method.getParameterTypes().length;
+        Class<?>[] ptypes = method.getParameterTypes();
+        int pcount = ptypes.length;
         if (isMangled) {
             pcount /= 2;
         }
@@ -492,16 +500,7 @@ public class RT
         // if this method is mangled, we need to add dummy arguments in the type-carrying parameter
         // positions
         if (isMangled) {
-            Object[] margs = new Object[pcount*2];
-            System.arraycopy(aargs, 0, margs, 0, pcount);
-            Class<?>[] ptypes = method.getParameterTypes();
-            for (int ii = pcount; ii < ptypes.length; ii++) {
-                // if the argument is a primitive type, DUMMIES will contain a dummy value for that
-                // type, otherwise it will return null which is the desired dummy value for all
-                // non-primitive types
-                margs[ii] = DUMMIES.get(ptypes[ii]);
-            }
-            aargs = margs;
+            aargs = addMangleArgs(ptypes, aargs);
         }
 
         try {
@@ -588,7 +587,8 @@ public class RT
     /**
      * A helper for {@link #newInstance}.
      */
-    protected static Constructor<?> findConstructor (Class<?> clazz, Object... args)
+    protected static Constructor<?> findConstructor (
+        Class<?> clazz, boolean isMangled, Object... args)
     {
 //         // enumerate all possible matching constructors
 //         Class<?> target = clazz;
@@ -604,15 +604,13 @@ public class RT
 //         } while (target != null);
 //         // TODO: sort them by best to worst match; return the first one
 
-        boolean isMangled = false; // TODO: if class is @Transformed then mangled
         for (Constructor<?> ctor : clazz.getDeclaredConstructors()) {
             Class<?>[] ptypes = ctor.getParameterTypes();
             if (isApplicable(ptypes, isMangled, ctor.isVarArgs(), args)) {
                 return ctor; // TODO: enumerate and select best match like findMethod()
             }
         }
-        Class<?> parent = clazz.getSuperclass();
-        return (parent == null) ? null : findConstructor(parent, args);
+        return null;
     }
 
     /**
@@ -708,6 +706,19 @@ public class RT
     protected static boolean isMangled (Method method)
     {
         return method.getName().endsWith(MM_SUFFIX);
+    }
+
+    protected static Object[] addMangleArgs (Class<?>[] ptypes, Object[] args)
+    {
+        Object[] margs = new Object[args.length*2];
+        System.arraycopy(args, 0, margs, 0, args.length);
+        for (int ii = args.length; ii < ptypes.length; ii++) {
+            // if the argument is a primitive type, DUMMIES will contain a dummy value for that
+            // type, otherwise it will return null which is the desired dummy value for all
+            // non-primitive types
+            margs[ii] = DUMMIES.get(ptypes[ii]);
+        }
+        return margs;
     }
 
     protected static boolean isInnerInNonStaticContext (Class<?> clazz)

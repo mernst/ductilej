@@ -492,7 +492,7 @@ public class Detype extends PathedTreeTranslator
                     // arguments that match the types of the method we resolved; if the resolved
                     // method is overloaded, this will disambiguate, and even if it's not
                     // overloaded, we need something legal in those argument positions
-
+                    tree.args = tree.args.appendList(toTypedNulls(mi.atypes, tree.args));
                 }
             }
             return;
@@ -873,6 +873,41 @@ public class Detype extends PathedTreeTranslator
             _tmaker.VarDef(_tmaker.Modifiers(params.head.mods.flags | Flags.FINAL),
                            params.head.name.append(_names.fromString(TP_SUFFIX)),
                            params.head.vartype, null));
+    }
+
+    protected List<JCExpression> toTypedNulls (List<Type> types, List<JCExpression> args)
+    {
+        if (types.isEmpty()) {
+            return List.nil();
+        }
+        return toTypedNulls(types.tail, args.tail).prepend(toTypedNull(types.head, args.head));
+    }
+
+    /**
+     * Converts a type to an expression that will evaluate to that type but carry no (meaningful)
+     * value. For reference types, this is the equivalent of "(T)null" except we don't use that
+     * exact expression because "(C<T>)null" results in a pesky warning from the compiler that we'd
+     * rather avoid. For primitive types, we insert the appropriate literal for 0, or false.
+     */
+    protected JCExpression toTypedNull (Type type, JCExpression arg)
+    {
+        int tpos = arg.pos;
+        JCExpression expr;
+        switch (type.tag) {
+        case TypeTags.BYTE:
+        case TypeTags.CHAR:
+        case TypeTags.SHORT:
+        case TypeTags.INT:
+        case TypeTags.LONG:
+        case TypeTags.FLOAT:
+        case TypeTags.DOUBLE:
+            return _tmaker.Literal(type.tag, 0); // TODO
+        case TypeTags.BOOLEAN:
+            return _tmaker.Literal(type.tag, false);
+        default:
+            return _tmaker.at(tpos).TypeCast(mkFA(type.toString(), tpos),
+                                             _tmaker.Literal(TypeTags.BOT, null));
+        }
     }
 
     protected static String what (JCTree node)
