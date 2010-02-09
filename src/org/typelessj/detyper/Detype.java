@@ -236,6 +236,7 @@ public class Detype extends PathedTreeTranslator
         // embedding; TODO: we probably need to avoid casting any constant foldable expression...
         } else if (tree.init != null && tree.init.getTag() != JCTree.LITERAL) {
             tree.init = checkedCast(tree.vartype, tree.init);
+            // tree.init = cast(tree.sym.type, tree.init);
         }
     }
 
@@ -246,6 +247,7 @@ public class Detype extends PathedTreeTranslator
         // the return type back to the static method return type
         if (tree.expr != null && inLibraryOverrider()) {
             tree.expr = checkedCast(_env.enclMethod.restype, tree.expr);
+            // tree.expr = cast(_env.enclMethod.sym.type.asMethodType().restype, tree.expr);
         }
     }
 
@@ -541,6 +543,7 @@ public class Detype extends PathedTreeTranslator
         } else if (Flags.isEnum(type.tsym)) {
             // type.toString() gives us back a source representation of the type
             tree.selector = checkedCast(mkFA(type.toString(), tree.selector.pos), tree.selector);
+            // tree.selector = cast(type, tree.selector);
 
         } else {
             // for integer types, we need to use asInt() rather than casting to Integer because
@@ -725,6 +728,26 @@ public class Detype extends PathedTreeTranslator
         return inv;
     }
 
+    protected JCMethodInvocation cast (Type type, JCExpression expr)
+    {
+        Type etype = _types.erasure(type);
+        JCExpression clazz = mkFA(etype.toString(), expr.pos);
+        return (etype != type) ? typeVarCast(clazz, expr, type) : checkedCast(clazz, expr);
+    }
+
+    protected List<JCExpression> castIntList (List<JCExpression> list)
+    {
+        return list.isEmpty() ? List.<JCExpression>nil() : 
+            castIntList(list.tail).prepend(
+                checkedCast(_tmaker.Ident(_names.fromString("Integer")), list.head));
+    }
+
+    protected List<JCExpression> castList (List<Type> params, List<JCExpression> list)
+    {
+        return list.isEmpty() ? List.<JCExpression>nil() :
+            castList(params.tail, list.tail).prepend(cast(params.head, list.head));
+    }
+
     protected JCExpression typeToTree (Type type, int pos)
     {
         switch (type.tag) {
@@ -841,29 +864,6 @@ public class Detype extends PathedTreeTranslator
     {
         return (tree.meth instanceof JCFieldAccess) &&
             (TreeInfo.name(((JCFieldAccess)tree.meth).selected) == _names._super);
-    }
-
-    protected List<JCExpression> castIntList (List<JCExpression> list)
-    {
-        if (list.isEmpty()) {
-            return list;
-        } else {
-            return castIntList(list.tail).prepend(
-                checkedCast(_tmaker.Ident(_names.fromString("Integer")), list.head));
-        }
-    }
-
-    protected List<JCExpression> castList (List<Type> params, List<JCExpression> list)
-    {
-        if (list.isEmpty()) {
-            return list;
-        }
-
-        Type ptype = _types.erasure(params.head);
-        JCExpression clazz = mkFA(ptype.toString(), list.head.pos);
-        JCMethodInvocation cexpr = (ptype != params.head) ?
-            typeVarCast(clazz, list.head, params.head) : checkedCast(clazz, list.head);
-        return castList(params.tail, list.tail).prepend(cexpr);
     }
 
     protected List<JCVariableDecl> toTypeArgs (List<JCVariableDecl> params)
