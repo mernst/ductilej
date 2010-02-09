@@ -110,6 +110,12 @@ public class Detype extends PathedTreeTranslator
     @Override public void visitClassDef (JCClassDecl tree) {
         Debug.log("Visiting class '" + tree.name + "'", "sym", tree.sym);
 
+        // don't detype annotation classes; that causes myriad problems
+        if ((tree.mods.flags & Flags.ANNOTATION) != 0) {
+            result = tree;
+            return;
+        }
+
         // local classes have not been entered yet, so we will manually cause entering to happen
         // now; javac will overwrite our bogus symbol data later during the attrib phase
         // if ((_env.info.scope.owner.kind & (Kinds.VAR | Kinds.MTH)) != 0) {
