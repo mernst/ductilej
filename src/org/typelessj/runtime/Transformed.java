@@ -12,7 +12,7 @@ import java.lang.annotation.Target;
  * An annotation that identifies a class that has been transformed.
  */
 @Target({ElementType.TYPE})
-@Retention(RetentionPolicy.CLASS)
+@Retention(RetentionPolicy.RUNTIME)
 public @interface Transformed
 {
 }
