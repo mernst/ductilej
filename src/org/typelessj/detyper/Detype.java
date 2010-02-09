@@ -460,12 +460,12 @@ public class Detype extends PathedTreeTranslator
         }
 
         // resolve the called method before we transform the leaves of this tree
-        Resolver.MethInfo mi = _resolver.resolveMethod(_env, tree);
-        if (mi.msym.kind >= Kinds.ERR) {
+        Symbol msym = _resolver.resolveMethod(_env, tree).msym;
+        if (msym.kind >= Kinds.ERR) {
             result = tree; // abort! (error will have been logged)
             return;
         }
-        Debug.log("Method invocation", "tree", tree, "sym", mi.msym);
+        Debug.log("Method invocation", "tree", tree, "sym", msym);
 
         // we need to track whether we're processing the arguments of a this() or super()
         // constructor because that is a "static" context in that it is illegal to reference "this"
@@ -480,19 +480,20 @@ public class Detype extends PathedTreeTranslator
         // if this is a chained constructor call or super.foo(), we can't call it reflectively
         if (isChainedCons || isSuperMethodCall(tree)) {
             if (!tree.args.isEmpty()) {
+                List<Type> atypes = _types.memberType(_env.enclClass.sym.type, msym).
+                    asMethodType().argtypes;
                 // if the method is defined in a library class, we need to cast the argument types
                 // back to the types it expects
-                if (ASTUtil.isLibrary(mi.msym.owner)) {
+                if (ASTUtil.isLibrary(msym.owner)) {
                     // we need to convert any formal type parameters on this method (as defined in
                     // the super class) to the actuals provided by our class in the extends clause
-                    Type mtype = _types.memberType(_env.enclClass.sym.type, mi.msym);
-                    tree.args = castList(mtype.asMethodType().argtypes, tree.args);
+                    tree.args = castList(atypes, tree.args);
                 } else {
                     // if the declarer is not a library class, we need to insert type carrying
                     // arguments that match the types of the method we resolved; if the resolved
                     // method is overloaded, this will disambiguate, and even if it's not
                     // overloaded, we need something legal in those argument positions
-                    tree.args = tree.args.appendList(toTypedNulls(mi.atypes, tree.args));
+                    tree.args = tree.args.appendList(toTypedNulls(atypes, tree.args));
                 }
             }
             return;
@@ -500,9 +501,9 @@ public class Detype extends PathedTreeTranslator
 
         String invokeName;
         JCExpression recv;
-        if (Flags.isStatic(mi.msym)) {
+        if (Flags.isStatic(msym)) {
             // convert to RT.invokeStatic("method", decl.class, args)
-            ClassSymbol osym = (ClassSymbol)mi.msym.owner;
+            ClassSymbol osym = (ClassSymbol)msym.owner;
             recv = classLiteral(mkFA(osym.fullname.toString(), tree.pos), tree.pos);
             invokeName = "invokeStatic";
 
@@ -520,7 +521,7 @@ public class Detype extends PathedTreeTranslator
         tree.args = tree.args.prepend(recv).
             prepend(_tmaker.Literal(TypeTags.CLASS, TreeInfo.name(tree.meth).toString()));
         tree.meth = mkRT(invokeName, tree.meth.pos);
-        // Debug.log("APPLY " + mi.msym + " -> " + tree);
+        // Debug.log("APPLY " + msym + " -> " + tree);
     }
 
     @Override public void visitSwitch (JCSwitch tree) {
