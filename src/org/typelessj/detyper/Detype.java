@@ -170,9 +170,7 @@ public class Detype extends PathedTreeTranslator
         // if we're not in a library overrider, prepare our type-carrying arguments (before we call
         // super which will erase our argument's types)
         boolean isLib = inLibraryOverrider();
-        // TEMP: don't sigmangle constructors
-        List<JCVariableDecl> sigargs = isLib || (tree.name == _names.init) ?
-            List.<JCVariableDecl>nil() : toTypeArgs(tree.params);
+        List<JCVariableDecl> sigargs = isLib ? List.<JCVariableDecl>nil() : toTypeArgs(tree.params);
 
         // now we can call super and translate our children
         super.visitMethodDef(tree);
@@ -462,16 +460,12 @@ public class Detype extends PathedTreeTranslator
         }
 
         // resolve the called method before we transform the leaves of this tree
-        Symbol msym = _resolver.resolveMethod(_env, tree, new Resolver.ToResult<Symbol>() {
-            public Symbol apply (Type site, Symbol msym, List<Type> atypes, List<Type> tatypes) {
-                return msym;
-            }
-        });
-        // Debug.log("Method invocation", "tree", tree, "sym", msym);
-        if (msym.kind >= Kinds.ERR) {
+        Resolver.MethInfo mi = _resolver.resolveMethod(_env, tree);
+        if (mi.msym.kind >= Kinds.ERR) {
             result = tree; // abort! (error will have been logged)
             return;
         }
+        Debug.log("Method invocation", "tree", tree, "sym", mi.msym);
 
         // we need to track whether we're processing the arguments of a this() or super()
         // constructor because that is a "static" context in that it is illegal to reference "this"
@@ -485,32 +479,30 @@ public class Detype extends PathedTreeTranslator
 
         // if this is a chained constructor call or super.foo(), we can't call it reflectively
         if (isChainedCons || isSuperMethodCall(tree)) {
-            // but if the method is defined in a library class, we need to cast the argument types
-            // back to the types it expects
-            if (msym == null) {
-                Debug.warn("Unable to resolve method for super()", "tree", tree);
+            if (!tree.args.isEmpty()) {
+                // if the method is defined in a library class, we need to cast the argument types
+                // back to the types it expects
+                if (ASTUtil.isLibrary(mi.msym.owner)) {
+                    // we need to convert any formal type parameters on this method (as defined in
+                    // the super class) to the actuals provided by our class in the extends clause
+                    Type mtype = _types.memberType(_env.enclClass.sym.type, mi.msym);
+                    tree.args = castList(mtype.asMethodType().argtypes, tree.args);
+                } else {
+                    // if the declarer is not a library class, we need to insert type carrying
+                    // arguments that match the types of the method we resolved; if the resolved
+                    // method is overloaded, this will disambiguate, and even if it's not
+                    // overloaded, we need something legal in those argument positions
 
-            } else if (!tree.args.isEmpty() && ASTUtil.isLibrary(msym.owner)) {
-                // we need to convert any formal type parameters on this method (as defined in the
-                // super class) to the actuals provided by our class in the extends clause
-                Type mtype = _types.memberType(_env.enclClass.sym.type, msym);
-                tree.args = castList(mtype.asMethodType().argtypes, tree.args);
+                }
             }
-            return;
-        }
-
-        // if this method has no receiver, then we're well and truly confused; leave this
-        // method untransformed and let the compilation fail
-        if (msym == null && !(tree.meth instanceof JCFieldAccess)) {
-            Debug.log("Not transforming unresolvable method: " + tree);
             return;
         }
 
         String invokeName;
         JCExpression recv;
-        if (msym != null && Flags.isStatic(msym)) {
+        if (Flags.isStatic(mi.msym)) {
             // convert to RT.invokeStatic("method", decl.class, args)
-            ClassSymbol osym = (ClassSymbol)msym.owner;
+            ClassSymbol osym = (ClassSymbol)mi.msym.owner;
             recv = classLiteral(mkFA(osym.fullname.toString(), tree.pos), tree.pos);
             invokeName = "invokeStatic";
 
@@ -520,14 +512,6 @@ public class Detype extends PathedTreeTranslator
             invokeName = "invoke";
 
         } else {
-            if (msym == null) {
-                // if this method has a receiver, assume a non-static method application; we do
-                // this because if we were unable to resolve a symbol for this method, that may be
-                // because the receiver has "provisional" type (and we would naturally know nothing
-                // about it) TODO: look up a symbol for the receiver to confirm that it's untyped
-                Debug.log("Assuming non-static apply for unresolvable method: " + tree);
-            }
-
             // convert to RT.invoke("method", this, args)
             recv = _tmaker.at(tree.meth.pos).Ident(_names._this);
             invokeName = "invoke";
@@ -536,7 +520,7 @@ public class Detype extends PathedTreeTranslator
         tree.args = tree.args.prepend(recv).
             prepend(_tmaker.Literal(TypeTags.CLASS, TreeInfo.name(tree.meth).toString()));
         tree.meth = mkRT(invokeName, tree.meth.pos);
-        // Debug.log("APPLY " + msym + " -> " + tree);
+        // Debug.log("APPLY " + mi.msym + " -> " + tree);
     }
 
     @Override public void visitSwitch (JCSwitch tree) {
