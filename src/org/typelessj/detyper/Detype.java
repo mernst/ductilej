@@ -446,11 +446,11 @@ public class Detype extends PathedTreeTranslator
 //         Debug.log("Method invocation", "typeargs", tree.typeargs, "method", what(tree.meth),
 //                   "args", tree.args, "varargs", tree.varargsElement);
 
-        // if we're inside the constructor of an enum and see the synthesized super() call, we have
-        // to skip our processing because Enum has no super class constructor and actually javac
-        // will be transforming the whole enum declaration later
+        // if this is a zero args super() call, we'll be doing no detyping and if we try to resolve
+        // the method we may run into annoying warnings relating to the fact that enums have no
+        // legal super constructor
         Name mname = TreeInfo.name(tree.meth);
-        if (mname == _names._super && Flags.isEnum(_env.enclClass.sym)) {
+        if (mname == _names._super && tree.args.isEmpty()) {
             result = tree;
             return;
         }
