@@ -589,19 +589,6 @@ public class Detype extends PathedTreeTranslator
         tree.cond = condCast(tree.cond);
     }
 
-    /**
-     * Wraps a conditional expression in a call to {@link RT#asBoolean} iff the expression is not a
-     * literal that might be influencing static analysis of the underyling conditional.
-     */
-    protected JCExpression condCast (JCExpression expr)
-    {
-        switch (expr.getTag()) {
-        case JCTree.LITERAL: return expr;
-        // TODO: special handling for static final constants?
-        default: return callRT("asBoolean", expr.pos, expr);
-        }
-    }
-
     @Override public void visitForLoop (JCForLoop tree) {
         super.visitForLoop(tree);
         // "for (;;)" will have null condition
@@ -717,6 +704,19 @@ public class Detype extends PathedTreeTranslator
     {
         JCLiteral opcode = _tmaker.at(pos).Literal(TypeTags.CLASS, op.toString());
         return callRT("binop", opcode.pos, opcode, lhs, rhs);
+    }
+
+    /**
+     * Wraps a conditional expression in a call to {@link RT#asBoolean} iff the expression is not a
+     * literal that might be influencing static analysis of the underyling conditional.
+     */
+    protected JCExpression condCast (JCExpression expr)
+    {
+        switch (expr.getTag()) {
+        case JCTree.LITERAL: return expr;
+        // TODO: special handling for static final constants?
+        default: return callRT("asBoolean", expr.pos, expr);
+        }
     }
 
     protected JCMethodInvocation checkedCast (JCExpression clazz, JCExpression expr) {
