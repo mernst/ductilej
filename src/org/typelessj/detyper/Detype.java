@@ -231,9 +231,10 @@ public class Detype extends PathedTreeTranslator
             }
 
         // if our variable has an initializer expression and we opted not to detype the
-        // declaration, we need to cast the result of the initializer expression back to the
-        // correct type
-        } else if (tree.init != null) {
+        // declaration, we (may) need to cast the result of the initializer expression back to the
+        // correct type; we don't cast literals because that breaks Java's magic constant
+        // embedding; TODO: we probably need to avoid casting any constant foldable expression...
+        } else if (tree.init != null && tree.init.getTag() != JCTree.LITERAL) {
             tree.init = checkedCast(tree.vartype, tree.init);
         }
     }
