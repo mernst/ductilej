@@ -35,32 +35,38 @@ public class RT
      */
     public static <T> T newInstance (Class<T> clazz, Object encl, Object... args)
     {
-        // if this is an inner class in a non-static context, we need to shift a reference to the
-        // containing class onto the constructor arguments
-        Object[] rargs;
-        if (isInnerInNonStaticContext(clazz)) {
-            rargs = new Object[args.length+1];
-            // our enclosing instance may be an instance of the inner class or an instance of the
-            // enclosing class, in the former case, we need to extract the secret reference to the
-            // enclosing class from the inner class and use that as our first argument
-            rargs[0] = clazz.isInstance(encl) ? getEnclosingReference(encl) : encl;
-            System.arraycopy(args, 0, rargs, 1, args.length);
-        } else {
-            rargs = args;
-        }
-
+        boolean needsOuterThis = isInnerInNonStaticContext(clazz);
         boolean isMangled = (clazz.getAnnotation(Transformed.class) != null);
-        Constructor<?> ctor = findConstructor(clazz, isMangled, rargs);
+        Constructor<?> ctor = findConstructor(clazz, needsOuterThis, isMangled, args);
         if (ctor == null) {
             // TODO: if argument mismatch, clarify that
             throw new NoSuchMethodError(Debug.format("Can't find constructor for " +
-                                                     clazz.getSimpleName(), "args", rargs));
+                                                     clazz.getSimpleName(), "args", args));
         }
 
         // if this method is mangled, we need to add dummy arguments in the type-carrying parameter
         // positions
+        Object[] rargs;
         if (isMangled) {
-            rargs = addMangleArgs(ctor.getParameterTypes(), rargs);
+            List<Class<?>> ptypes = Arrays.asList(ctor.getParameterTypes());
+            if (needsOuterThis) {
+                ptypes = ptypes.subList(1, ptypes.size());
+            }
+            rargs = addMangleArgs(ptypes, args);
+        } else {
+            rargs = args;
+        }
+
+        // if this is an inner class in a non-static context, we need to shift a reference to the
+        // containing class onto the constructor arguments
+        if (needsOuterThis) {
+            Object[] eargs = new Object[rargs.length+1];
+            // our enclosing instance may be an instance of the inner class or an instance of the
+            // enclosing class, in the former case, we need to extract the secret reference to the
+            // enclosing class from the inner class and use that as our first argument
+            eargs[0] = clazz.isInstance(encl) ? getEnclosingReference(encl) : encl;
+            System.arraycopy(rargs, 0, eargs, 1, rargs.length);
+            rargs = eargs;
         }
 
         try {
@@ -472,8 +478,8 @@ public class RT
         // Debug.log("Invoking " + method, "recv", receiver, "args", args);
 
         boolean isMangled = isMangled(method);
-        Class<?>[] ptypes = method.getParameterTypes();
-        int pcount = ptypes.length;
+        List<Class<?>> ptypes = Arrays.asList(method.getParameterTypes());
+        int pcount = ptypes.size();
         if (isMangled) {
             pcount /= 2;
         }
@@ -567,7 +573,7 @@ public class RT
         List<Method> into, String mname, Class<?> clazz, Object[] args)
     {
         for (Method method : clazz.getDeclaredMethods()) {
-            Class<?>[] ptypes = method.getParameterTypes();
+            List<Class<?>> ptypes = Arrays.asList(method.getParameterTypes());
             String cmname = method.getName();
             boolean isMangled = isMangled(method);
             if (isMangled) {
@@ -587,25 +593,15 @@ public class RT
     /**
      * A helper for {@link #newInstance}.
      */
-    protected static Constructor<?> findConstructor (
-        Class<?> clazz, boolean isMangled, Object... args)
+    protected static Constructor<?> findConstructor (Class<?> clazz, boolean needsOuterThis,
+                                                     boolean isMangled, Object... args)
     {
-//         // enumerate all possible matching constructors
-//         Class<?> target = clazz;
-//         do {
-//             List<Constructor<?>> ctors = Lists.newArrayList();
-//             for (Constructor<?> ctor : target.getDeclaredConstructors()) {
-//                 // TODO: make sure the argument types can match
-//                 if (ptypes.length == args.length) {
-//                     ctors.add(ctor);
-//                 }
-//             }
-//             target = target.getSuperclass();
-//         } while (target != null);
-//         // TODO: sort them by best to worst match; return the first one
-
         for (Constructor<?> ctor : clazz.getDeclaredConstructors()) {
-            Class<?>[] ptypes = ctor.getParameterTypes();
+            List<Class<?>> ptypes = Arrays.asList(ctor.getParameterTypes());
+            if (needsOuterThis) {
+                // ignore the outer this argument when testing for applicability
+                ptypes = ptypes.subList(1, ptypes.size());
+            }
             if (isApplicable(ptypes, isMangled, ctor.isVarArgs(), args)) {
                 return ctor; // TODO: enumerate and select best match like findMethod()
             }
@@ -617,10 +613,10 @@ public class RT
      * Returns true if a method or constructor with the supplied arguments and variable arity can
      * be called with the supplied arguments.
      */
-    protected static boolean isApplicable (Class<?>[] ptypes, boolean isMangled, boolean isVarArgs,
-                                           Object[] args)
+    protected static boolean isApplicable (
+        List<Class<?>> ptypes, boolean isMangled, boolean isVarArgs, Object[] args)
     {
-        int pcount = isMangled ? ptypes.length/2 : ptypes.length;
+        int pcount = isMangled ? ptypes.size()/2 : ptypes.size();
         if (!(pcount == args.length || (isVarArgs && (pcount-1) <= args.length))) {
             return false;
         }
@@ -628,7 +624,7 @@ public class RT
         // make sure all fixed arity arguments match
         int fpcount = isVarArgs ? pcount-1 : pcount, poff = isMangled ? pcount : 0;
         for (int ii = 0; ii < fpcount; ii++) {
-            Class<?> ptype = boxType(ptypes[poff + ii]);
+            Class<?> ptype = boxType(ptypes.get(poff + ii));
             if (args[ii] != null && !ptype.isAssignableFrom(args[ii].getClass())) {
                 return false;
             }
@@ -708,15 +704,15 @@ public class RT
         return method.getName().endsWith(MM_SUFFIX);
     }
 
-    protected static Object[] addMangleArgs (Class<?>[] ptypes, Object[] args)
+    protected static Object[] addMangleArgs (List<Class<?>> ptypes, Object[] args)
     {
         Object[] margs = new Object[args.length*2];
         System.arraycopy(args, 0, margs, 0, args.length);
-        for (int ii = args.length; ii < ptypes.length; ii++) {
+        for (int ii = args.length; ii < ptypes.size(); ii++) {
             // if the argument is a primitive type, DUMMIES will contain a dummy value for that
             // type, otherwise it will return null which is the desired dummy value for all
             // non-primitive types
-            margs[ii] = DUMMIES.get(ptypes[ii]);
+            margs[ii] = DUMMIES.get(ptypes.get(ii));
         }
         return margs;
     }
