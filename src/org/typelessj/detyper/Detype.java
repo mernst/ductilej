@@ -102,12 +102,14 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
-    @Override public void visitTopLevel (JCCompilationUnit tree) {
+    @Override public void visitTopLevel (JCCompilationUnit tree)
+    {
         _tmaker = _rootmaker.forToplevel(tree);
         super.visitTopLevel(tree);
     }
 
-    @Override public void visitClassDef (JCClassDecl tree) {
+    @Override public void visitClassDef (JCClassDecl tree)
+    {
         Debug.log("Visiting class '" + tree.name + "'", "sym", tree.sym);
 
         // don't detype annotation classes; that causes myriad problems
@@ -153,7 +155,8 @@ public class Detype extends PathedTreeTranslator
         Debug.log("Leaving class " + tree.name);
     }
 
-    @Override public void visitMethodDef (JCMethodDecl tree) {
+    @Override public void visitMethodDef (JCMethodDecl tree)
+    {
         Debug.log("Visiting method def", "name", tree.name);
 
         // create a local environment for this method definition
@@ -193,7 +196,8 @@ public class Detype extends PathedTreeTranslator
         _env = oenv;
     }
 
-    @Override public void visitVarDef (JCVariableDecl tree) {
+    @Override public void visitVarDef (JCVariableDecl tree)
+    {
         // if we're declaring an array, put its type in the arrayElemType as we may encounter a
         // bare array initializer expression (i.e. int[] foo = { 1, 2, 3}) and we'll need to use
         // this declared type when detyping the initializer
@@ -214,14 +218,14 @@ public class Detype extends PathedTreeTranslator
         }
 
         String path = path();
-        // we don't want to detype the param(s) of a catch block
-        if (!path.contains(".Catch") &&
-            // nor the arguments of a library
-            !(path.contains(".MethodDef.params") && inLibraryOverrider()) &&
-            // nor static final members (because they may be used in a case statement in which case
-            // they must be primitive constants or Enum values); NOTE: because of that we may want
-            // to only avoid detyping static final primitive and Enum fields
-            !ASTUtil.isStaticFinal(tree.mods)) {
+        if (isInlinableField(tree) || (tree.sym != null && Flags.isEnum(tree.sym))) {
+            // we don't want to detype a field decl that could be inlined (it could break static
+            // analysis that the program may rely on for correct compilation); we also avoid
+            // touching synthesized enum field declarations in any way as that angers javac greatly
+
+        } else if (!path.contains(".Catch") && // don't detype the param(s) of a catch block
+                   // nor the arguments of a library
+                   !(path.contains(".MethodDef.params") && inLibraryOverrider())) {
 //             Debug.log("Transforming vardef", "mods", tree.mods, "name", tree.name,
 //                      "vtype", what(tree.vartype), "init", tree.init,
 //                      "sym", ASTUtil.expand(tree.sym));
@@ -229,21 +233,11 @@ public class Detype extends PathedTreeTranslator
             if ((tree.mods.flags & Flags.VARARGS) != 0) {
                 tree.vartype = _tmaker.TypeArray(tree.vartype);
             }
-
-        // if our variable has an initializer expression and we opted not to detype the decl, we
-        // (may) need to cast the result of the initializer expression back to the correct type
-        } else if (tree.init != null &&
-                   // we don't cast literals because that breaks Java's magic constant embedding;
-                   // TODO: we probably need to avoid casting any constant foldable expression...
-                   tree.init.getTag() != JCTree.LITERAL &&
-                   // also avoid casting synthesized enum field assignments
-                   !Flags.isEnum(tree.sym)) {
-            tree.init = checkedCast(tree.vartype, tree.init);
-            // tree.init = cast(tree.sym.type, tree.init);
         }
     }
 
-    @Override public void visitReturn (JCReturn tree) {
+    @Override public void visitReturn (JCReturn tree)
+    {
         super.visitReturn(tree);
 
         // if we're in a method whose signature cannot be transformed, we must cast the result of
@@ -254,7 +248,8 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
-    @Override public void visitUnary (JCUnary tree) {
+    @Override public void visitUnary (JCUnary tree)
+    {
         // we don't call super because mkAssign needs the untranslated expr for ++ and --
 
         JCExpression expr;
@@ -287,7 +282,8 @@ public class Detype extends PathedTreeTranslator
         result = expr;
     }
 
-    @Override public void visitBinary (JCBinary tree) {
+    @Override public void visitBinary (JCBinary tree)
+    {
         super.visitBinary(tree);
 
         JCLiteral opcode = _tmaker.Literal(TypeTags.CLASS, tree.getKind().toString());
@@ -295,7 +291,8 @@ public class Detype extends PathedTreeTranslator
         // Debug.log("Rewrote binop", "kind", tree.getKind(), "tp", tree.pos, "ap", opcode.pos);
     }
 
-    @Override public void visitAssignop (JCAssignOp tree) {
+    @Override public void visitAssignop (JCAssignOp tree)
+    {
         // we don't call super because mkAssign needs the untranslated LHS
 
         // we create this temporary JCBinary so that we can call bop.getKind() below which calls
@@ -308,7 +305,8 @@ public class Detype extends PathedTreeTranslator
         // Debug.log("Rewrote assignop", "kind", tree.getKind(), "into", result);
     }
 
-    @Override public void visitNewClass (JCNewClass tree) {
+    @Override public void visitNewClass (JCNewClass tree)
+    {
 //         Debug.log("Class instantiation", "typeargs", tree.typeargs, "class", what(tree.clazz),
 //                   "args", tree.args);
 
@@ -381,7 +379,8 @@ public class Detype extends PathedTreeTranslator
         _env = oenv;
     }
 
-    @Override public void visitNewArray (JCNewArray tree) {
+    @Override public void visitNewArray (JCNewArray tree)
+    {
         // determine the type of the array elements
         JCExpression etype = tree.elemtype;
         if (etype == null) {
@@ -416,7 +415,8 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
-    @Override public void visitSelect (JCFieldAccess tree) {
+    @Override public void visitSelect (JCFieldAccess tree)
+    {
         super.visitSelect(tree);
 
         // if we know for sure this is a static select, then stop here
@@ -451,7 +451,8 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
-    @Override public void visitApply (JCMethodInvocation tree) {
+    @Override public void visitApply (JCMethodInvocation tree)
+    {
 //         Debug.log("Method invocation", "typeargs", tree.typeargs, "method", what(tree.meth),
 //                   "args", tree.args, "varargs", tree.varargsElement);
 
@@ -529,7 +530,8 @@ public class Detype extends PathedTreeTranslator
         // Debug.log("APPLY " + msym + " -> " + tree);
     }
 
-    @Override public void visitSwitch (JCSwitch tree) {
+    @Override public void visitSwitch (JCSwitch tree)
+    {
         // we need to determine the static type of the selector and cast back to that to avoid a
         // complex transformation of switch into an equivalent set of if statements nested inside a
         // one loop for loop (to preserve 'break' semantics)
@@ -556,37 +558,43 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
-    @Override public void visitIf (JCIf tree) {
+    @Override public void visitIf (JCIf tree)
+    {
         super.visitIf(tree);
         // we need to cast the if expression to boolean
         tree.cond = condCast(tree.cond);
     }
 
-    @Override public void visitAssert (JCAssert tree) {
+    @Override public void visitAssert (JCAssert tree)
+    {
         super.visitAssert(tree);
         // we need to cast the assert expression to boolean
         tree.cond = condCast(tree.cond);
     }
 
-    @Override public void visitConditional (JCConditional tree) {
+    @Override public void visitConditional (JCConditional tree)
+    {
         super.visitConditional(tree);
         // we need to cast the if expression to boolean
         tree.cond = condCast(tree.cond);
     }
 
-    @Override public void visitDoLoop (JCDoWhileLoop tree) {
+    @Override public void visitDoLoop (JCDoWhileLoop tree)
+    {
         super.visitDoLoop(tree);
         // we need to cast the while expression to boolean
         tree.cond = condCast(tree.cond);
     }
 
-    @Override public void visitWhileLoop (JCWhileLoop tree) {
+    @Override public void visitWhileLoop (JCWhileLoop tree)
+    {
         super.visitWhileLoop(tree);
         // we need to cast the while expression to boolean
         tree.cond = condCast(tree.cond);
     }
 
-    @Override public void visitForLoop (JCForLoop tree) {
+    @Override public void visitForLoop (JCForLoop tree)
+    {
         super.visitForLoop(tree);
         // "for (;;)" will have null condition
         if (tree.cond != null) {
@@ -595,14 +603,16 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
-    @Override public void visitForeachLoop (JCEnhancedForLoop tree) {
+    @Override public void visitForeachLoop (JCEnhancedForLoop tree)
+    {
         super.visitForeachLoop(tree);
 
         // rewrite the foreach loop as: foreach (iter : RT.asIterable(expr))
         tree.expr = callRT("asIterable", tree.expr.pos, tree.expr);
     }
 
-    @Override public void visitTry (JCTry tree) {
+    @Override public void visitTry (JCTry tree)
+    {
         super.visitTry(tree);
 
         // insert an inner try/catch that catches RuntimeException, dynamically checks whether its
@@ -617,7 +627,8 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
-    @Override public void visitTypeCast (JCTypeCast tree) {
+    @Override public void visitTypeCast (JCTypeCast tree)
+    {
         super.visitTypeCast(tree);
 
         if (!(tree.clazz instanceof JCExpression)) {
@@ -631,14 +642,16 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
-    @Override public void visitIndexed (JCArrayAccess tree) {
+    @Override public void visitIndexed (JCArrayAccess tree)
+    {
         super.visitIndexed(tree);
 
         // rewrite the array dereference as: RT.atIndex(array, index)
         result = callRT("atIndex", tree.pos, tree.indexed, tree.index);
     }
 
-    @Override public void visitAssign (JCAssign tree) {
+    @Override public void visitAssign (JCAssign tree)
+    {
         // we don't call super as we may need to avoid translating the LHS
         result = mkAssign(tree.lhs, translate(tree.rhs), tree.pos);
     }
@@ -690,6 +703,12 @@ public class Detype extends PathedTreeTranslator
     {
         return _env.info.inChainedCons || (_env.enclMethod == null) ||
             (_env.enclMethod.mods != null && (_env.enclMethod.mods.flags & Flags.STATIC) != 0);
+    }
+
+    protected boolean isInlinableField (JCVariableDecl tree)
+    {
+        // TODO: detect expressions that could be folded into constants
+        return ASTUtil.isStaticFinal(tree.mods) && (tree.init.getTag() == JCTree.LITERAL);
     }
 
     protected JCMethodInvocation unop (int pos, Tree.Kind op, JCExpression arg)
