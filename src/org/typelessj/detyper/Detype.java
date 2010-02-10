@@ -230,11 +230,14 @@ public class Detype extends PathedTreeTranslator
                 tree.vartype = _tmaker.TypeArray(tree.vartype);
             }
 
-        // if our variable has an initializer expression and we opted not to detype the
-        // declaration, we (may) need to cast the result of the initializer expression back to the
-        // correct type; we don't cast literals because that breaks Java's magic constant
-        // embedding; TODO: we probably need to avoid casting any constant foldable expression...
-        } else if (tree.init != null && tree.init.getTag() != JCTree.LITERAL) {
+        // if our variable has an initializer expression and we opted not to detype the decl, we
+        // (may) need to cast the result of the initializer expression back to the correct type
+        } else if (tree.init != null &&
+                   // we don't cast literals because that breaks Java's magic constant embedding;
+                   // TODO: we probably need to avoid casting any constant foldable expression...
+                   tree.init.getTag() != JCTree.LITERAL &&
+                   // also avoid casting synthesized enum field assignments
+                   !Flags.isEnum(tree.sym)) {
             tree.init = checkedCast(tree.vartype, tree.init);
             // tree.init = cast(tree.sym.type, tree.init);
         }
@@ -336,9 +339,6 @@ public class Detype extends PathedTreeTranslator
         boolean inEnumFieldInit = path().endsWith(".ClassDef.VarDef") &&
             Flags.isEnum(_env.enclClass.sym);
 
-        // TODO: we can't reflectively create anonymous inner classes so maybe we should not detype
-        // any constructor invocation...
-
         if (tree.def == null && !inEnumFieldInit) {
             // if there is a specific enclosing instance provided, use tree, otherwise use this
             // unless we're in a static context in which case use nothing
@@ -352,6 +352,8 @@ public class Detype extends PathedTreeTranslator
             }
             args = args.prepend(classLiteral(tree.clazz, tree.clazz.pos));
 
+            // TODO: we can't reflectively create anonymous inner classes so maybe we should not
+            // detype any constructor invocation...
             JCMethodInvocation invoke = callRT("newInstance", tree.pos, args);
             invoke.varargsElement = tree.varargsElement;
             result = invoke;
@@ -684,7 +686,8 @@ public class Detype extends PathedTreeTranslator
             ASTUtil.isLibraryOverrider(_types, _env.enclMethod.sym);
     }
 
-    protected boolean inStatic () {
+    protected boolean inStatic ()
+    {
         return _env.info.inChainedCons || (_env.enclMethod == null) ||
             (_env.enclMethod.mods != null && (_env.enclMethod.mods.flags & Flags.STATIC) != 0);
     }
