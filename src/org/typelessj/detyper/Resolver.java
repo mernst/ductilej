@@ -7,7 +7,6 @@ import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Kinds;
-import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
@@ -23,7 +22,6 @@ import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.util.Context;
-import com.sun.tools.javac.util.FatalError;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Name;
@@ -58,30 +56,32 @@ public class Resolver
     }
 
     /**
-     * Returns all methods in the supplied scope that have the specified name. You probably don't
-     * want to be using this, you want {@link #resolveMethod}. This doesn't climb up the type
-     * hierarchy checking parent classes or anything useful.
+     * Resolves a constructor for the specified class, given the supplied arguments and type
+     * arguments, using information in the supplied context. Performs static resolution to choose
+     * between overloaded candidates.
      */
-    public List<MethodSymbol> lookupMethods (Scope scope, Name name)
+    public MethInfo resolveConstructor (Env<DetypeContext> env, JCExpression clazz,
+                                        List<JCExpression> args, List<JCExpression> typeargs)
     {
-        return lookupAll(scope, name, MethodSymbol.class, Kinds.MTH);
-    }
-
-    /**
-     * Selects the closest matching method from the supplied list of overloaded methods given the
-     * supplied actual argument expressions. Currently only handles arity overloading, in the
-     * future the giant pile of effort will be expended to make it handle type-based overloading
-     * with partial type information.
-     */
-    public MethodSymbol pickMethod (Env<DetypeContext> env, List<MethodSymbol> mths,
-                                    List<JCExpression> args)
-    {
-        for (MethodSymbol mth : mths) {
-            if (mth.type.asMethodType().argtypes.size() == args.size() || mth.isVarArgs()) {
-                return mth;
-            }
+        MethInfo mi = resolveArgs(env, args, typeargs);
+        if (mi.tatypes.contains(null) || mi.atypes.contains(null)) {
+            return mi;
         }
-        return null;
+
+        mi.site = resolveType(env, clazz, Kinds.TYP);
+        if (mi.site == null) {
+            Debug.warn("Can't resolve class for ctor", "expr", clazz);
+            return mi;
+        }
+
+        // Debug.log("Resolving ctor " + mi.site + "<" + mi.tatypes + ">(" + mi.atypes + ")");
+        mi.msym = invoke(env, Backdoor.resolveConstructor, _resolve, clazz.pos(),
+                         Detype.toAttrEnv(env), mi.site, mi.atypes, mi.tatypes);
+        if (mi.msym.kind >= Kinds.ERR) {
+            Debug.warn("Unable to resolve ctor", "clazz", clazz, "args", args, "targrs", typeargs);
+        }
+        // Debug.log("Asked javac to resolve ctor " + clazz + " got " + mi.msym);
+        return mi;
     }
 
     /**
@@ -90,23 +90,11 @@ public class Resolver
      */
     public MethInfo resolveMethod (Env<DetypeContext> env, JCMethodInvocation mexpr)
     {
-        Name mname = TreeInfo.name(mexpr.meth);
-        MethInfo mi = new MethInfo();
-        mi.msym = _syms.errSymbol; // assume failure! we're so optimistic
-
-        // resolve our argument and type argument types
-        mi.atypes = resolveTypes(env, mexpr.args, Kinds.VAL);
-        mi.tatypes = resolveTypes(env, mexpr.typeargs, Kinds.TYP);
-
-        // convert any wildcard types to their erasure; I'm not sure why or whether this is
-        // strictly necessary, but Resolve's method throw assertion failures if I don't...
-        mi.atypes = eraseWildcards(mi.atypes);
-
-        // if we failed to resolve any of our argument types, we need to stop now and return an
-        // error symbol
+        MethInfo mi = resolveArgs(env, mexpr.args, mexpr.typeargs);
         if (mi.tatypes.contains(null) || mi.atypes.contains(null)) {
             return mi;
         }
+        Name mname = TreeInfo.name(mexpr.meth);
 
         switch (mexpr.meth.getTag()) {
         case JCTree.IDENT: {
@@ -473,46 +461,24 @@ public class Resolver
             ((types.head.tag == TypeTags.WILDCARD) ? _types.erasure(types.head) : types.head));
     }
 
-    protected static Symbol lookup (Scope scope, Name name, int kind)
+    /**
+     * Helper for {@link #resolveConstructor} and {@link #resolveMethod}.
+     */
+    protected MethInfo resolveArgs (Env<DetypeContext> env, List<JCExpression> args,
+                                    List<JCExpression> typeargs)
     {
-        for ( ; scope != Scope.emptyScope && scope != null; scope = scope.next) {
-            Symbol sym = first(scope.lookup(name), kind);
-            if (sym != null) {
-                return sym;
-            }
-        }
-        return null;
-    }
+        MethInfo mi = new MethInfo();
+        mi.msym = _syms.errSymbol; // assume failure! we're so optimistic
 
-    protected static Symbol first (Scope.Entry e, int kind)
-    {
-        for ( ; e != null && e.scope != null; e = e.next()) {
-            if (e.sym.kind == kind) {
-                return e.sym;
-            }
-        }
-        return null;
-    }
+        // resolve our argument and type argument types
+        mi.atypes = resolveTypes(env, args, Kinds.VAL);
+        mi.tatypes = resolveTypes(env, typeargs, Kinds.TYP);
 
-    protected static <T extends Symbol> List<T> lookupAll (
-        Scope scope, Name name, Class<T> clazz, int kind)
-    {
-        List<T> syms = List.nil();
-        for ( ; scope != Scope.emptyScope && scope != null; scope = scope.next) {
-            syms = all(scope.lookup(name), clazz, kind, syms);
-        }
-        return syms;
-    }
+        // convert any wildcard types to their erasure; I'm not sure why or whether this is
+        // strictly necessary, but Resolve's method throw assertion failures if I don't...
+        mi.atypes = eraseWildcards(mi.atypes);
 
-    protected static <T extends Symbol> List<T> all (
-        Scope.Entry e, Class<T> clazz, int kind, List<T> syms)
-    {
-        for ( ; e != null && e.scope != null; e = e.next()) {
-            if (e.sym.kind == kind) {
-                syms = syms.prepend(clazz.cast(e.sym));
-            }
-        }
-        return syms;
+        return mi;
     }
 
     protected ClassReader _reader;
