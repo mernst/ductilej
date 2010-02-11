@@ -30,105 +30,99 @@ import com.sun.tools.javac.util.Name;
  */
 public class Backdoor<T>
 {
-    protected static List<String> _errors = List.nil(); // dang static initialization order
-
-    public static final Backdoor<Attribute.Compound> enterAnnotation =
-        newBackdoor(Annotate.class, "enterAnnotation", 3);
-    public static final Backdoor<Type> classEnter =
-        newBackdoor(Enter.class, "classEnter", 2);
-    public static final Backdoor<Symbol> findIdent =
-        newBackdoor(Resolve.class, "findIdent", 3);
-    public static final Backdoor<Symbol> resolveIdent =
-        newBackdoor(Resolve.class, "resolveIdent", 4);
-    public static final Backdoor<Symbol> resolveMethod =
-        newBackdoor(Resolve.class, "resolveMethod", 5);
-    public static final Backdoor<Symbol> resolveConstructor =
-        newBackdoor(Resolve.class, "resolveConstructor", 5);
-    public static final Backdoor<Symbol> resolveQualifiedMethod =
-        newBackdoor(Resolve.class, "resolveQualifiedMethod", 6);
-    public static final Backdoor<Type> instantiate =
-        newBackdoor(Resolve.class, "instantiate", 8);
-    public static final Backdoor<Symbol> selectSym =
-        newBackdoor(Attr.class, "selectSym", 5);
-
-    /**
-     * Initializes the backdoor, looking up methods that we will invoke reflectively.
-     */
-    public static boolean init (ProcessingEnvironment procenv)
-    {
-        boolean haveErrors = !_errors.isEmpty();
-        for (String error : _errors) {
-            procenv.getMessager().printMessage(Diagnostic.Kind.WARNING, error);
-        }
-        _errors = List.nil();
-        return !haveErrors;
+    /** Provides type-safe access to reflected fields. */
+    public interface FieldRef<A, V> {
+        public V get (A arg);
+        public void set (A arg, V value);
     }
 
-    /**
-     * Extracts the 'scope' field from the supplied AttrContext.
-     */
-    public static Scope getScope (AttrContext info)
+    /** Provides type-safe access to reflected methods. */
+    public interface MethodRef<R, V> {
+        public V invoke (R receiver, Object... args);
+    }
+
+    public static final MethodRef<Annotate, Attribute.Compound> enterAnnotation =
+        newMethodRef(Annotate.class, "enterAnnotation", 3);
+    public static final MethodRef<Enter, Type> classEnter =
+        newMethodRef(Enter.class, "classEnter", 2);
+    public static final MethodRef<Resolve, Symbol> findIdent =
+        newMethodRef(Resolve.class, "findIdent", 3);
+    public static final MethodRef<Resolve, Symbol> resolveIdent =
+        newMethodRef(Resolve.class, "resolveIdent", 4);
+    public static final MethodRef<Resolve, Symbol> resolveMethod =
+        newMethodRef(Resolve.class, "resolveMethod", 5);
+    public static final MethodRef<Resolve, Symbol> resolveConstructor =
+        newMethodRef(Resolve.class, "resolveConstructor", 5);
+    public static final MethodRef<Resolve, Symbol> resolveQualifiedMethod =
+        newMethodRef(Resolve.class, "resolveQualifiedMethod", 6);
+    public static final MethodRef<Resolve, Type> instantiate =
+        newMethodRef(Resolve.class, "instantiate", 8);
+    public static final MethodRef<Attr, Symbol> selectSym =
+        newMethodRef(Attr.class, "selectSym", 5);
+
+    public static final FieldRef<AttrContext, Scope> scope =
+        newFieldRef(AttrContext.class, "scope");
+    public static final FieldRef<AttrContext, Boolean> selectSuper =
+        newFieldRef(AttrContext.class, "selectSuper");
+
+    protected static <A, V> FieldRef<A, V> newFieldRef (Class<A> clazz, String name)
     {
         try {
-            return (Scope)_acScope.get(info);
-        } catch (Exception e) {
-            throw new RuntimeException(unwrap(e));
-        }
-    }
-
-    /**
-     * Updates the 'scope' field of the supplied AttrContext with the supplied scope.
-     */
-    public static void setScope (AttrContext info, Scope scope)
-    {
-        try {
-            _acScope.set(info, scope);
-        } catch (Exception e) {
-            throw new RuntimeException(unwrap(e));
-        }
-    }
-
-    public T invoke (Object receiver, Object... args)
-    {
-        try {
-            @SuppressWarnings("unchecked") T result = (T)_method.invoke(receiver, args);
-            return result;
-        } catch (Exception e) {
-            throw new RuntimeException(unwrap(e));
-        }
-    }
-
-    @Override public String toString ()
-    {
-        return _method.getName();
-    }
-
-    protected Backdoor (Class<?> clazz, String name, int argCount)
-    {
-        String error = null;
-        try {
-            for (Method m : clazz.getDeclaredMethods()) {
-                if (m.getName().equals(name) && m.getParameterTypes().length == argCount) {
-                    m.setAccessible(true);
-                    _method = m;
-                    break;
+            for (final Field f : clazz.getDeclaredFields()) {
+                if (f.getName().equals(name)) {
+                    f.setAccessible(true);
+                    return new FieldRef<A, V>() {
+                        public V get (A arg) {
+                            try {
+                                @SuppressWarnings("unchecked") V result = (V)f.get(arg);
+                                return result;
+                            } catch (Exception e) {
+                                throw new RuntimeException(unwrap(e));
+                            }
+                        }
+                        public void set (A arg, V value) {
+                            try {
+                                f.set(arg, value);
+                            } catch (Exception e) {
+                                throw new RuntimeException(unwrap(e));
+                            }
+                        }
+                    };
                 }
             }
-            if (_method == null) {
-                error = "Unable to locate " + clazz.getSimpleName() + "." + name + " method.";
-            }
+            throw new RuntimeException("Unable to find '" + name + "' in " + clazz.getName());
         } catch (Exception e) {
-            e.printStackTrace();
-            error = "Unable to access " + clazz.getSimpleName() + "." + name + " method.";
-        }
-        if (error != null) {
-            _errors = _errors.prepend(error);
+            throw new RuntimeException(e);
         }
     }
 
-    protected static <T> Backdoor<T> newBackdoor (Class<?> clazz, String name, int argCount)
+    protected static <R, V> MethodRef<R, V> newMethodRef (Class<R> clazz, String name, int argCount)
     {
-        return new Backdoor<T>(clazz, name, argCount);
+        try {
+            for (final Method m : clazz.getDeclaredMethods()) {
+                if (m.getName().equals(name) && m.getParameterTypes().length == argCount) {
+                    m.setAccessible(true);
+                    return new MethodRef<R, V>() {
+                        public V invoke (R receiver, Object... args) {
+                            try {
+                                @SuppressWarnings("unchecked") V result = (V)m.invoke(receiver, args);
+                                return result;
+                            } catch (Exception e) {
+                                throw new RuntimeException(unwrap(e));
+                            }
+                        }
+                        @Override public String toString () {
+                            return m.getName();
+                        }
+                    };
+                }
+            }
+            throw new RuntimeException(
+                "Unable to locate " + clazz.getSimpleName() + "." + name + " method.");
+        } catch (Exception e) {
+            throw new RuntimeException(
+                "Unable to access " + clazz.getSimpleName() + "." + name + " method.");
+        }
     }
 
     protected static Throwable unwrap (Throwable t)
@@ -137,18 +131,4 @@ public class Backdoor<T>
     }
 
     protected Method _method;
-
-    protected static Field _acScope;
-    static {
-        try {
-            for (Field f : AttrContext.class.getDeclaredFields()) {
-                if (f.getName().equals("scope")) {
-                    _acScope = f;
-                    _acScope.setAccessible(true);
-                }
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
 }
