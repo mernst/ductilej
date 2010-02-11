@@ -6,9 +6,6 @@ package org.typelessj.detyper;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
-import javax.annotation.processing.ProcessingEnvironment;
-import javax.tools.Diagnostic;
-
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
@@ -18,12 +15,8 @@ import com.sun.tools.javac.comp.Annotate;
 import com.sun.tools.javac.comp.Attr;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Enter;
-import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.comp.Resolve;
 import com.sun.tools.javac.tree.JCTree.*;
-import com.sun.tools.javac.util.JCDiagnostic;
-import com.sun.tools.javac.util.List;
-import com.sun.tools.javac.util.Name;
 
 /**
  * Does some backdoor reflective invocation of useful javac internal methods.
