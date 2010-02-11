@@ -535,6 +535,11 @@ public class Detype extends PathedTreeTranslator
                     // method is overloaded, this will disambiguate, and even if it's not
                     // overloaded, we need something legal in those argument positions
                     tree.args = tree.args.appendList(toTypedNulls(atypes, tree.args));
+                    // we also need to append the "was mangled" tag to the method name; the below
+                    // type test should always return true since the method is super.something
+                    if (tree.meth instanceof JCFieldAccess) {
+                        ((JCFieldAccess)tree.meth).name = _names.fromString(mname + RT.MM_SUFFIX);
+                    }
                 }
             }
             return;

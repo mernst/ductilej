@@ -28,6 +28,10 @@ public class SuperTest
         public String who () {
             return "A";
         }
+
+        public String why (String reason) {
+            return reason;
+        }
     }
 
     public static class B extends A {
@@ -41,6 +45,10 @@ public class SuperTest
 
         public String superwho () {
             return super.who();
+        }
+
+        public String why (String reason) {
+            return "Because " + super.why(reason);
         }
     }
 
@@ -65,11 +73,13 @@ public class SuperTest
     @Test public void testSuperConstructor ()
     {
         B b = new B(5);
-        assertEquals(b.value, 5);
-        assertEquals(b.text, "text");
+        assertEquals(5, b.value);
+        assertEquals("text", b.text);
 
-        assertEquals(b.who(), "B");
-        assertEquals(b.superwho(), "A");
+        assertEquals("B", b.who());
+        assertEquals("A", b.superwho());
+
+        assertEquals("Because me", b.why("me"));
 
 //         StringList slist = new StringList(Collections.singleton("Hello"));
 //         assertEquals(slist.get(0), "Hello");
