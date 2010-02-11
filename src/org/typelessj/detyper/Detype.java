@@ -341,22 +341,31 @@ public class Detype extends PathedTreeTranslator
         // constructed as well as the specific constructor being called
         List<Type> atypes = null;
         if (tree.def != null) {
-            Type site = null;
+            Type ctype = null;
             if (tree.args.isEmpty()) {
-                site = _resolver.resolveType(_env, tree.clazz, Kinds.TYP);
+                ctype = _resolver.resolveType(_env, tree.clazz, Kinds.TYP);
             } else {
                 Resolver.MethInfo mi = _resolver.resolveConstructor(
                     _env, tree.clazz, tree.args, tree.typeargs);
                 if (mi.msym.kind < Kinds.ERR) {
-                    site = mi.site;
+                    ctype = mi.site;
                     atypes = mi.atypes;
                 }
             }
-            if (site == null) {
+            if (ctype == null) {
                 result = tree;
                 return; // abort! (error will have been logged)
             }
-            _env.info.anonParent = site.tsym;
+            _env.info.anonParent = ctype.tsym;
+
+            // the Attr does some massaging of anonymous JCClassDecls which we need to manually
+            // duplicate here because attribution won't happen for a while, but we want to sneakily
+            // (and correctly) enter our anonymous inner class
+            if (ctype.tsym.isInterface()) {
+                tree.def.implementing = List.of(tree.clazz);
+            } else {
+                tree.def.extending = tree.clazz;
+            }
         }
         super.visitNewClass(tree);
 
