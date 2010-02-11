@@ -77,7 +77,7 @@ public class Detype extends PathedTreeTranslator
         aenv.baseClause = env.baseClause; // not used by detype
 
         // copy over detype context parts that are useful to attr context
-        Backdoor.setScope(aenv.info, env.info.scope);
+        Backdoor.scope.set(aenv.info, env.info.scope);
 
         return aenv;
     }
@@ -132,7 +132,7 @@ public class Detype extends PathedTreeTranslator
         // note the environment of the class we're processing
         Env<DetypeContext> oenv = _env;
         // _env = _env.dup(tree, oenv.info.dup(tree.sym.members_field.dupUnshared()));
-        _env = _env.dup(tree, oenv.info.dup(Backdoor.getScope(eenv.info)));
+        _env = _env.dup(tree, oenv.info.dup(Backdoor.scope.get(eenv.info)));
         _env.enclClass = tree;
         _env.outer = oenv;
 
@@ -753,7 +753,7 @@ public class Detype extends PathedTreeTranslator
     protected JCMethodInvocation cast (Type type, JCExpression expr)
     {
         Type etype = _types.erasure(type);
-        JCExpression clazz = mkFA(etype.toString(), expr.pos);
+        JCExpression clazz = typeToTree(etype, expr.pos);
         return (etype != type) ? typeVarCast(clazz, expr, type) : checkedCast(clazz, expr);
     }
 
@@ -772,7 +772,14 @@ public class Detype extends PathedTreeTranslator
 
     protected JCExpression typeToTree (Type type, int pos)
     {
+        if (type.isPrimitive()) {
+            return _tmaker.at(pos).TypeIdent(type.tag);
+        }
+
         switch (type.tag) {
+        case TypeTags.ARRAY:
+            return _tmaker.at(pos).TypeArray(typeToTree(((Type.ArrayType)type).elemtype, pos));
+
         case TypeTags.CLASS: {
             // TODO: enclosing class?
             JCExpression clazz = mkFA(type.tsym.getQualifiedName().toString(), pos);
@@ -853,10 +860,6 @@ public class Detype extends PathedTreeTranslator
 
     protected JCExpression classLiteral (JCExpression expr, int pos)
     {
-        // TODO: validate that we got passed either Name or package.Name
-        if ("int".equals(expr.toString())) {
-            expr = _tmaker.Ident(_names.fromString("Integer"));
-        }
         return _tmaker.at(pos).Select(expr, _names._class);
     }
 

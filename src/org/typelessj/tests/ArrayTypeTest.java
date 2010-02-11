@@ -3,6 +3,9 @@
 
 package org.typelessj.tests;
 
+import java.io.OutputStream;
+import java.io.PrintWriter;
+
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -32,5 +35,15 @@ public class ArrayTypeTest
 
     protected static int noop (Integer[] values) {
         return 2;
+    }
+
+    protected class MyPrintWriter extends PrintWriter {
+        public MyPrintWriter (OutputStream out) {
+            super(out);
+        }
+
+        public void println (char[] data) {
+            super.println(data); // checks typeToTree for array types
+        }
     }
 }
