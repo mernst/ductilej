@@ -3,10 +3,9 @@
 
 package org.typelessj.detyper;
 
-import java.util.Set;
+import javax.tools.JavaFileObject;
 
 import com.sun.source.tree.Tree;
-import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Scope;
@@ -22,13 +21,13 @@ import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Enter;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.comp.MemberEnter;
-import com.sun.tools.javac.jvm.ClassReader;
 import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.tree.TreeMaker;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
+import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Name; // Name.Table -> Names in OpenJDK
 import com.sun.tools.javac.util.Names;
 
@@ -122,17 +121,25 @@ public class Detype extends PathedTreeTranslator
         // now; javac will overwrite our bogus symbol data later during the attrib phase
         // if ((_env.info.scope.owner.kind & (Kinds.VAR | Kinds.MTH)) != 0) {
         if (tree.sym == null) {
-            Backdoor.classEnter.invoke(_enter, tree, toAttrEnv(_env));
+            JavaFileObject ofile = _log.useSource(_env.toplevel.getSourceFile());
+            try {
+                Backdoor.classEnter.invoke(_enter, tree, toAttrEnv(_env));
+            } finally {
+                _log.useSource(ofile);
+            }
             Debug.log("Entered inner class '" + tree.name + "'", "sym", tree.sym);
         }
 
+        // the entering process should have created an environment for the entered class, we need
+        // to extract its scope and use that in our environment so that if/when we ask Resolve to
+        // do things, it ends up using the correct scope
         Env<AttrContext> eenv = _enter.getEnv(tree.sym);
-        // Debug.log("Class attr context " + Backdoor.getScope(eenv.info));
+        // however, anonymous inner classes seem not to have an environment created?
+        Scope escope  = (eenv == null) ? new Scope(tree.sym) : Backdoor.scope.get(eenv.info);
 
         // note the environment of the class we're processing
         Env<DetypeContext> oenv = _env;
-        // _env = _env.dup(tree, oenv.info.dup(tree.sym.members_field.dupUnshared()));
-        _env = _env.dup(tree, oenv.info.dup(Backdoor.scope.get(eenv.info)));
+        _env = _env.dup(tree, oenv.info.dup(escope));
         _env.enclClass = tree;
         _env.outer = oenv;
 
@@ -151,8 +158,6 @@ public class Detype extends PathedTreeTranslator
 
         super.visitClassDef(tree);
         _env = oenv;
-
-        Debug.log("Leaving class " + tree.name);
     }
 
     @Override public void visitMethodDef (JCMethodDecl tree)
@@ -314,15 +319,26 @@ public class Detype extends PathedTreeTranslator
         Env<DetypeContext> oenv = _env;
         _env = _env.dup(tree, oenv.info.dup());
 
-        // if we see an anonymous inner class declaration, resolve the type of the to-be-created
-        // class, we need this in inLibraryOverrider() for our approximation approach
+        // if this is an anonymous inner class declaration, we need to resolve the type being
+        // constructed as well as the specific constructor being called
+        List<Type> atypes = null;
         if (tree.def != null) {
-            Type atype = _resolver.resolveType(_env, tree.clazz, Kinds.TYP);
-            if (atype == null) {
-                Debug.warn("Unable to resolve type of anon inner parent", "name", tree.clazz);
+            Type site = null;
+            if (tree.args.isEmpty()) {
+                site = _resolver.resolveType(_env, tree.clazz, Kinds.TYP);
             } else {
-                _env.info.anonParent = atype.tsym;
+                Resolver.MethInfo mi = _resolver.resolveConstructor(
+                    _env, tree.clazz, tree.args, tree.typeargs);
+                if (mi.msym.kind < Kinds.ERR) {
+                    site = mi.site;
+                    atypes = mi.atypes;
+                }
             }
+            if (site == null) {
+                result = tree;
+                return; // abort! (error will have been logged)
+            }
+            _env.info.anonParent = site.tsym;
         }
         super.visitNewClass(tree);
 
@@ -358,20 +374,12 @@ public class Detype extends PathedTreeTranslator
         }
 
         // if the instantiated type is a library class or interface, we need to insert runtime
-        // casts to the the formal parameter types
-        if (tree.def != null) {
-            // isLibrary() will return false if anonParent is null (which could happen if we fail
-            // to resolve its type above)
-            if (!tree.args.isEmpty() && ASTUtil.isLibrary(_env.info.anonParent)) {
-                // TODO: switch this to resolve method
-                List<MethodSymbol> ctors = _resolver.lookupMethods(
-                    _env.info.anonParent.members(), _names.init);
-                MethodSymbol best = _resolver.pickMethod(_env, ctors, tree.args);
-                if (best != null) {
-                    tree.args = castList(best.type.asMethodType().argtypes, tree.args);
-                } else {
-                    Debug.log("Unable to resolve overload", "ctors", ctors, "args", tree.args);
-                }
+        // casts to the the formal parameter types; otherwise we need to insert type carrying args
+        if (tree.def != null && !tree.args.isEmpty()) {
+            if (ASTUtil.isLibrary(_env.info.anonParent)) {
+                tree.args = castList(atypes, tree.args);
+            } else {
+                tree.args = tree.args.appendList(toTypedNulls(atypes, tree.args));
             }
         }
 
@@ -471,7 +479,7 @@ public class Detype extends PathedTreeTranslator
             result = tree; // abort! (error will have been logged)
             return;
         }
-        Debug.log("Method invocation", "tree", tree, "sym", msym);
+        // Debug.log("Method invocation", "tree", tree, "sym", msym);
 
         // we need to track whether we're processing the arguments of a this() or super()
         // constructor because that is a "static" context in that it is illegal to reference "this"
@@ -669,6 +677,7 @@ public class Detype extends PathedTreeTranslator
         _syms = Symtab.instance(ctx);
         _annotate = Annotate.instance(ctx);
         _rootmaker = TreeMaker.instance(ctx);
+        _log = Log.instance(ctx);
 
         // a class that will enclose all outer classes
         _predefClassDef = _rootmaker.ClassDef(
@@ -968,6 +977,7 @@ public class Detype extends PathedTreeTranslator
     protected Symtab _syms;
     protected Annotate _annotate;
     protected TreeMaker _rootmaker;
+    protected Log _log;
 
     protected static final String TP_SUFFIX = "$T";
     protected static final Context.Key<Detype> DETYPE_KEY = new Context.Key<Detype>();
