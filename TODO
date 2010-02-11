@@ -32,8 +32,6 @@ Detyper
 - See if we can add an import for org.typelessj.runtime.RT to avoid verbose dumps
 - Casting array dimension exprs to Integer isn't sufficient, they might
   (legally) be a Long (or other integer type) which we need to coerce
-- Implement overloaded method combination plus value+type boxing plus dynamic
-  dispatch using tracked static type information
 - Extract main() detection into ASTUtil, make it correct
 - Record original type information when transforming JCVariableDecl, somehow
   pass that along to all runtime methods so that they can provide better feedback
