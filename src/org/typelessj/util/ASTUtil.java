@@ -3,9 +3,6 @@
 
 package org.typelessj.util;
 
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
 import javax.lang.model.type.TypeKind;
 import javax.tools.JavaFileObject;
 
@@ -17,7 +14,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree.*;
-import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.List;
