@@ -16,6 +16,10 @@ public class InvokeNonStaticTest
         public int triple (int value) {
             return value * 3;
         }
+
+        public int something (int value) {
+            return triple(value);
+        }
     }
 
     public Foo bar = new Foo();
@@ -27,6 +31,14 @@ public class InvokeNonStaticTest
         assertTrue(value == 75);
         int val2 = bar.triple(3);
         assertTrue(val2 == 9);
+        assertEquals(9, test.something(3));
+
+        Foo bar = new Foo() {
+            @Override public int something (int value) {
+                return 2 * triple(value);
+            }
+        };
+        assertEquals(18, bar.something(3));
     }
 
     @Test public void testStringLitReceiver ()
