@@ -538,7 +538,7 @@ public class RT
       METHOD:
         for (Method m : methods) {
             Class<?>[] ptypes = m.getParameterTypes();
-            int pcount = m.getName().endsWith("$M") ? ptypes.length/2 : ptypes.length;
+            int pcount = m.getName().endsWith(MM_SUFFIX) ? ptypes.length/2 : ptypes.length;
             int poff = ptypes.length - pcount;
             for (int ii = 0, ll = Math.min(args.length, pcount); ii < ll; ii++) {
                 Class<?> ptype = boxType(ptypes[poff+ii]);
