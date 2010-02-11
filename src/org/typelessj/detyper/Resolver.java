@@ -458,8 +458,9 @@ public class Resolver
     protected List<Type> eraseWildcards (List<Type> types)
     {
         if (types.isEmpty()) return List.<Type>nil();
-        return eraseWildcards(types.tail).prepend(
-            ((types.head.tag == TypeTags.WILDCARD) ? _types.erasure(types.head) : types.head));
+        Type type = (types.head == null) ? null :
+            ((types.head.tag == TypeTags.WILDCARD) ? _types.erasure(types.head) : types.head);
+        return eraseWildcards(types.tail).prepend(type);
     }
 
     /**
@@ -476,7 +477,7 @@ public class Resolver
         mi.tatypes = resolveTypes(env, typeargs, Kinds.TYP);
 
         // convert any wildcard types to their erasure; I'm not sure why or whether this is
-        // strictly necessary, but Resolve's method throw assertion failures if I don't...
+        // strictly necessary, but Resolve's methods throw assertion failures if I don't...
         mi.atypes = eraseWildcards(mi.atypes);
 
         return mi;
