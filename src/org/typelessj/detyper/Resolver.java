@@ -118,7 +118,8 @@ public class Resolver
                                  Detype.toAttrEnv(env), mname, mi.atypes, mi.tatypes);
             }
             if (mi.msym.kind >= Kinds.ERR) {
-                Debug.warn("Unable to resolve method", "expr", mexpr);
+                Debug.warn("Unable to resolve method", "expr", mexpr, "site", mi.site,
+                           "encl", env.enclClass.sym);
             }
             // Debug.log("Asked javac to resolve method " + mexpr + " got " + mi.msym);
             return mi;
