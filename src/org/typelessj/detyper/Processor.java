@@ -48,10 +48,6 @@ public class Processor extends AbstractProcessor
             return;
         }
 
-        if (!Backdoor.init(procenv)) {
-            return;
-        }
-
         Context ctx = ((JavacProcessingEnvironment)procenv).getContext();
         _trees = Trees.instance(procenv);
         _detype = Detype.instance(ctx);
