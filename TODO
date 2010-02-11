@@ -62,3 +62,13 @@ Later
     type that shares its same name (e.g. Date -> java.util.Date), construct an
     instance of the target type using the arguments provided when constructing
     the provisional instance
+- Inner class handling is especially non-performant; currently we pass an
+  unqualified "this" into RT.invoke() in inner-class methods, and then at
+  runtime have to scan through enclosing classes to find matching methods,
+  extracting the magic outer this pointer along the way; we could instead use
+  the type of the method we resolved at runtime to pass "Enclosing.this"
+  directly to RT.invoke() and do away with all of the outer class scanning at
+  runtime. There's probably some situation where that will cause things to be
+  more rigid than doing it at runtime, but I'm not immediately thinking of it.
+  If we fall back to an unqualified "this" iff we fail to resolve the method,
+  then perhaps that's the best of both worlds...

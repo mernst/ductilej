@@ -64,7 +64,8 @@ public class RT
             // our enclosing instance may be an instance of the inner class or an instance of the
             // enclosing class, in the former case, we need to extract the secret reference to the
             // enclosing class from the inner class and use that as our first argument
-            eargs[0] = clazz.isInstance(encl) ? getEnclosingReference(encl) : encl;
+            eargs[0] = clazz.isInstance(encl) ?
+                getEnclosingReference(clazz.getEnclosingClass(), encl) : encl;
             System.arraycopy(rargs, 0, eargs, 1, rargs.length);
             rargs = eargs;
         }
@@ -118,7 +119,17 @@ public class RT
         if (receiver == null) {
             throw new NullPointerException();
         }
-        return invoke(findMethod(mname, receiver.getClass(), args), receiver, args);
+        Class<?> orclass = receiver.getClass();
+        Class<?> rclass = orclass;
+        Method m;
+        do {
+            m = findMethod(mname, rclass, args);
+            if (m == null) {
+                rclass = rclass.getEnclosingClass();
+                receiver = getEnclosingReference(rclass, receiver);
+            }
+        } while (m == null && rclass != null);
+        return invoke(checkMethod(m, mname, orclass, args), receiver, args);
     }
 
     /**
@@ -127,7 +138,7 @@ public class RT
      */
     public static Object invokeStatic (String mname, Class<?> clazz, Object... args)
     {
-        return invoke(findMethod(mname, clazz, args), null, args);
+        return invoke(checkMethod(findMethod(mname, clazz, args), mname, clazz, args), null, args);
     }
 
     /**
@@ -529,9 +540,10 @@ public class RT
         // TODO: this needs to follow the algorithm in JLS 15.12.2.1
         List<Method> methods = collectMethods(new ArrayList<Method>(), mname, clazz, args);
 
-        // no ambiguity, no problem!
-        if (methods.size() == 1) {
-            return methods.get(0);
+        if (methods.size() == 0) {
+            return null; // the caller may want to fall back to an outer class
+        } else if (methods.size() == 1) {
+            return methods.get(0); // no ambiguity, no problem!
         }
 
         // look for an exact type match (simplifies life for now)
@@ -557,13 +569,7 @@ public class RT
         }
 
         // now look for any method
-        if (methods.size() > 0) {
-            return methods.get(0);
-        }
-
-        // TODO: if argument mismatch, clarify that, if total method lacking, clarify that
-        throw new NoSuchMethodError(
-            "Can't find method " + clazz + "." + mname + " (" + args.length + " args)");
+        return methods.get(0);
     }
 
     /**
@@ -588,6 +594,20 @@ public class RT
             collectMethods(into, mname, parent, args);
         }
         return into;
+    }
+
+    /**
+     * Helper for {@link #invokeStatic} and {@link #invoke}.
+     */
+    protected static Method checkMethod (Method m, String mname, Class<?> clazz, Object... args)
+    {
+        if (m == null) {
+            // TODO: if argument mismatch, clarify that, if total method lacking, clarify that
+            throw new NoSuchMethodError(
+                "Can't find method " + clazz + "." + mname + " (" + args.length + " args)");
+        } else {
+            return m;
+        }
     }
 
     /**
@@ -730,21 +750,20 @@ public class RT
     }
 
     /**
-     * Locates and returns the value of the secret reference to a non-static inner-class's
-     * enclosing class.  We need this when we're constructing a non-static inner-class and have
-     * only a reference to another instance of that non-static inner-class. In that case, the new
-     * reference uses the same reference.
+     * Locates and returns the value of the secret reference to the supplied non-static
+     * inner-class's reference to the supplied enclosing class.
      */
-    protected static Object getEnclosingReference (Object obj)
+    protected static Object getEnclosingReference (Class<?> clazz, Object obj)
     {
         try {
             for (Field field : obj.getClass().getDeclaredFields()) {
-                if (field.getName().equals("this$0")) {
+                if (field.getName().startsWith("this$") && field.getType() == clazz) {
                     field.setAccessible(true);
                     return field.get(obj);
                 }
             }
-            throw new RuntimeException("Failure finding enclosing reference");
+            throw new RuntimeException(
+                "Failure finding enclosing reference [class=" + obj.getClass() + "]");
         } catch (IllegalAccessException iae) {
             throw new RuntimeException("Failure accessing enclosing reference", iae);
         }
