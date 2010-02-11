@@ -135,7 +135,13 @@ public class Detype extends PathedTreeTranslator
         // do things, it ends up using the correct scope
         Env<AttrContext> eenv = _enter.getEnv(tree.sym);
         // however, anonymous inner classes seem not to have an environment created?
-        Scope escope  = (eenv == null) ? new Scope(tree.sym) : Backdoor.scope.get(eenv.info);
+        Scope escope;
+        if (eenv == null) {
+            Debug.warn("No enter scope for " + tree.sym);
+            escope = new Scope(tree.sym);
+        } else {
+            escope = Backdoor.scope.get(eenv.info);
+        }
 
         // note the environment of the class we're processing
         Env<DetypeContext> oenv = _env;
@@ -203,15 +209,27 @@ public class Detype extends PathedTreeTranslator
 
     @Override public void visitVarDef (JCVariableDecl tree)
     {
+        // we need a new environment here to keep our Env tree isomorphic to javac's
+        Env<DetypeContext> oenv = _env;
+        _env = _env.dup(tree, oenv.info.dup());
+        if (tree.sym != null && tree.sym.owner != null && tree.sym.owner.kind == Kinds.TYP) {
+            _env.info.scope = new Scope.DelegatedScope(_env.info.scope);
+            _env.info.scope.owner = tree.sym;
+        }
+// TODO: do we need static level?
+//         if ((tree.mods.flags & STATIC) != 0 ||
+//             (_env.enclClass.sym.flags() & INTERFACE) != 0)
+//             _Env.info.staticLevel++;
+
         // if we're declaring an array, put its type in the arrayElemType as we may encounter a
         // bare array initializer expression (i.e. int[] foo = { 1, 2, 3}) and we'll need to use
         // this declared type when detyping the initializer
-        JCExpression oetype = _env.info.arrayElemType;
         if (tree.vartype instanceof JCArrayTypeTree) {
             _env.info.arrayElemType = tree.vartype;
         }
+
         super.visitVarDef(tree);
-        _env.info.arrayElemType = oetype;
+        _env = oenv;
 
         // var symbols for member-level variables are already entered, we just want to handle
         // formal parameters and local variable declarations
