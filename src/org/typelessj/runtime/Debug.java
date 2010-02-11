@@ -17,7 +17,7 @@ public class Debug
     public static boolean debug = Boolean.getBoolean("org.typelessj.debug");
 
     /**
-     * Emits a debug message to stdout.
+     * Emits a debug message to stderr.
      *
      * @param args key/value pairs, (e.g. "age", someAge, "size", someSize) which will be appended
      * to the log message as [age=someAge, size=someSize].
@@ -25,19 +25,30 @@ public class Debug
     public static void log (String message, Object... args)
     {
         if (debug) {
-            System.out.println(format(message, args));
+            System.err.println(format(message, args));
         }
     }
 
     /**
-     * Emits a warning message to stdout.
+     * Emits a temporary debugging message to stderr.
+     *
+     * @param args key/value pairs, (e.g. "age", someAge, "size", someSize) which will be appended
+     * to the log message as [age=someAge, size=someSize].
+     */
+    public static void temp (String message, Object... args)
+    {
+        System.err.println("*** " + format(message, args));
+    }
+
+    /**
+     * Emits a warning message to stderr.
      *
      * @param args key/value pairs, (e.g. "age", someAge, "size", someSize) which will be appended
      * to the log message as [age=someAge, size=someSize].
      */
     public static void warn (String message, Object... args)
     {
-        System.out.println("!!! " + format(message, args));
+        System.err.println("!!! " + format(message, args));
     }
 
     /**
