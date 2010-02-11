@@ -15,6 +15,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTags;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.comp.Attr;
+import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.comp.Resolve;
 import com.sun.tools.javac.jvm.ClassReader;
@@ -139,7 +140,8 @@ public class Resolver
             // we erase the type parameters from the site because we want javac to ignore the type
             // arguments when resolving our method (to be maximally lenient)
             // Debug.log("Resolving method receiver", "expr", mexpr);
-            mi.site = resolveType(env, ((JCFieldAccess)mexpr.meth).selected, Kinds.VAL | Kinds.TYP);
+            JCExpression selexp = ((JCFieldAccess)mexpr.meth).selected;
+            mi.site = resolveType(env, selexp, Kinds.VAL | Kinds.TYP);
             if (mi.site == null) {
                 Debug.warn("Can't resolve receiver type", "expr", mexpr);
                 return mi;
@@ -152,10 +154,15 @@ public class Resolver
                 mi.site = _types.erasure(mi.site);
             }
 
-            // pass the buck to javac's Resolve to do the heavy lifting
+            // if our site is 'super' we need to twiddle a bit in the env we pass to Resolve
+            Env<AttrContext> aenv = Detype.toAttrEnv(env);
+            if (selexp instanceof JCIdent && ((JCIdent)selexp).name == _names._super) {
+                Backdoor.selectSuper.set(aenv.info, true);
+            }
+
             // Debug.log("Resolving {"+mi.site+"}." + mname + "<"+mi.tatypes+">("+mi.atypes+")");
             mi.msym = invoke(env, Backdoor.resolveQualifiedMethod, _resolve, mexpr.pos(),
-                             Detype.toAttrEnv(env), mi.site, mname, mi.atypes, mi.tatypes);
+                             aenv, mi.site, mname, mi.atypes, mi.tatypes);
             if (mi.msym.kind >= Kinds.ERR) {
                 Debug.warn("Unable to resolve method", "expr", mexpr, "site", mi.site);
             }
@@ -448,12 +455,12 @@ public class Resolver
         _log = Log.instance(ctx);
     }
 
-    protected <T> T invoke (Env<DetypeContext> env, Backdoor<T> door,
-                            Object receiver, Object... args)
+    protected <R, V> V invoke (Env<DetypeContext> env, Backdoor.MethodRef<R, V> method,
+                               R receiver, Object... args)
     {
         JavaFileObject ofile = _log.useSource(env.toplevel.getSourceFile());
         try {
-            return door.invoke(receiver, args);
+            return method.invoke(receiver, args);
         } finally {
             _log.useSource(ofile);
         }
