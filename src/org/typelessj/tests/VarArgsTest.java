@@ -3,6 +3,8 @@
 
 package org.typelessj.tests;
 
+import java.util.Date;
+
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -11,6 +13,28 @@ import static org.junit.Assert.*;
  */
 public class VarArgsTest
 {
+    public class Varrgh {
+        public final String name;
+        public final int[] values;
+
+        public Varrgh (String name, int... values) {
+            this.name = name;
+            this.values = values;
+        }
+
+        public Varrgh (int number, int... values) {
+            this(String.valueOf(number), values);
+        }
+
+        public Varrgh (Date one, int two) {
+            this(one.toString(), two);
+        }
+
+        public Varrgh (boolean one) {
+            this(String.valueOf(one));
+        }
+    }
+
     @Test public void testRuntimeSelect ()
     {
         assertEquals(foo("one", "two", "three"), "foo(String,String...)");
@@ -33,6 +57,12 @@ public class VarArgsTest
         log("one");
         log("one", (Object)new String[] { "two", "three" });
         log("one", "two", "three");
+    }
+
+    @Test public void testGroupVarArgs ()
+    {
+        Varrgh v = new Varrgh(true);
+        assertEquals("true", v.name);
     }
 
     protected static void log (String message, Object... args)
