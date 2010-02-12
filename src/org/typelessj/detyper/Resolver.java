@@ -457,8 +457,11 @@ public class Resolver
 
     protected List<Type> upperBounds (List<Type> types)
     {
-        return types.isEmpty() ? List.<Type>nil() :
-            upperBounds(types.tail).prepend(_types.upperBound(types.head));
+        if (types.isEmpty()) {
+            return List.nil();
+        }
+        Type ubound = (types.head == null) ? null : _types.upperBound(types.head);
+        return upperBounds(types.tail).prepend(ubound);
     }
 
     /**
