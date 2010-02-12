@@ -138,9 +138,9 @@ public class Resolver
             // Debug.log("Resolved method receiver", "expr", mexpr, "site", mi.site);
 
             // the receiver may also be a wildcard (or a type variable), in which case we need to
-            // erase as above
+            // convert it to its upper bound
             if (mi.site.tag == TypeTags.WILDCARD) {
-                mi.site = _types.erasure(mi.site);
+                mi.site = _types.upperBound(mi.site);
             }
 
             // if our site is 'super' we need to twiddle a bit in the env we pass to Resolve
@@ -455,12 +455,10 @@ public class Resolver
         }
     }
 
-    protected List<Type> eraseWildcards (List<Type> types)
+    protected List<Type> upperBounds (List<Type> types)
     {
-        if (types.isEmpty()) return List.<Type>nil();
-        Type type = (types.head == null) ? null :
-            ((types.head.tag == TypeTags.WILDCARD) ? _types.erasure(types.head) : types.head);
-        return eraseWildcards(types.tail).prepend(type);
+        return types.isEmpty() ? List.<Type>nil() :
+            upperBounds(types.tail).prepend(_types.upperBound(types.head));
     }
 
     /**
@@ -476,9 +474,9 @@ public class Resolver
         mi.atypes = resolveTypes(env, args, Kinds.VAL);
         mi.tatypes = resolveTypes(env, typeargs, Kinds.TYP);
 
-        // convert any wildcard types to their erasure; I'm not sure why or whether this is
-        // strictly necessary, but Resolve's methods throw assertion failures if I don't...
-        mi.atypes = eraseWildcards(mi.atypes);
+        // convert any wildcard types to their upper bounds; I'm not sure why this is strictly
+        // necessary, but Resolve's methods throw assertion failures if I don't...
+        mi.atypes = upperBounds(mi.atypes);
 
         return mi;
     }

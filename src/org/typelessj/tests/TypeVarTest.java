@@ -5,6 +5,8 @@ package org.typelessj.tests;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -62,5 +64,13 @@ public class TypeVarTest
             length = length + key.toString().length();
         }
         return length;
+    }
+
+    public static <T, C extends Collection<T>> C addAll (C col, Enumeration<? extends T> enm)
+    {
+        while (enm.hasMoreElements()) {
+            col.add(enm.nextElement());
+        }
+        return col;
     }
 }
