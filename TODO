@@ -6,24 +6,18 @@ Evaluation
 squigglies
 
 Open issues
+- Varargs methods are problematic: we're taking foo(arg1, arg2, vargs) and
+  turning it into RT.invoke(recv, name, vargs) which necessitates
+  reresolving the matching vararg method at runtime (with currently no static
+  type information); maybe all of this can be circumvented by not invoking
+  methods reflectively when they successfully resolve...
+  - Need to avoid passing array as sole final argument to RT.invoke and
+    RT.invokeStatic, can happen when passing an argument in an untransformed method
+    and for literals:
+    - main(String[] args) { foo(args); }
+    - foo(new String[] { ... })
+- What to do about string concatenation when one or the other argument is null?
 - What math ops are legal for Character (+ and -, but * and /?)
-- Need to avoid passing array as sole final argument to RT.invoke and
-  RT.invokeStatic, can happen when passing an argument in an untransformed method
-  and for literals:
-  - main(String[] args) { foo(args); }
-  - foo(new String[] { ... })
-- We need to preserve statically visible assignment to final class members in
-  the constructor
-  - "foo = 5" is OK, but "this.foo = 5" gets turned into a reflective
-    assignment, perhaps we should just not do that for this.foo when inside
-    constructors... I don't like the special case, maybe we never do it for
-    this.foo
-- Should we not detype enums? Should we not detype variable declarations?
-  - Not detyping variable decls will require that we cast back to their type
-    when assigning to them which will probably be difficult.
-- We need to remove "implements FooInterface" from detyped class declarations
-  (for non-library interface) otherwise javac will freak out if we omit an
-  interface method implementation, which we don't want
 - Need to do the "right" thing with == (assuming there is a right thing),
   i.e. if == is called on boxed integers, we need to unbox and compare, but ==
   called on one or two references should compare references.
@@ -37,6 +31,9 @@ Detyper
   pass that along to all runtime methods so that they can provide better feedback
 - Add RT.asEnum() and use that instead of RT.checkedCast() so that we can
   handle more runtime errors gracefully
+- Remove "implements FooInterface" from detyped class declarations (for
+  non-library interface) otherwise javac will freak out if we omit an interface
+  method implementation, which we don't want
 
 Runtime
 - Finish implementation of RT.unop(), RT.binop()
@@ -70,8 +67,4 @@ Later
   more rigid than doing it at runtime, but I'm not immediately thinking of it.
   If we fall back to an unqualified "this" iff we fail to resolve the method,
   then perhaps that's the best of both worlds...
-- Varargs methods are problematic: we're taking foo(arg1, arg2, vargs) and
-  turning it into RT.invoke(recv, name, vargs) which necessitates
-  reresolving the matching vararg method at runtime (with currently no static
-  type information); maybe all of this can be circumvented by not invoking
-  methods reflectively when they successfully resolve...
+  
