@@ -1045,6 +1045,7 @@ public class Detype extends PathedTreeTranslator
     {
         JCExpression expr;
         switch (type.tag) {
+        case TypeTags.BOOLEAN: // yes, this uses 0 well
         case TypeTags.BYTE:
         case TypeTags.CHAR:
         case TypeTags.SHORT:
@@ -1053,8 +1054,6 @@ public class Detype extends PathedTreeTranslator
         case TypeTags.FLOAT:
         case TypeTags.DOUBLE:
             return _tmaker.Literal(type.tag, 0); // TODO
-        case TypeTags.BOOLEAN:
-            return _tmaker.Literal(type.tag, false);
         default:
             return _tmaker.at(arg.pos).TypeCast(typeToTree(type, arg.pos),
                                                 _tmaker.Literal(TypeTags.BOT, null));
