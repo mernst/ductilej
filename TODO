@@ -70,3 +70,8 @@ Later
   more rigid than doing it at runtime, but I'm not immediately thinking of it.
   If we fall back to an unqualified "this" iff we fail to resolve the method,
   then perhaps that's the best of both worlds...
+- Varargs methods are problematic: we're taking foo(arg1, arg2, vargs) and
+  turning it into RT.invoke(recv, name, vargs) which necessitates
+  reresolving the matching vararg method at runtime (with currently no static
+  type information); maybe all of this can be circumvented by not invoking
+  methods reflectively when they successfully resolve...

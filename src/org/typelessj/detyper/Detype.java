@@ -689,11 +689,16 @@ public class Detype extends PathedTreeTranslator
         if (!(tree.clazz instanceof JCExpression)) {
             Debug.warn("Got cast to non-JCExpression node?", "tree", tree);
         } else if (!path().endsWith("Switch.Case")) {
-            // TODO: if the cast expression contains type variables, we need to compute their upper
-            // bound and note a cast to that upper bound
-            result = tree.expr;
+            // TEMP: if the expression being casted is a null literal, leave the cast in place
+            if (tree.expr instanceof JCLiteral && ((JCLiteral)tree.expr).typetag == TypeTags.BOT) {
+                // nada
+            } else {
+                // TODO: if the cast expression contains type variables, we need to compute their
+                // upper bound and note a cast to that upper bound
+                result = tree.expr;
 //             result = callRT("noteCast", tree.pos,
 //                             classLiteral((JCExpression)tree.clazz, tree.pos), tree.expr);
+            }
         }
     }
 
