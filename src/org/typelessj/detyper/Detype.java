@@ -196,6 +196,8 @@ public class Detype extends PathedTreeTranslator
         // if we're not in a library overrider, prepare our type-carrying arguments (before we call
         // super which will erase our argument's types)
         boolean isLib = inLibraryOverrider();
+        // note: toTypeArgs has the side-effect that it turns off the varargs flag on a varargs
+        // final argument because it "moves" the varargs flag to the final type argument instead
         List<JCVariableDecl> sigargs = isLib ? List.<JCVariableDecl>nil() : toTypeArgs(tree.params);
 
         // now we can call super and translate our children
@@ -351,17 +353,15 @@ public class Detype extends PathedTreeTranslator
 
         // if this is an anonymous inner class declaration, we need to resolve the type being
         // constructed as well as the specific constructor being called
-        List<Type> atypes = null;
+        Resolver.MethInfo mi = null;
         if (tree.def != null) {
             Type ctype = null;
             if (tree.args.isEmpty()) {
                 ctype = _resolver.resolveType(_env, tree.clazz, Kinds.TYP);
             } else {
-                Resolver.MethInfo mi = _resolver.resolveConstructor(
-                    _env, tree.clazz, tree.args, tree.typeargs);
+                mi = _resolver.resolveConstructor(_env, tree.clazz, tree.args, tree.typeargs);
                 if (mi.msym.kind < Kinds.ERR) {
                     ctype = mi.site;
-                    atypes = mi.atypes;
                 }
             }
             if (ctype == null) {
@@ -415,10 +415,12 @@ public class Detype extends PathedTreeTranslator
         // if the instantiated type is a library class or interface, we need to insert runtime
         // casts to the the formal parameter types; otherwise we need to insert type carrying args
         if (tree.def != null && !tree.args.isEmpty()) {
+            List<Type> ptypes = _types.memberType(_env.enclClass.sym.type, mi.msym).
+                asMethodType().argtypes;
             if (ASTUtil.isLibrary(_env.info.anonParent)) {
-                tree.args = castList(atypes, tree.args);
+                tree.args = castList(ptypes, tree.args);
             } else {
-                tree.args = tree.args.appendList(toTypedNulls(atypes, tree.args));
+                tree.args = addManglingArgs(mi.msym, ptypes, tree.args, mi.atypes);
             }
         }
 
@@ -513,12 +515,12 @@ public class Detype extends PathedTreeTranslator
         }
 
         // resolve the called method before we transform the leaves of this tree
-        Symbol msym = _resolver.resolveMethod(_env, tree).msym;
-        if (msym.kind >= Kinds.ERR) {
+        Resolver.MethInfo mi = _resolver.resolveMethod(_env, tree);
+        if (mi.msym.kind >= Kinds.ERR) {
             result = tree; // abort! (error will have been logged)
             return;
         }
-        // Debug.log("Method invocation", "tree", tree, "sym", msym);
+        // Debug.log("Method invocation", "tree", tree, "sym", mi.msym);
 
         // we need to track whether we're processing the arguments of a this() or super()
         // constructor because that is a "static" context in that it is illegal to reference "this"
@@ -533,20 +535,20 @@ public class Detype extends PathedTreeTranslator
         // if this is a chained constructor call or super.foo(), we can't call it reflectively
         if (isChainedCons || isSuperMethodCall(tree)) {
             if (!tree.args.isEmpty()) {
-                List<Type> atypes = _types.memberType(_env.enclClass.sym.type, msym).
+                List<Type> ptypes = _types.memberType(_env.enclClass.sym.type, mi.msym).
                     asMethodType().argtypes;
                 // if the method is defined in a library class, we need to cast the argument types
                 // back to the types it expects
-                if (ASTUtil.isLibrary(msym.owner)) {
+                if (ASTUtil.isLibrary(mi.msym.owner)) {
                     // we need to convert any formal type parameters on this method (as defined in
                     // the super class) to the actuals provided by our class in the extends clause
-                    tree.args = castList(atypes, tree.args);
+                    tree.args = castList(ptypes, tree.args);
                 } else {
                     // if the declarer is not a library class, we need to insert type carrying
                     // arguments that match the types of the method we resolved; if the resolved
                     // method is overloaded, this will disambiguate, and even if it's not
                     // overloaded, we need something legal in those argument positions
-                    tree.args = tree.args.appendList(toTypedNulls(atypes, tree.args));
+                    tree.args = addManglingArgs(mi.msym, ptypes, tree.args, mi.atypes);
                     // we also need to append the "was mangled" tag to the method name; the below
                     // type test should always return true since the method is super.something
                     if (tree.meth instanceof JCFieldAccess) {
@@ -559,9 +561,9 @@ public class Detype extends PathedTreeTranslator
 
         String invokeName;
         JCExpression recv;
-        if (Flags.isStatic(msym)) {
+        if (Flags.isStatic(mi.msym)) {
             // convert to RT.invokeStatic("method", decl.class, args)
-            ClassSymbol osym = (ClassSymbol)msym.owner;
+            ClassSymbol osym = (ClassSymbol)mi.msym.owner;
             recv = classLiteral(mkFA(osym.fullname.toString(), tree.pos), tree.pos);
             invokeName = "invokeStatic";
 
@@ -579,7 +581,7 @@ public class Detype extends PathedTreeTranslator
         tree.args = tree.args.prepend(recv).
             prepend(_tmaker.Literal(TypeTags.CLASS, TreeInfo.name(tree.meth).toString()));
         tree.meth = mkRT(invokeName, tree.meth.pos);
-        // Debug.log("APPLY " + msym + " -> " + tree);
+        // Debug.log("APPLY " + mi.msym + " -> " + tree);
     }
 
     @Override public void visitSwitch (JCSwitch tree)
@@ -823,6 +825,12 @@ public class Detype extends PathedTreeTranslator
             castList(params.tail, list.tail).prepend(cast(params.head, list.head));
     }
 
+    protected List<JCExpression> castList (Type type, List<JCExpression> list)
+    {
+        return list.isEmpty() ? List.<JCExpression>nil() :
+            castList(type, list.tail).prepend(cast(type, list.head));
+    }
+
     protected JCExpression typeToTree (Type type, int pos)
     {
         if (type.isPrimitive()) {
@@ -949,10 +957,48 @@ public class Detype extends PathedTreeTranslator
         if (params.isEmpty()) {
             return List.nil();
         }
+        // inherit the flags of our value carrying parameter (plus final)
+        long flags = params.head.mods.flags | Flags.FINAL;
+        // if we inherited the varargs flag, we need to turn the varargs flag off on our value
+        // carrying parameter so that it can accept any argument (rather than Object[])
+        if ((flags & Flags.VARARGS) != 0) {
+            params.head.mods.flags &= ~Flags.VARARGS;
+        }
         return toTypeArgs(params.tail).prepend(
-            _tmaker.VarDef(_tmaker.Modifiers(params.head.mods.flags | Flags.FINAL),
+            _tmaker.VarDef(_tmaker.Modifiers(flags),
                            params.head.name.append(_names.fromString(TP_SUFFIX)),
                            params.head.vartype, null));
+    }
+
+    protected List<JCExpression> addManglingArgs (Symbol msym, List<Type> ptypes,
+                                                  List<JCExpression> args, List<Type> atypes)
+    {
+        // if the method is varargs, we need to insert an array creation expression wrapping up the
+        // variable arguments because they're no longer at the end (whee!)
+        if ((msym.flags() & Flags.VARARGS) != 0) {
+            args = groupVarArgs(ptypes, args, atypes);
+        }
+        // now we can append type carrying arguments to the grouped arglist
+        return args.appendList(toTypedNulls(ptypes, args));
+    }
+
+    protected List<JCExpression> groupVarArgs (List<Type> ptypes, List<JCExpression> args,
+                                               List<Type> atypes)
+    {
+        if (ptypes.tail.isEmpty()) {
+            Type etype = ((Type.ArrayType)ptypes.head).elemtype;
+            // we may have an array argument of the correct type in the final position, which
+            // should not be wrapped, but rather passed straight through
+            if (!atypes.isEmpty() && atypes.tail.isEmpty() && atypes.head.equals(ptypes.head)) {
+                return args;
+            } else {
+                return List.<JCExpression>of(_tmaker.NewArray(typeToTree(etype, 0),
+                                                              List.<JCExpression>nil(),
+                                                              castList(etype, args)));
+            }
+        } else {
+            return groupVarArgs(ptypes.tail, args.tail, atypes.tail).prepend(args.head);
+        }
     }
 
     protected List<JCExpression> toTypedNulls (List<Type> types, List<JCExpression> args)
@@ -971,7 +1017,6 @@ public class Detype extends PathedTreeTranslator
      */
     protected JCExpression toTypedNull (Type type, JCExpression arg)
     {
-        int tpos = arg.pos;
         JCExpression expr;
         switch (type.tag) {
         case TypeTags.BYTE:
@@ -985,8 +1030,8 @@ public class Detype extends PathedTreeTranslator
         case TypeTags.BOOLEAN:
             return _tmaker.Literal(type.tag, false);
         default:
-            return _tmaker.at(tpos).TypeCast(mkFA(type.toString(), tpos),
-                                             _tmaker.Literal(TypeTags.BOT, null));
+            return _tmaker.at(arg.pos).TypeCast(typeToTree(type, arg.pos),
+                                                _tmaker.Literal(TypeTags.BOT, null));
         }
     }
 
