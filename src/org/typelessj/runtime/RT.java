@@ -498,7 +498,12 @@ public class RT
         // if this method is varargs we need to extract the variable arguments, place them into an
         // Object[] and create a new args array that has the varargs array in the final position
         Object[] aargs = rargs;
-        if (method.isVarArgs()) {
+        // TODO: we need to differentiate between null being passed as a single argument, which
+        // should be wrapped in an array, versus null being passed as the varargs array, which
+        // should be passed along to the underlying method in the varargs position; this requires
+        // some communication from the compiler: we need the static type of the null; for now we
+        // assume they meant to pass a null array rather than a wrapped null
+        if (method.isVarArgs() && aargs != null) {
             int fpcount = pcount-1, vacount = rargs.length-fpcount;
             // TEMP: we heuristically assume that if there's only one argument in the varargs
             // position and it's an array, then the caller did the wrapping already; the correct
@@ -517,7 +522,7 @@ public class RT
         // if this method is mangled, we need to add dummy arguments in the type-carrying parameter
         // positions
         if (isMangled) {
-            aargs = addMangleArgs(ptypes, aargs);
+            aargs = addMangleArgs(ptypes, (aargs == null) ? new Object[1] : aargs);
         }
 
         try {
@@ -637,7 +642,8 @@ public class RT
         List<Class<?>> ptypes, boolean isMangled, boolean isVarArgs, Object[] args)
     {
         int pcount = isMangled ? ptypes.size()/2 : ptypes.size();
-        if (!(pcount == args.length || (isVarArgs && (pcount-1) <= args.length))) {
+        int acount = (args == null) ? 0 : args.length;
+        if (!(pcount == acount || (isVarArgs && (pcount-1) <= acount))) {
             return false;
         }
 
