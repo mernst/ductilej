@@ -7,6 +7,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Callable;
 
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -31,7 +32,7 @@ public class InnerClassTest
                 return Integer.valueOf(String.valueOf(value)) * 5;
             }
         };
-        assertEquals(v.op(v.value()), 25);
+        assertEquals(25, v.op(v.value()));
     }
 
     @Test public void testNonDetypedInterface () {
@@ -41,8 +42,8 @@ public class InnerClassTest
                 return (a == b) ? 0 : ((a < b) ? -1 : 1);
             }
         });
-        assertEquals(values[0], (Integer)1);
-        assertEquals(values[2], (Integer)3);
+        assertEquals((Integer)1, values[0]);
+        assertEquals((Integer)3, values[2]);
     }
 
     @Test public void testAnonLibraryInst () {
@@ -51,7 +52,7 @@ public class InnerClassTest
             // nothing to see here, move it along
         };
         map.put(5, 10);
-        assertEquals(map.get(5), Integer.valueOf(10));
+        assertEquals((Integer)10, map.get(5));
     }
 
     @Test public void testLocalInNonStaticContext () {
@@ -61,11 +62,28 @@ public class InnerClassTest
                 this.bar = bar;
             }
         }
-        assertEquals(new Foo(5).bar, 5);
+        assertEquals(5, new Foo(5).bar);
     }
 
     @Test public void testLocalIntStaticContext () {
-        assertEquals(testStaticLocal(42), 42);
+        assertEquals(42, testStaticLocal(42));
+    }
+
+    @Test public void testInnerInInner () throws Exception {
+        Callable<Integer> c = new Callable<Integer>() {
+            public Integer call () throws Exception {
+                Value v = new Value() {
+                    public int value () {
+                        return 42;
+                    }
+                    public int op (int value) {
+                        return value;
+                    }
+                };
+                return v.op(v.value());
+            }
+        };
+        assertEquals((Integer)42, c.call());
     }
 
     protected static int testStaticLocal (int value) {
