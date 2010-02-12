@@ -135,7 +135,7 @@ public class Resolver
                 Debug.warn("Can't resolve receiver type", "expr", mexpr);
                 return mi;
             }
-            // Debug.log("Resolved method receiver", "expr", mexpr, "site", mi.site);
+            // Debug.temp("Resolved method receiver", "expr", mexpr, "site", mi.site);
 
             // the receiver may also be a wildcard (or a type variable), in which case we need to
             // convert it to its upper bound
@@ -149,7 +149,7 @@ public class Resolver
                 Backdoor.selectSuper.set(aenv.info, true);
             }
 
-            // Debug.log("Resolving {"+mi.site+"}." + mname + "<"+mi.tatypes+">("+mi.atypes+")");
+            // Debug.temp("Resolving {"+mi.site+"}." + mname + "<"+mi.tatypes+">("+mi.atypes+")");
             mi.msym = invoke(env, Backdoor.resolveQualifiedMethod, _resolve, mexpr.pos(),
                              aenv, mi.site, mname, mi.atypes, mi.tatypes);
             if (mi.msym.kind >= Kinds.ERR) {
@@ -359,7 +359,7 @@ public class Resolver
 
         case JCTree.TYPEARRAY: {
             Type etype = resolveType(env, ((JCArrayTypeTree)expr).elemtype, Kinds.TYP);
-            return (etype == null) ? null : new Type.ArrayType(etype, etype.tsym);
+            return (etype == null) ? null : new Type.ArrayType(etype, _syms.arrayClass);
         }
 
         case JCTree.TYPEAPPLY: {
