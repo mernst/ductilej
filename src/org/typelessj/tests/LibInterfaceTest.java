@@ -4,6 +4,8 @@
 package org.typelessj.tests;
 
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.concurrent.Callable;
 
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -33,5 +35,27 @@ public class LibInterfaceTest
         assertTrue(values[0].value == 1);
         assertTrue(values[1].value == 3);
         assertTrue(values[2].value == 99);
+
+        Comparator<Integer> icomp = new Comparator<Integer>() {
+            public int compare (Integer one, Integer two) {
+                return one.compareTo(two);
+            }
+        };
+        assertTrue(icomp.compare(0, 5) < 0);
+    }
+
+    protected static <V> void testForall (final V dummy)
+    {
+        Comparator<V> icomp = new Comparator<V>() {
+            public int compare (V one, V two) {
+                return 0;
+            }
+        };
+        Callable<V> c = new Callable<V>() {
+            public V call () {
+                // V foo = null;
+                return null;
+            }
+        };
     }
 }
