@@ -348,6 +348,30 @@ public class Resolver
             }
         }
 
+        case JCTree.PLUS_ASG: { // +=
+            // if lhs is string, then expr is string
+            Type lhs = resolveType(env, ((JCAssignOp)expr).lhs, pkind);
+            if (lhs == _syms.stringType) {
+                return _syms.stringType;
+            } else {
+                return lhs; // TODO: numeric promotion
+            }
+        }
+
+        case JCTree.BITOR_ASG: // |=
+        case JCTree.BITXOR_ASG: // ^=
+        case JCTree.BITAND_ASG: // &=
+            return _syms.typeOfTag[TypeTags.INT]; // TODO: is this true?
+
+        case JCTree.SL_ASG: // <<=
+        case JCTree.SR_ASG: // >>=
+        case JCTree.USR_ASG: // >>>=
+        case JCTree.MINUS_ASG: // -=
+        case JCTree.MUL_ASG: // *=
+        case JCTree.DIV_ASG: // /=
+        case JCTree.MOD_ASG: // %=
+            return _syms.typeOfTag[TypeTags.INT]; // TODO: is this true?
+
         case JCTree.LITERAL: {
             int tag = ((JCLiteral)expr).typetag;
             // TODO: are there other literals that don't have direct type tag mapping?
