@@ -15,6 +15,7 @@ import com.sun.tools.javac.comp.Annotate;
 import com.sun.tools.javac.comp.Attr;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Enter;
+import com.sun.tools.javac.comp.MemberEnter;
 import com.sun.tools.javac.comp.Resolve;
 import com.sun.tools.javac.tree.JCTree.*;
 
@@ -52,6 +53,8 @@ public class Backdoor<T>
         newMethodRef(Resolve.class, "instantiate", 8);
     public static final MethodRef<Attr, Symbol> selectSym =
         newMethodRef(Attr.class, "selectSym", 5);
+    public static final MethodRef<MemberEnter, Type> signature =
+        newMethodRef(MemberEnter.class, "signature", 5);
 
     public static final FieldRef<AttrContext, Scope> scope =
         newFieldRef(AttrContext.class, "scope");
