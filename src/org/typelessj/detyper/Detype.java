@@ -710,6 +710,26 @@ public class Detype extends PathedTreeTranslator
         result = mkAssign(tree.lhs, translate(tree.rhs), tree.pos);
     }
 
+    @Override public void visitBlock (JCBlock tree)
+    {
+        Env<DetypeContext> oenv = _env;
+        if (_env.info.scope.owner.kind == Kinds.TYP) {
+            // block is a static or instance initializer; let the owner of the environment be a
+            // freshly created BLOCK-method
+            _env = oenv.dup(tree, oenv.info.dup(oenv.info.scope.dupUnshared()));
+            _env.info.scope.owner = new MethodSymbol(tree.flags | Flags.BLOCK, _names.empty, null,
+                                                     oenv.info.scope.owner);
+            // if ((tree.flags & STATIC) != 0) localEnv.info.staticLevel++;
+            super.visitBlock(tree);
+        } else {
+            // create a new local environment with a local scope
+            _env = oenv.dup(tree, oenv.info.dup(oenv.info.scope.dup()));
+            super.visitBlock(tree);
+            _env.info.scope.leave(); // needed (I think) because we didn't dupUnshared()
+        }
+        _env = oenv;
+    }
+
     protected Detype (Context ctx)
     {
         ctx.put(DETYPE_KEY, this);
