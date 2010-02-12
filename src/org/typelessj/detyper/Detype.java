@@ -398,6 +398,13 @@ public class Detype extends PathedTreeTranslator
             List<JCExpression> args;
             if (tree.encl != null) {
                 args = tree.args.prepend(tree.encl);
+                // we can no longer just use tree.clazz as our class literal because the enclosing
+                // reference moves us into its namespace; thus outer.new Inner() needs to result in
+                // a reflective instantiation of Outer.Inner.class not just Inner.class; so we have
+                // to resolve the type of the enclosing reference, resolve the type of the class
+                // given that "site" and use the resolved type to create our class literal expr
+                Type site = _resolver.resolveType(_env, tree.encl, Kinds.VAL);
+                tree.clazz = qualifyClass(site, tree.clazz);
             } else if (inStatic()) {
                 args = tree.args.prepend(_tmaker.at(tree.pos).Literal(TypeTags.BOT, null));
             } else {
@@ -563,8 +570,7 @@ public class Detype extends PathedTreeTranslator
         JCExpression recv;
         if (Flags.isStatic(mi.msym)) {
             // convert to RT.invokeStatic("method", decl.class, args)
-            ClassSymbol osym = (ClassSymbol)mi.msym.owner;
-            recv = classLiteral(mkFA(osym.fullname.toString(), tree.pos), tree.pos);
+            recv = _tmaker.at(tree.pos).ClassLiteral((ClassSymbol)mi.msym.owner);
             invokeName = "invokeStatic";
 
         } else if (tree.meth instanceof JCFieldAccess) {
@@ -996,6 +1002,15 @@ public class Detype extends PathedTreeTranslator
             return List.nil();
         }
         return toTypedNulls(types.tail, args.tail).prepend(toTypedNull(types.head, args.head));
+    }
+
+    protected JCExpression qualifyClass (Type site, JCExpression clazz)
+    {
+        JCExpression clazzid = (clazz.getTag() == JCTree.TYPEAPPLY) ?
+            ((JCTypeApply)clazz).clazz : clazz;
+        clazzid = _tmaker.at(clazz.pos).Select(_tmaker.Type(site), ((JCIdent)clazzid).name);
+        return (clazz.getTag() != JCTree.TYPEAPPLY) ? clazzid :
+            _tmaker.at(clazz.pos).TypeApply(clazzid, ((JCTypeApply)clazz).arguments);
     }
 
     /**
