@@ -170,6 +170,18 @@ public class Detype extends PathedTreeTranslator
     {
         Debug.log("Visiting method def", "name", tree.name);
 
+        // if we're visiting a method in a local or anonymous inner class, we need to fake up
+        // symbols for our methods so that any local or anonymous inner classes therein have value
+        // owner symbols; normally this happens when classes are completed, but we can't complete
+        // our fake-entered classes without causing the compiler to fall over later when it goes to
+        // do everything properly
+        if (tree.sym == null) {
+            Scope enclScope = (_env.tree.getTag() == JCTree.CLASSDEF) ?
+                ((JCClassDecl) _env.tree).sym.members_field : _env.info.scope;
+            tree.sym = new MethodSymbol(0, tree.name, null, enclScope.owner);
+            // tree.sym.flags_field = chk.checkFlags(tree.pos(), tree.mods.flags, m, tree);
+        }
+
         // create a local environment for this method definition
         Env<DetypeContext> oenv = _env;
         _env = _env.dup(tree, oenv.info.dup(oenv.info.scope.dupUnshared()));
