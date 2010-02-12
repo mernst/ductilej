@@ -824,14 +824,14 @@ public class Detype extends PathedTreeTranslator
         // we specify the return type of the dynamic cast explicitly so that we can supply the
         // concrete upper bound as the runtime class but still retain the type variable as our
         // static return type, e.g.: T val = RT.<T>checkedCast(Object.class, oval)
-        inv.typeargs = List.<JCExpression>of(typeToTree(ptype, expr.pos));
+        inv.typeargs = List.<JCExpression>of(_tmaker.at(expr.pos).Type(ptype));
         return inv;
     }
 
     protected JCMethodInvocation cast (Type type, JCExpression expr)
     {
         Type etype = _types.erasure(type);
-        JCExpression clazz = typeToTree(etype, expr.pos);
+        JCExpression clazz = _tmaker.at(expr.pos).Type(etype);
         return (etype != type) ? typeVarCast(clazz, expr, type) : checkedCast(clazz, expr);
     }
 
@@ -854,44 +854,10 @@ public class Detype extends PathedTreeTranslator
             castList(type, list.tail).prepend(cast(type, list.head));
     }
 
-    protected JCExpression typeToTree (Type type, int pos)
-    {
-        if (type.isPrimitive()) {
-            return _tmaker.at(pos).TypeIdent(type.tag);
-        }
-
-        switch (type.tag) {
-        case TypeTags.ARRAY:
-            return _tmaker.at(pos).TypeArray(typeToTree(((Type.ArrayType)type).elemtype, pos));
-
-        case TypeTags.CLASS: {
-            // TODO: enclosing class?
-            JCExpression clazz = mkFA(type.tsym.getQualifiedName().toString(), pos);
-            return type.getTypeArguments().isEmpty() ? clazz :
-                _tmaker.at(pos).TypeApply(clazz, typesToTree(type.getTypeArguments(), pos));
-        }
-
-        case TypeTags.TYPEVAR:
-            return _tmaker.at(pos).Ident(type.tsym.name);
-            // TODO: do we need to worry about type.bound or type.lower?
-
-        case TypeTags.WILDCARD: {
-            Type.WildcardType wtype = (Type.WildcardType)type;
-            return _tmaker.at(pos).Wildcard(
-                _tmaker.at(pos).TypeBoundKind(wtype.kind), typeToTree(wtype.type, pos));
-            // TODO: if wtype.bound is not null we may need to wrap this all in a TypeParameter()?
-        }
-
-        default:
-            Debug.warn("Unsupported type in typeToTree", "type", type, "tag", type.tag);
-            return null;
-        }
-    }
-
     protected List<JCExpression> typesToTree (List<Type> types, int pos)
     {
         return types.isEmpty() ? List.<JCExpression>nil() :
-            typesToTree(types.tail, pos).prepend(typeToTree(types.head, pos));
+            typesToTree(types.tail, pos).prepend(_tmaker.at(pos).Type(types.head));
     }
 
     protected JCMethodInvocation callRT (String method, int pos, JCExpression... args) {
@@ -1015,7 +981,7 @@ public class Detype extends PathedTreeTranslator
             if (!atypes.isEmpty() && atypes.tail.isEmpty() && atypes.head.equals(ptypes.head)) {
                 return args;
             } else {
-                return List.<JCExpression>of(_tmaker.NewArray(typeToTree(etype, 0),
+                return List.<JCExpression>of(_tmaker.NewArray(_tmaker.Type(etype),
                                                               List.<JCExpression>nil(),
                                                               castList(etype, args)));
             }
@@ -1052,8 +1018,8 @@ public class Detype extends PathedTreeTranslator
         case TypeTags.DOUBLE:
             return _tmaker.Literal(type.tag, 0); // TODO
         default:
-            return _tmaker.at(arg.pos).TypeCast(typeToTree(type, arg.pos),
-                                                _tmaker.Literal(TypeTags.BOT, null));
+            return _tmaker.at(arg.pos).TypeCast(
+                _tmaker.Type(type), _tmaker.Literal(TypeTags.BOT, null));
         }
     }
 
