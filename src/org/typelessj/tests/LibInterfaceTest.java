@@ -41,6 +41,11 @@ public class LibInterfaceTest
                 return one.compareTo(two);
             }
         };
+        // if I use ClassLiteral where Detype turns this into invokeStatic(), then mysteriously
+        // *this* assertion starts failing with "unrecognized symbol org (in the
+        // org.junit.Assert.class tree), but the assertTrue transformations *above* the Comparator
+        // instantion are fine, and if I comment out Comparator, this one also becomes fine (or
+        // rather one that doesn't refer to the comparator is fine); whiskey tango foxtrot?
         assertTrue(icomp.compare(0, 5) < 0);
     }
 

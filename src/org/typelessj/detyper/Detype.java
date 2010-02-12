@@ -178,7 +178,11 @@ public class Detype extends PathedTreeTranslator
         if (tree.sym == null) {
             Scope enclScope = (_env.tree.getTag() == JCTree.CLASSDEF) ?
                 ((JCClassDecl) _env.tree).sym.members_field : _env.info.scope;
-            tree.sym = new MethodSymbol(0, tree.name, null, enclScope.owner);
+//             Type msig = Backdoor.signature.invoke(_memberEnter, tree.typarams, tree.params,
+//                                                   tree.restype, tree.thrown, toAttrEnv(_env));
+            Type msig = null;
+            // Debug.temp("Computed sig " + msig + " for " + tree);
+            tree.sym = new MethodSymbol(0, tree.name, msig, enclScope.owner);
             // tree.sym.flags_field = chk.checkFlags(tree.pos(), tree.mods.flags, m, tree);
         }
 
@@ -281,7 +285,13 @@ public class Detype extends PathedTreeTranslator
         // if we're in a method whose signature cannot be transformed, we must cast the result of
         // the return type back to the static method return type
         if (tree.expr != null && inLibraryOverrider()) {
-            tree.expr = cast(_env.enclMethod.sym.type.asMethodType().restype, tree.expr);
+            if (_env.enclMethod.sym.type == null) {
+                Debug.warn("Enclosing method missing type?", "class", _env.toplevel.sourcefile,
+                           "meth", _env.enclMethod);
+            } else {
+                // Debug.temp("Casting back to return type", "meth", _env.enclMethod.sym.type);
+                tree.expr = cast(_env.enclMethod.sym.type.asMethodType().restype, tree.expr);
+            }
         }
     }
 
@@ -570,7 +580,10 @@ public class Detype extends PathedTreeTranslator
         JCExpression recv;
         if (Flags.isStatic(mi.msym)) {
             // convert to RT.invokeStatic("method", decl.class, args)
-            recv = _tmaker.at(tree.pos).ClassLiteral((ClassSymbol)mi.msym.owner);
+            ClassSymbol osym = (ClassSymbol)mi.msym.owner;
+            recv = classLiteral(mkFA(osym.fullname.toString(), tree.pos), tree.pos);
+            // TODO: this causes strangeness in weird places (See LibInterfaceTest)
+            // recv = _tmaker.at(tree.pos).ClassLiteral((ClassSymbol)mi.msym.owner);
             invokeName = "invokeStatic";
 
         } else if (tree.meth instanceof JCFieldAccess) {
