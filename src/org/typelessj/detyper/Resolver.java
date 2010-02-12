@@ -247,14 +247,14 @@ public class Resolver
                 return _syms.typeOfTag[TypeTags.INT];
             }
 
-            // Debug.log("Resolving type symbol", "site", site, "facc", facc);
+            // Debug.temp("Resolving type symbol", "site", site, "facc", facc);
             Symbol sym = invoke(env, Backdoor.selectSym, _attr, facc, site, Detype.toAttrEnv(env),
                                 Type.noType, pkind);
             if (sym == null) {
                 Debug.warn("Unable to resolve symbol for field select", "expr", expr, "site", site);
                 return null;
             }
-            return sym.type;
+            return _types.memberType(site, sym);
         }
 
         case JCTree.APPLY: {
