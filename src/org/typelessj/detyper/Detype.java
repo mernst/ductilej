@@ -281,8 +281,7 @@ public class Detype extends PathedTreeTranslator
         // if we're in a method whose signature cannot be transformed, we must cast the result of
         // the return type back to the static method return type
         if (tree.expr != null && inLibraryOverrider()) {
-            tree.expr = checkedCast(_env.enclMethod.restype, tree.expr);
-            // tree.expr = cast(_env.enclMethod.sym.type.asMethodType().restype, tree.expr);
+            tree.expr = cast(_env.enclMethod.sym.type.asMethodType().restype, tree.expr);
         }
     }
 
@@ -600,9 +599,7 @@ public class Detype extends PathedTreeTranslator
             Debug.warn("Can't resolve type for switch " + tree.selector);
 
         } else if (Flags.isEnum(type.tsym)) {
-            // type.toString() gives us back a source representation of the type
-            tree.selector = checkedCast(mkFA(type.toString(), tree.selector.pos), tree.selector);
-            // tree.selector = cast(type, tree.selector);
+            tree.selector = cast(type, tree.selector);
 
         } else {
             // for integer types, we need to use asInt() rather than casting to Integer because
