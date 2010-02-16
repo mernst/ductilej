@@ -14,7 +14,7 @@ public class EnumTest
     {
         Class<?> base_type = TestEnum.class;
         @SuppressWarnings({"unchecked","rawness","rawtypes"})
-        Object eval = Enum.valueOf ((Class<? extends Enum>)base_type, "B");
+        Object eval = Enum.valueOf((Class<? extends Enum>)base_type, "B");
         assertEquals(TestEnum.B, eval);
     }
 }

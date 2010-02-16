@@ -537,7 +537,7 @@ public class Detype extends PathedTreeTranslator
             result = tree; // abort! (error will have been logged)
             return;
         }
-        // Debug.log("Method invocation", "tree", tree, "sym", mi.msym);
+        // Debug.temp("Method invocation", "tree", tree, "sym", mi.msym);
 
         // we need to track whether we're processing the arguments of a this() or super()
         // constructor because that is a "static" context in that it is illegal to reference "this"
