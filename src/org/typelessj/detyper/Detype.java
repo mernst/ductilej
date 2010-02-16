@@ -265,7 +265,7 @@ public class Detype extends PathedTreeTranslator
             // analysis that the program may rely on for correct compilation); we also avoid
             // touching synthesized enum field declarations in any way as that angers javac greatly
 
-        } else if (!path.contains(".Catch") && // don't detype the param(s) of a catch block
+        } else if (!path.endsWith(".Catch") && // don't detype the param(s) of a catch block
                    // nor the arguments of a library
                    !(path.contains(".MethodDef.params") && inLibraryOverrider())) {
 //             Debug.log("Transforming vardef", "mods", tree.mods, "name", tree.name,
