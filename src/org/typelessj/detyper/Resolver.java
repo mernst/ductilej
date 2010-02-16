@@ -128,7 +128,7 @@ public class Resolver
         case JCTree.SELECT: {
             // we erase the type parameters from the site because we want javac to ignore the type
             // arguments when resolving our method (to be maximally lenient)
-            // Debug.log("Resolving method receiver", "expr", mexpr);
+            // Debug.temp("Resolving method receiver", "expr", mexpr);
             JCExpression selexp = ((JCFieldAccess)mexpr.meth).selected;
             mi.site = resolveType(env, selexp, Kinds.VAL | Kinds.TYP);
             if (mi.site == null) {
@@ -155,7 +155,7 @@ public class Resolver
             if (mi.msym.kind >= Kinds.ERR) {
                 Debug.warn("Unable to resolve method", "expr", mexpr, "site", mi.site);
             }
-            // Debug.log("Asked javac to resolve method " + mexpr + " got " + mi.msym);
+            // Debug.temp("Asked javac to resolve method " + mexpr + " got " + mi.msym);
             return mi;
         }
 
@@ -217,7 +217,9 @@ public class Resolver
             if (sym.kind >= Kinds.ERR) {
                 Debug.warn("Unable to resolve type of ident", "expr", expr, "sym", sym);
             }
-            return sym.type;
+
+            // Attr.checkId does some small massaging of types that we need to emulate here
+            return typeFromSym(expr, sym);
         }
 
         case JCTree.SELECT: {
@@ -510,6 +512,100 @@ public class Resolver
         mi.atypes = upperBounds(mi.atypes);
 
         return mi;
+    }
+
+    /**
+     * Helper for {@link #resolveType} that mimics some sneaky type adjustment in
+     * <code>Attr.checkId()</code>.
+     */
+    protected Type typeFromSym (JCTree tree, Symbol sym)
+    {
+        // For types, the computed type equals the symbol's type, except for two situations:
+        Type rtype;
+        switch (sym.kind) {
+        case Kinds.TYP:
+            rtype = sym.type;
+            if (rtype.tag == TypeTags.CLASS) {
+                Type ownOuter = rtype.getEnclosingType();
+
+                // (a) If the symbol's type is parameterized, erase it because no type
+                // parameters were given.
+                // We recover generic outer type later in visitTypeApply.
+                if (rtype.tsym.type.getTypeArguments().nonEmpty()) {
+                    rtype = _types.erasure(rtype);
+                }
+
+//                     // (b) If the symbol's type is an inner class, then we have to interpret its
+//                     // outer type as a superclass of the site type. Example:
+//                     //
+//                     // class Tree<A> { class Visitor { ... } }
+//                     // class PointTree extends Tree<Point> { ... }
+//                     // ...PointTree.Visitor...
+//                     //
+//                     // Then the type of the last expression above is Tree<Point>.Visitor.
+//                     else if (ownOuter.tag == CLASS && site != ownOuter) {
+//                         Type normOuter = site;
+//                         if (normOuter.tag == CLASS)
+//                             normOuter = _types.asEnclosingSuper(site, ownOuter.tsym);
+//                         if (normOuter == null) // perhaps from an import
+//                             normOuter = _types.erasure(ownOuter);
+//                         if (normOuter != ownOuter)
+//                             rtype = new ClassType(normOuter, List.<Type>nil(), rtype.tsym);
+//                     }
+            }
+            break;
+
+        case Kinds.VAR:
+// for now fall through
+//             case VAR:
+//                 VarSymbol v = (VarSymbol)sym;
+//                 // The computed type of a variable is the type of the
+//                 // variable symbol, taken as a member of the site type.
+//                 owntype = (sym.owner.kind == TYP &&
+//                            sym.name != names._this && sym.name != names._super)
+//                     ? types.memberType(site, sym)
+//                     : sym.type;
+
+//                 if (env.info.tvars.nonEmpty()) {
+//                     Type owntype1 = new ForAll(env.info.tvars, owntype);
+//                     for (List<Type> l = env.info.tvars; l.nonEmpty(); l = l.tail)
+//                         if (!owntype.contains(l.head)) {
+//                             log.error(tree.pos(), "undetermined.type", owntype1);
+//                             owntype1 = types.createErrorType(owntype1);
+//                         }
+//                     owntype = owntype1;
+//                 }
+
+//                 // If the variable is a constant, record constant value in
+//                 // computed type.
+//                 if (v.getConstValue() != null && isStaticReference(tree))
+//                     owntype = owntype.constType(v.getConstValue());
+
+//                 if (pkind == VAL) {
+//                     owntype = capture(owntype); // capture "names as expressions"
+//                 }
+//                 break;
+
+        case Kinds.MTH:
+// for now fall through
+//             case MTH: {
+//                 JCMethodInvocation app = (JCMethodInvocation)env.tree;
+//                 owntype = checkMethod(site, sym, env, app.args,
+//                                       pt.getParameterTypes(), pt.getTypeArguments(),
+//                                       env.info.varArgs);
+//                 break;
+//             }
+
+        case Kinds.PCK:
+        case Kinds.ERR:
+            rtype = sym.type;
+            break;
+
+        default:
+            throw new AssertionError("Unexpected kind: " + sym.kind + " in tree " + tree);
+        }
+
+        return rtype;
     }
 
     protected ClassReader _reader;
