@@ -805,7 +805,8 @@ public class Detype extends PathedTreeTranslator
     protected boolean isInlinableField (JCVariableDecl tree)
     {
         // TODO: detect expressions that could be folded into constants
-        return ASTUtil.isStaticFinal(tree.mods) && (tree.init.getTag() == JCTree.LITERAL);
+        return ASTUtil.isStaticFinal(tree.mods) &&
+            (tree.init != null && tree.init.getTag() == JCTree.LITERAL);
     }
 
     protected JCMethodInvocation unop (int pos, Tree.Kind op, JCExpression arg)
