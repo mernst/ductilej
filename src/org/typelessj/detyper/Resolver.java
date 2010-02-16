@@ -272,6 +272,10 @@ public class Resolver
                 mtype = invoke(fenv, Backdoor.instantiate, _resolve, Detype.toAttrEnv(fenv),
                                mi.site, mi.msym, mi.atypes, mi.tatypes, true, useVarargs,
                                new Warner());
+                if (mtype == null) {
+                    Debug.warn("Failed to instantiate forall type", "sym", mi.msym);
+                    return null;
+                }
             } else {
                 // otherwise we just need to convert it to a member type
                 mtype = _types.memberType(mi.site, mi.msym);
