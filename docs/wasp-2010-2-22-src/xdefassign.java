@@ -10,7 +10,7 @@ class Foo {
     Object value; // final removed
     Foo () {
         if (RT.binop(">", 4, 2) {
-            foo = 0;
+            value = 0;
         }
     }
 }

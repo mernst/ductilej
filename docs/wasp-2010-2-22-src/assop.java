@@ -9,5 +9,5 @@ vec[0] *= 5;
 // field assignment
 foo.bar -= 5;
 
-// side-effecting assignment
+// side-effecting lhs
 naughty().bar /= 5;
