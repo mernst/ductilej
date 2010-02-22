@@ -34,6 +34,8 @@ Detyper
 - Remove "implements FooInterface" from detyped class declarations (for
   non-library interface) otherwise javac will freak out if we omit an interface
   method implementation, which we don't want
+- Make final fields non-final, remove other definite assignment handling
+- Add RT.assignOpAt() and RT.assignOp() to avoid double eval of LHS
 - Exception handling: we need to catch and unwrap any checked exceptions
   declared in a throws clause of the method in case it is thrown by an
   RT.invoke() in the body of the method (iff we're overriding library method)
