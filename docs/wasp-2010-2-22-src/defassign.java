@@ -10,7 +10,7 @@ class Foo {
     final int value;
     Foo () {
         if (4 > 2) {
-            foo = 0;
+            value = 0;
         }
     }
 }

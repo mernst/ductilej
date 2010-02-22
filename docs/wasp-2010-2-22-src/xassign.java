@@ -2,8 +2,8 @@
 Object foo = 3;
 
 // array element assignment
-Object vec = RT.newArray(int.class, 3);
-RT.assignAt(vec, 1, 2);
+Object vec = new int[RT.asInt(3)];
+RT.assignAt(vec, 1, 42);
 
 // field assignment
 RT.assign(bar, "baz", foo);

@@ -1,6 +1,6 @@
 Object length = ...;
 Object strings =
-  RT.newArray(String.class, length);
+  new String[RT.asInt(length)];
 
 Object bar = RT.newArrayOf(
   String.class, "a", "b", "c");

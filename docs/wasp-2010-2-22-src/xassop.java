@@ -9,6 +9,6 @@ RT.assignOpAt(vec, 0, "+", 5);
 // field assignment
 RT.assignOp(foo, "bar", "-", 5);
 
-// side-effecting assignment
+// side-effecting lhs
 RT.assignOp(
   RT.invoke(this, "foo"), "bar", "/", 5)
