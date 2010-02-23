@@ -99,6 +99,8 @@
   <target name="dist" depends="prepare,compile"
           description="Compiles the code and builds our jar file.">
     <jar destfile="${deploy.dir}/${lib.name}-bare.jar" basedir="${classes.dir}">
+      <service type="javax.annotation.processing.Processor"
+               provider="org.typelessj.detyper.Processor"/>
       <exclude name="**/tests/**"/>
     </jar>
 
@@ -113,6 +115,17 @@
       <!-- TODO: enhance autojar to allow the com/sun/* files to be excluded so -->
       <!-- that they don't result in a warning every time we run the tool -->
     </java>
+
+    <!-- autojar strips out our service definitions (yay) so we have to -->
+    <!-- unpack the autojar and repack it with the services included -->
+    <property name="auto.dir" value="${deploy.dir}/autojar"/>
+    <mkdir dir="${auto.dir}"/>
+    <unjar src="${deploy.dir}/${lib.name}.jar" dest="${auto.dir}"/>
+    <jar destfile="${deploy.dir}/${lib.name}.jar" basedir="${auto.dir}">
+      <service type="javax.annotation.processing.Processor"
+               provider="org.typelessj.detyper.Processor"/>
+    </jar>
+    <delete dir="${auto.dir}"/>
   </target>
 
   <!-- compiles our unit tests with the detyper and runs them -->
