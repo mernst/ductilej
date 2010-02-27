@@ -13,6 +13,7 @@ import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.tree.TreeScanner;
@@ -174,5 +175,38 @@ public class ASTUtil
         Type stype = types.supertype(type);
         return type /*+ "/" + type.tsym */ + "/" + isLibrary(type.tsym) +
             ((stype == null) ? "" : (" <- " + extype(types, stype)));
+    }
+
+    public static void dumpSyms (JCTree tree)
+    {
+        tree.accept(new TreeScanner() {
+            public void visitClassDef (JCClassDecl tree) {
+                log("Class", tree.name, tree.sym);
+                _indent += 2;
+                super.visitClassDef(tree);
+                _indent -= 2;
+            }
+            public void visitMethodDef (JCMethodDecl tree) {
+                log("Meth", tree.name, tree.sym);
+                _indent += 2;
+                super.visitMethodDef(tree);
+                _indent -= 2;
+            }
+            public void visitVarDef (JCVariableDecl tree) {
+                log("Var", tree.name, tree.sym);
+                super.visitVarDef(tree);
+            }
+            protected void log (String what, Name name, Symbol sym) {
+                StringBuilder buf = new StringBuilder();
+                for (int ii = 0; ii < _indent; ii++) {
+                    buf.append(" ");
+                }
+                buf.append(what).append(" ");
+                buf.append(name).append(" ");
+                buf.append(sym);
+                Debug.temp(buf.toString());
+            }
+            protected int _indent = 0;
+        });
     }
 }
