@@ -20,6 +20,10 @@ public class InvokeNonStaticTest
         public int something (int value) {
             return triple(value);
         }
+
+        public String noop (String value) {
+            return value;
+        }
     }
 
     public Foo bar = new Foo();
@@ -39,6 +43,9 @@ public class InvokeNonStaticTest
             }
         };
         assertEquals(18, bar.something(3));
+
+        // make sure we generate: RT.invoke(foo, "noop", (Object)null)
+        assertTrue(test.noop(null) == null);
     }
 
     @Test public void testStringLitReceiver ()

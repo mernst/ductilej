@@ -637,6 +637,15 @@ public class Detype extends PathedTreeTranslator
             invokeName = "invoke";
         }
 
+        // if the method is being invoked with a single null argument, we need to add a cast to
+        // Object because that null will become the single argument to the varargs RT.invoke() or
+        // RT.invokeStatic() method; if the argument is already casted, ASTUtil.isNullLiteral()
+        // will not identify it as a null literal and we won't add an extraneous cast
+        if (tree.args.size() == 1 && ASTUtil.isNullLiteral(tree.args.head)) {
+            tree.args.head = _tmaker.TypeCast(
+                _tmaker.Ident(_names.fromString("Object")), tree.args.head);
+        }
+
         tree.args = tree.args.prepend(recv).
             prepend(_tmaker.Literal(TreeInfo.name(tree.meth).toString()));
         tree.meth = mkRT(invokeName, tree.meth.pos);
@@ -747,7 +756,7 @@ public class Detype extends PathedTreeTranslator
             Debug.warn("Got cast to non-JCExpression node?", "tree", tree);
         } else if (!path().endsWith("Switch.Case")) {
             // TEMP: if the expression being casted is a null literal, leave the cast in place
-            if (tree.expr instanceof JCLiteral && ((JCLiteral)tree.expr).typetag == TypeTags.BOT) {
+            if (ASTUtil.isNullLiteral(tree.expr)) {
                 // nada
             } else {
                 // TODO: if the cast expression contains type variables, we need to compute their
