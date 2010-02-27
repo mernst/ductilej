@@ -6,6 +6,8 @@ package org.typelessj.detyper;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import javax.annotation.processing.AbstractProcessor;
@@ -67,10 +69,18 @@ public class Processor extends AbstractProcessor
             return false;
         }
 
+        // peskily, we'll get an Element for every top-level class in a compilation unit, but we
+        // only want to process each compilation unit once, so we have to manually consolidate
+        List<JCCompilationUnit> units = new ArrayList<JCCompilationUnit>();
         for (Element elem : roundEnv.getRootElements()) {
             JCCompilationUnit unit = toUnit(elem);
-//             Debug.log("Root elem " + elem, "unit", unit.getClass().getSimpleName(),
-//                       "sym.mems", ASTUtil.expand(unit.packge.members_field.elems.sym));
+            // Debug.temp("Root elem " + elem, "unit", unit.getClass().getSimpleName());
+            if (units.contains(unit)) {
+                units.add(unit);
+            }
+        }
+
+        for (JCCompilationUnit unit : units) {
             _detype.detype(unit);
             if (_showclass) {
                 System.out.println(""+unit);
