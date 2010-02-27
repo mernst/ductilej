@@ -139,8 +139,8 @@ public class Resolver
 
             // the receiver may also be a wildcard (or a type variable), in which case we need to
             // convert it to its upper bound
-            if (mi.site.tag == TypeTags.WILDCARD) {
-                mi.site = _types.upperBound(mi.site);
+            if (mi.site.tag == TypeTags.WILDCARD || mi.site.tag == TypeTags.TYPEVAR) {
+                mi.site = mi.site.getUpperBound();
             }
 
             // if our site is 'super' we need to twiddle a bit in the env we pass to Resolve
