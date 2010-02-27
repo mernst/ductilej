@@ -134,6 +134,19 @@
     <delete dir="${dtclass.dir}"/>
     <mkdir dir="${dtclass.dir}"/>
 
+    <!-- compile our helper classes, let them be treated like lib classes -->
+    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
+           source="1.6" target="1.6" encoding="utf-8"
+           srcdir="${src.dir}" destdir="${dtclass.dir}">
+      <classpath>
+        <pathelement location="${dtclass.dir}"/>
+        <path refid="build.classpath"/>
+      </classpath>
+      <compilerarg value="-Xlint"/>
+      <compilerarg value="-Xlint:-serial"/>
+      <include name="**/tests/helper/**"/>
+    </javac>
+
     <!-- allows passing -Dtest=NamePrefix to restrict to subset of tests -->
     <property name="test" value=""/>
     <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
@@ -146,6 +159,7 @@
       <compilerarg value="-Xlint"/>
       <compilerarg value="-Xlint:-serial"/>
       <!--<compilerarg value="-XprintProcessorInfo"/>-->
+      <compilerarg value="-implicit:class"/>
       <compilerarg value="-processor"/>
       <compilerarg value="org.typelessj.detyper.Processor"/>
       <compilerarg value="-Aorg.typelessj.showclass=${showclass}"/>
