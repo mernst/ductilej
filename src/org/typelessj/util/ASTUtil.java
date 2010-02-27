@@ -12,6 +12,7 @@ import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.TypeTags;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.*;
@@ -113,6 +114,14 @@ public class ASTUtil
     public static boolean isStaticFinal (JCModifiers mods)
     {
         return (mods.flags & (Flags.STATIC|Flags.FINAL)) == (Flags.STATIC|Flags.FINAL);
+    }
+
+    /**
+     * Returns true if the supplied AST node represents the 'null' literal.
+     */
+    public static boolean isNullLiteral (JCTree expr)
+    {
+        return (expr.getTag() == JCTree.LITERAL) && (((JCLiteral)expr).typetag == TypeTags.BOT);
     }
 
     /**
