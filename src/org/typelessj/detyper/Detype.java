@@ -21,6 +21,7 @@ import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Enter;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.comp.MemberEnter;
+import com.sun.tools.javac.file.BaseFileObject;
 import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
@@ -219,6 +220,21 @@ public class Detype extends PathedTreeTranslator
                 tree.name = tree.name.append(_names.fromString(RT.MM_SUFFIX));
             }
             tree.params = tree.params.appendList(sigargs);
+
+        // if we are in a library overrider, we need to rename the formal arguments and insert
+        // value carrying arguments for use in the method body:
+        // void someLibMethod (String arg1, int arg2) { ... } becomes
+        // void someLibMethod (String arg1$T, int arg2$T) {
+        //     Object arg1 = arg1$T, argg2 = arg2$T; ... }
+        } else if (!tree.params.isEmpty()) {
+            for (List<JCVariableDecl> p = tree.params; !p.isEmpty(); p = p.tail) {
+                Name valname = p.head.name;
+                p.head.name = _names.fromString(valname + "$T");
+                tree.body.stats = tree.body.stats.prepend(
+                    _tmaker.VarDef(_tmaker.Modifiers(0L), valname,
+                                   _tmaker.Ident(_names.fromString("Object")),
+                                   _tmaker.Ident(p.head.name)));
+            }
         }
 
         // restore our previous environment
@@ -286,7 +302,8 @@ public class Detype extends PathedTreeTranslator
         // the return type back to the static method return type
         if (tree.expr != null && inLibraryOverrider()) {
             if (_env.enclMethod.sym.type == null) {
-                Debug.warn("Enclosing method missing type?", "class", _env.toplevel.sourcefile,
+                Debug.warn("Enclosing method missing type?",
+                           "class", ((BaseFileObject)_env.toplevel.sourcefile).getShortName(),
                            "meth", _env.enclMethod);
             } else {
                 // Debug.temp("Casting back to return type", "meth", _env.enclMethod.sym.type);
@@ -691,6 +708,7 @@ public class Detype extends PathedTreeTranslator
         if (!tree.catchers.isEmpty()) {
             Name cvname = _names.fromString("_rt_" + tree.catchers.head.param.name);
             JCCatch catcher = _tmaker.Catch(
+                // TODO: use WrappedException, make RT throw said custom exception
                 _tmaker.VarDef(_tmaker.Modifiers(0L), cvname, mkFA("RuntimeException", 0), null),
                 _tmaker.Block(0L, List.of(unwrapExns(cvname, tree.catchers))));
             tree.body = _tmaker.Block(
