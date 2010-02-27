@@ -444,11 +444,18 @@ public class Detype extends PathedTreeTranslator
             Flags.isEnum(_env.enclClass.sym);
 
         if (tree.def == null && !inEnumFieldInit) {
+            // if the constructor is being invoked with a single null argument, we need to add a
+            // cast to Object because that null will become the single argument to the varargs
+            // RT.newInstance() method
+            List<JCExpression> args = tree.args;
+            if (args.size() == 1 && ASTUtil.isNullLiteral(args.head)) {
+                args.head = toTypedNull(_syms.objectType, args.head);
+            }
+
             // if there is a specific enclosing instance provided, use tree, otherwise use this
             // unless we're in a static context in which case use nothing
-            List<JCExpression> args;
             if (tree.encl != null) {
-                args = tree.args.prepend(tree.encl);
+                args = args.prepend(tree.encl);
                 // we can no longer just use tree.clazz as our class literal because the enclosing
                 // reference moves us into its namespace; thus outer.new Inner() needs to result in
                 // a reflective instantiation of Outer.Inner.class not just Inner.class; so we have
@@ -457,9 +464,9 @@ public class Detype extends PathedTreeTranslator
                 Type site = _resolver.resolveType(_env, tree.encl, Kinds.VAL);
                 tree.clazz = qualifyClass(site, tree.clazz);
             } else if (inStatic()) {
-                args = tree.args.prepend(_tmaker.at(tree.pos).Literal(TypeTags.BOT, null));
+                args = args.prepend(_tmaker.at(tree.pos).Literal(TypeTags.BOT, null));
             } else {
-                args = tree.args.prepend(_tmaker.at(tree.pos).Ident(_names._this));
+                args = args.prepend(_tmaker.at(tree.pos).Ident(_names._this));
             }
             args = args.prepend(classLiteral(tree.clazz, tree.clazz.pos));
 
@@ -642,8 +649,7 @@ public class Detype extends PathedTreeTranslator
         // RT.invokeStatic() method; if the argument is already casted, ASTUtil.isNullLiteral()
         // will not identify it as a null literal and we won't add an extraneous cast
         if (tree.args.size() == 1 && ASTUtil.isNullLiteral(tree.args.head)) {
-            tree.args.head = _tmaker.TypeCast(
-                _tmaker.Ident(_names.fromString("Object")), tree.args.head);
+            tree.args.head = toTypedNull(_syms.objectType, tree.args.head);
         }
 
         tree.args = tree.args.prepend(recv).
