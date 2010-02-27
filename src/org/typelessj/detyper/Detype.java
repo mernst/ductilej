@@ -350,9 +350,23 @@ public class Detype extends PathedTreeTranslator
     {
         super.visitBinary(tree);
 
-        JCLiteral opcode = _tmaker.Literal(TypeTags.CLASS, tree.getKind().toString());
-        result = callRT("binop", tree.pos, opcode, tree.lhs, tree.rhs);
-        // Debug.log("Rewrote binop", "kind", tree.getKind(), "tp", tree.pos, "ap", opcode.pos);
+        switch (tree.getTag()) {
+        case JCTree.AND:
+        case JCTree.OR:
+            // and and or short-circuit, so we cannot turn them into a two argument function call,
+            // we instead have to cast the left- and right-hand-sides back to boolean and leave
+            // them inline
+            tree.lhs = callRT("asBoolean", tree.lhs.pos, tree.lhs);
+            tree.rhs = callRT("asBoolean", tree.rhs.pos, tree.rhs);
+            result = tree;
+            break;
+
+        default:
+            JCLiteral opcode = _tmaker.Literal(TypeTags.CLASS, tree.getKind().toString());
+            result = callRT("binop", tree.pos, opcode, tree.lhs, tree.rhs);
+            // Debug.log("Rewrote binop", "kind", tree.getKind(), "tp", tree.pos);
+            break;
+        }
     }
 
     @Override public void visitAssignop (JCAssignOp tree)

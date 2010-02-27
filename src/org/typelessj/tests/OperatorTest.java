@@ -65,7 +65,18 @@ public class OperatorTest
         assertTrue(("~" + File.separator).startsWith('~' + File.separator));
     }
 
+    @Test public void testShortCircuit ()
+    {
+        // short circuitry should save us from disaster here
+        assertFalse(false && fail());
+        assertTrue(true || fail());
+    }
+
     protected static class Value {
         public int value = 0;
+    }
+
+    protected boolean fail () {
+        throw new AssertionError();
     }
 }
