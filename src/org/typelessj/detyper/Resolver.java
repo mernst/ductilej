@@ -198,11 +198,11 @@ public class Resolver
     {
         // if we already have a resolved type, just use that
         if (expr.type != null) {
-            // Debug.log("Using expression type", "expr", expr, "pkind", pkind, "type", expr.type);
+            // Debug.temp("Using expression type", "expr", expr, "pkind", pkind, "type", expr.type);
             return expr.type;
         }
 
-        // Debug.log("Resolving type", "expr", expr, "pkind", pkind);
+        // Debug.temp("Resolving type", "expr", expr, "pkind", pkind);
         switch (expr.getTag()) {
         case JCTree.IDENT: {
             Name name = TreeInfo.name(expr);
@@ -210,7 +210,7 @@ public class Resolver
             if (name == _names._this) {
                 sym = env.enclClass.sym;
             } else {
-                // Debug.log("Resoving ident", "name", name, "pkind", pkind);
+                // Debug.temp("Resoving ident", "name", name, "pkind", pkind);
                 sym = invoke(env, Backdoor.resolveIdent, _resolve,
                              expr.pos(), Detype.toAttrEnv(env), name, pkind);
             }
@@ -218,8 +218,17 @@ public class Resolver
                 Debug.warn("Unable to resolve type of ident", "expr", expr, "sym", sym);
             }
 
+            Env<DetypeContext> env1 = env;
+            if (sym.kind < Kinds.ERR && sym.owner != null && sym.owner != env1.enclClass.sym) {
+// TODO: we'll need this eventually
+//                 // If the found symbol is inaccessible, then it is accessed through an enclosing
+//                 // instance.  Locate this enclosing instance:
+//                 while (env1.outer != null && !rs.isAccessible(env, env1.enclClass.sym.type, sym))
+//                     env1 = env1.outer;
+            }
+
             // Attr.checkId does some small massaging of types that we need to emulate here
-            return typeFromSym(expr, sym);
+            return typeFromSym(expr, env1.enclClass.sym.type, sym);
         }
 
         case JCTree.SELECT: {
@@ -519,7 +528,7 @@ public class Resolver
      * Helper for {@link #resolveType} that mimics some sneaky type adjustment in
      * <code>Attr.checkId()</code>.
      */
-    protected Type typeFromSym (JCTree tree, Symbol sym)
+    protected Type typeFromSym (JCTree tree, Type site, Symbol sym)
     {
         // For types, the computed type equals the symbol's type, except for two situations:
         Type rtype;
@@ -556,36 +565,35 @@ public class Resolver
             }
             break;
 
-        case Kinds.VAR:
-// for now fall through
-//             case VAR:
-//                 VarSymbol v = (VarSymbol)sym;
-//                 // The computed type of a variable is the type of the
-//                 // variable symbol, taken as a member of the site type.
-//                 owntype = (sym.owner.kind == TYP &&
-//                            sym.name != names._this && sym.name != names._super)
-//                     ? types.memberType(site, sym)
-//                     : sym.type;
+        case Kinds.VAR: {
+            VarSymbol v = (VarSymbol)sym;
+            // The computed type of a variable is the type of the variable symbol, taken as a
+            // member of the site type.
+            rtype = (sym.owner.kind == Kinds.TYP &&
+                     sym.name != _names._this && sym.name != _names._super) ?
+                _types.memberType(site, sym) : sym.type;
 
-//                 if (env.info.tvars.nonEmpty()) {
-//                     Type owntype1 = new ForAll(env.info.tvars, owntype);
-//                     for (List<Type> l = env.info.tvars; l.nonEmpty(); l = l.tail)
-//                         if (!owntype.contains(l.head)) {
-//                             log.error(tree.pos(), "undetermined.type", owntype1);
-//                             owntype1 = types.createErrorType(owntype1);
-//                         }
-//                     owntype = owntype1;
-//                 }
+// TODO
+//             if (env.info.tvars.nonEmpty()) {
+//                 Type owntype1 = new ForAll(env.info.tvars, owntype);
+//                 for (List<Type> l = env.info.tvars; l.nonEmpty(); l = l.tail)
+//                     if (!owntype.contains(l.head)) {
+//                         log.error(tree.pos(), "undetermined.type", owntype1);
+//                         owntype1 = types.createErrorType(owntype1);
+//                     }
+//                 owntype = owntype1;
+//             }
 
-//                 // If the variable is a constant, record constant value in
-//                 // computed type.
-//                 if (v.getConstValue() != null && isStaticReference(tree))
-//                     owntype = owntype.constType(v.getConstValue());
+// TODO
+//             // If the variable is a constant, record constant value in computed type.
+//             if (v.getConstValue() != null && isStaticReference(tree))
+//                 owntype = owntype.constType(v.getConstValue());
 
-//                 if (pkind == VAL) {
-//                     owntype = capture(owntype); // capture "names as expressions"
-//                 }
-//                 break;
+//             if (pkind == VAL) {
+//                 owntype = capture(owntype); // capture "names as expressions"
+//             }
+            break;
+        }            
 
         case Kinds.MTH:
 // for now fall through
