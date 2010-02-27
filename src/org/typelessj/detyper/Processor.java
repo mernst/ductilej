@@ -75,7 +75,7 @@ public class Processor extends AbstractProcessor
         for (Element elem : roundEnv.getRootElements()) {
             JCCompilationUnit unit = toUnit(elem);
             // Debug.temp("Root elem " + elem, "unit", unit.getClass().getSimpleName());
-            if (units.contains(unit)) {
+            if (!units.contains(unit)) {
                 units.add(unit);
             }
         }
