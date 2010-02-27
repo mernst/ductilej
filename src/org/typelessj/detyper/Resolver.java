@@ -103,7 +103,7 @@ public class Resolver
             // pass the buck to javac's Resolve to do the heavy lifting
             if (mname == _names._this || mname == _names._super) {
                 if (mname == _names._super) {
-                    if (mi.site == _syms.objectType) {
+                    if (_types.isSameType(mi.site, _syms.objectType)) {
                         mi.site = _types.createErrorType(_syms.objectType);
                     } else {
                         mi.site = _types.supertype(mi.site);
@@ -347,7 +347,8 @@ public class Resolver
             // if lhs or rhs is string, then expr is string
             Type lhs = resolveType(env, ((JCBinary)expr).lhs, pkind);
             Type rhs = resolveType(env, ((JCBinary)expr).rhs, pkind);
-            if (lhs == _syms.stringType || rhs == _syms.stringType) {
+            if (_types.isSameType(lhs, _syms.stringType) ||
+                _types.isSameType(rhs, _syms.stringType)) {
                 return _syms.stringType;
             } else {
                 return lhs; // TODO: numeric promotion
@@ -357,7 +358,7 @@ public class Resolver
         case JCTree.PLUS_ASG: { // +=
             // if lhs is string, then expr is string
             Type lhs = resolveType(env, ((JCAssignOp)expr).lhs, pkind);
-            if (lhs == _syms.stringType) {
+            if (_types.isSameType(lhs, _syms.stringType)) {
                 return _syms.stringType;
             } else {
                 return lhs; // TODO: numeric promotion
