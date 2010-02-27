@@ -402,10 +402,22 @@ public class Detype extends PathedTreeTranslator
         Env<DetypeContext> oenv = _env;
         _env = _env.dup(tree, oenv.info.dup());
 
-        // if this is an anonymous inner class declaration, we need to resolve the type being
-        // constructed as well as the specific constructor being called
+        // enums are already desugared somewhat by the time we are called; the AST looks like so:
+        // public enum Type {
+        //     /*public static final*/ ADD /* = new Type() */
+        // }
+        // we need to specially handle these desugared enum constructor calls
+        boolean inEnumFieldInit = path().endsWith(".ClassDef.VarDef") &&
+            Flags.isEnum(_env.enclClass.sym);
+
+        // we can only transform the constructor into a reflective call if we're not in an enum
+        // field initializer and we're not looking at an anonmyous inner class declaration
+        boolean canReflect = (tree.def == null && !inEnumFieldInit);
+
+        // if we can't reflectively call the constructor, we need to resolve the specific
+        // constructor being called
         Resolver.MethInfo mi = null;
-        if (tree.def != null) {
+        if (!canReflect) {
             Type ctype = null;
             if (tree.args.isEmpty()) {
                 ctype = _resolver.resolveType(_env, tree.clazz, Kinds.TYP);
@@ -419,31 +431,22 @@ public class Detype extends PathedTreeTranslator
                 result = tree;
                 return; // abort! (error will have been logged)
             }
-            _env.info.anonParent = ctype.tsym;
 
-            // the Attr does some massaging of anonymous JCClassDecls which we need to manually
-            // duplicate here because attribution won't happen for a while, but we want to sneakily
-            // (and correctly) enter our anonymous inner class
-            if (ctype.tsym.isInterface()) {
-                tree.def.implementing = List.of(tree.clazz);
-            } else {
-                tree.def.extending = tree.clazz;
+            if (tree.def != null) {
+                _env.info.anonParent = ctype.tsym;
+                // Attr does some massaging of anonymous JCClassDecls which we need to manually
+                // duplicate here because attribution won't happen for a while, but we want to
+                // sneakily (and correctly) enter our anonymous inner class
+                if (ctype.tsym.isInterface()) {
+                    tree.def.implementing = List.of(tree.clazz);
+                } else {
+                    tree.def.extending = tree.clazz;
+                }
             }
         }
         super.visitNewClass(tree);
 
-        // enums are already desugared somewhat by the time we are called, so the AST looks
-        // (bizarrely) something like the following:
-        //
-        // public enum Type {
-        //     /*public static final*/ ADD /* = new Type() */
-        // }
-        //
-        // and we need to avoid transforming the "new Type()" clause or javac chokes
-        boolean inEnumFieldInit = path().endsWith(".ClassDef.VarDef") &&
-            Flags.isEnum(_env.enclClass.sym);
-
-        if (tree.def == null && !inEnumFieldInit) {
+        if (canReflect) {
             // if the constructor is being invoked with a single null argument, we need to add a
             // cast to Object because that null will become the single argument to the varargs
             // RT.newInstance() method
@@ -475,11 +478,10 @@ public class Detype extends PathedTreeTranslator
             JCMethodInvocation invoke = callRT("newInstance", tree.pos, args);
             invoke.varargsElement = tree.varargsElement;
             result = invoke;
-        }
 
-        // if the instantiated type is a library class or interface, we need to insert runtime
-        // casts to the the formal parameter types; otherwise we need to insert type carrying args
-        if (tree.def != null && !tree.args.isEmpty()) {
+        // if we didn't rewrite the constructor call to newInstance(), we need to insert either
+        // runtime casts to the the formal parameter types, or type carrying args
+        } else if (!tree.args.isEmpty()) {
             List<Type> ptypes = _types.memberType(_env.enclClass.sym.type, mi.msym).
                 asMethodType().argtypes;
             if (ASTUtil.isLibrary(_env.info.anonParent)) {
