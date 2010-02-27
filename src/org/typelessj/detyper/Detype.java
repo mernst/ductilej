@@ -118,36 +118,43 @@ public class Detype extends PathedTreeTranslator
             return;
         }
 
-        // local classes have not been entered yet, so we will manually cause entering to happen
-        // now; javac will overwrite our bogus symbol data later during the attrib phase
-        // if ((_env.info.scope.owner.kind & (Kinds.VAR | Kinds.MTH)) != 0) {
-        if (tree.sym == null) {
+        // local classes have not yet been entered, so we must manually do so
+        JCClassDecl ctree = tree;
+        if (ctree.sym == null) {
+            // clone the tree to avoid modifying the AST in ways that will confuse javac later
+            ctree = (JCClassDecl)ctree.clone();
+
             JavaFileObject ofile = _log.useSource(_env.toplevel.getSourceFile());
             try {
-                Backdoor.classEnter.invoke(_enter, tree, toAttrEnv(_env));
+                Backdoor.classEnter.invoke(_enter, ctree, toAttrEnv(_env));
             } finally {
                 _log.useSource(ofile);
             }
-            Debug.log("Entered inner class '" + tree.name + "'", "sym", tree.sym);
+
+            // the above call set up MemberEnter as a completer, we must now trigger it to cause
+            // entry to take place on all of the inner class's members
+            ctree.sym.complete();
+            Debug.log("Entered inner class '" + ctree.name + "'", "sym", ctree.sym);
+            // ASTUtil.dumpSyms(ctree);
         }
 
         // the entering process should have created an environment for the entered class, we need
         // to extract its scope and use that in our environment so that if/when we ask Resolve to
         // do things, it ends up using the correct scope
-        Env<AttrContext> eenv = _enter.getEnv(tree.sym);
+        Env<AttrContext> eenv = _enter.getEnv(ctree.sym);
         // however, anonymous inner classes seem not to have an environment created?
         Scope escope;
         if (eenv == null) {
-            Debug.warn("No enter scope for " + tree.sym);
-            escope = new Scope(tree.sym);
+            Debug.warn("No enter scope for " + ctree.sym);
+            escope = new Scope(ctree.sym);
         } else {
             escope = Backdoor.scope.get(eenv.info);
         }
 
         // note the environment of the class we're processing
         Env<DetypeContext> oenv = _env;
-        _env = _env.dup(tree, oenv.info.dup(escope));
-        _env.enclClass = tree;
+        _env = _env.dup(ctree, oenv.info.dup(escope));
+        _env.enclClass = ctree;
         _env.outer = oenv;
 
         if (tree.name != _names.empty) {
@@ -158,12 +165,15 @@ public class Detype extends PathedTreeTranslator
 
             // since the annotations AST has already been resolved into type symbols, we have
             // to manually add a type symbol for annotation to the ClassSymbol
-            tree.sym.attributes_field = tree.sym.attributes_field.prepend(
-                Backdoor.enterAnnotation.invoke(
-                    _annotate, a, _syms.annotationType, _enter.getEnv(tree.sym)));
+            if (tree.sym != null) {
+                tree.sym.attributes_field = tree.sym.attributes_field.prepend(
+                    Backdoor.enterAnnotation.invoke(
+                        _annotate, a, _syms.annotationType, _enter.getEnv(tree.sym)));
+            }
         }
 
-        super.visitClassDef(tree);
+        super.visitClassDef(ctree);
+        result = tree; // finally restore our unmodified tree
         _env = oenv;
     }
 
