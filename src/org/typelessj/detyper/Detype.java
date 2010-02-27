@@ -226,7 +226,7 @@ public class Detype extends PathedTreeTranslator
         // void someLibMethod (String arg1, int arg2) { ... } becomes
         // void someLibMethod (String arg1$T, int arg2$T) {
         //     Object arg1 = arg1$T, argg2 = arg2$T; ... }
-        } else if (!tree.params.isEmpty()) {
+        } else if (!tree.params.isEmpty() && tree.body != null) {
             for (List<JCVariableDecl> p = tree.params; !p.isEmpty(); p = p.tail) {
                 Name valname = p.head.name;
                 p.head.name = _names.fromString(valname + "$T");
