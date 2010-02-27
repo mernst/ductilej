@@ -327,7 +327,7 @@ public class Detype extends PathedTreeTranslator
         // we don't call super because mkAssign needs the untranslated expr for ++ and --
 
         JCExpression expr;
-        JCLiteral one = _tmaker.Literal(TypeTags.INT, 1);
+        JCLiteral one = _tmaker.Literal(1);
         switch (tree.getKind()) {
         case PREFIX_INCREMENT:  // ++i -> (i = i + 1)
         case POSTFIX_INCREMENT: // i++ -> ((i = i + 1) - 1)
@@ -341,7 +341,7 @@ public class Detype extends PathedTreeTranslator
         case PREFIX_DECREMENT:  // --i -> (i = i - 1)
         case POSTFIX_DECREMENT: // i-- -> ((i = i - 1) + 1)
             expr = mkAssign(tree.arg, binop(tree.pos, Tree.Kind.MINUS, translate(tree.arg),
-                                            _tmaker.Literal(TypeTags.INT, 1)), tree.pos);
+                                            _tmaker.Literal(1)), tree.pos);
             if (tree.getKind() == Tree.Kind.POSTFIX_DECREMENT) {
                 expr = binop(tree.pos, Tree.Kind.PLUS, expr, one);
             }
@@ -372,7 +372,7 @@ public class Detype extends PathedTreeTranslator
             break;
 
         default:
-            JCLiteral opcode = _tmaker.Literal(TypeTags.CLASS, tree.getKind().toString());
+            JCLiteral opcode = _tmaker.Literal(tree.getKind().toString());
             result = callRT("binop", tree.pos, opcode, tree.lhs, tree.rhs);
             // Debug.log("Rewrote binop", "kind", tree.getKind(), "tp", tree.pos);
             break;
@@ -552,8 +552,7 @@ public class Detype extends PathedTreeTranslator
         // transform, otherwise we do
         if (!_resolver.isStaticSite(_env, tree.selected)) {
             // transform obj.field into RT.select(obj, "field")
-            result = callRT("select", tree.pos,
-                            _tmaker.Literal(TypeTags.CLASS, tree.name.toString()),
+            result = callRT("select", tree.pos, _tmaker.Literal(tree.name.toString()),
                             tree.selected);
         }
     }
@@ -639,7 +638,7 @@ public class Detype extends PathedTreeTranslator
         }
 
         tree.args = tree.args.prepend(recv).
-            prepend(_tmaker.Literal(TypeTags.CLASS, TreeInfo.name(tree.meth).toString()));
+            prepend(_tmaker.Literal(TreeInfo.name(tree.meth).toString()));
         tree.meth = mkRT(invokeName, tree.meth.pos);
         // Debug.log("APPLY " + mi.msym + " -> " + tree);
     }
@@ -853,13 +852,13 @@ public class Detype extends PathedTreeTranslator
 
     protected JCMethodInvocation unop (int pos, Tree.Kind op, JCExpression arg)
     {
-        JCLiteral opcode = _tmaker.at(pos).Literal(TypeTags.CLASS, op.toString());
+        JCLiteral opcode = _tmaker.at(pos).Literal(op.toString());
         return callRT("unop", opcode.pos, opcode, arg);
     }
 
     protected JCMethodInvocation binop (int pos, Tree.Kind op, JCExpression lhs, JCExpression rhs)
     {
-        JCLiteral opcode = _tmaker.at(pos).Literal(TypeTags.CLASS, op.toString());
+        JCLiteral opcode = _tmaker.at(pos).Literal(op.toString());
         return callRT("binop", opcode.pos, opcode, lhs, rhs);
     }
 
@@ -961,7 +960,7 @@ public class Detype extends PathedTreeTranslator
                 return _tmaker.at(pos).Assign(lhs, rhs);
             } else {
                 return callRT("assign", pos, translate(fa.selected),
-                              _tmaker.Literal(TypeTags.CLASS, fa.name.toString()), rhs);
+                              _tmaker.Literal(fa.name.toString()), rhs);
             }
 
         // TODO: we need to handle (foo[ii]) = 1 (and maybe others?)
