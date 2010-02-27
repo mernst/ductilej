@@ -100,7 +100,9 @@ public class Resolver
         case JCTree.IDENT: {
             Symbol sym;
             mi.site = env.enclClass.sym.type;
+
             // pass the buck to javac's Resolve to do the heavy lifting
+            Env<AttrContext> aenv = Detype.toAttrEnv(env);
             if (mname == _names._this || mname == _names._super) {
                 if (mname == _names._super) {
                     if (_types.isSameType(mi.site, _syms.objectType)) {
@@ -108,14 +110,16 @@ public class Resolver
                     } else {
                         mi.site = _types.supertype(mi.site);
                     }
+                    // we need to twiddle the selectSuper bit in the env we pass to Resolve
+                    Backdoor.selectSuper.set(aenv.info, true);
                 }
                 // Debug.log("Resolving " + mname + "<" + mi.tatypes + ">(" + mi.atypes + ")");
                 mi.msym = invoke(env, Backdoor.resolveConstructor, _resolve, mexpr.pos(),
-                                 Detype.toAttrEnv(env), mi.site, mi.atypes, mi.tatypes);
+                                 aenv, mi.site, mi.atypes, mi.tatypes);
             } else {
                 // Debug.log("Resolving " + mname + "<" + mi.tatypes + ">(" + mi.atypes + ")");
                 mi.msym = invoke(env, Backdoor.resolveMethod, _resolve, mexpr.pos(),
-                                 Detype.toAttrEnv(env), mname, mi.atypes, mi.tatypes);
+                                 aenv, mname, mi.atypes, mi.tatypes);
             }
             if (mi.msym.kind >= Kinds.ERR) {
                 Debug.warn("Unable to resolve method", "expr", mexpr, "site", mi.site,
