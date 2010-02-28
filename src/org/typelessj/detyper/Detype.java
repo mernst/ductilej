@@ -605,7 +605,7 @@ public class Detype extends PathedTreeTranslator
                     asMethodType().argtypes;
                 // if the method is defined in a library class, we need to cast the argument types
                 // back to the types it expects
-                if (ASTUtil.isLibrary(mi.msym.owner)) {
+                if (ASTUtil.isLibraryOverrider(_types, mi.msym)) {
                     // we need to convert any formal type parameters on this method (as defined in
                     // the super class) to the actuals provided by our class in the extends clause
                     tree.args = castList(ptypes, tree.args);
