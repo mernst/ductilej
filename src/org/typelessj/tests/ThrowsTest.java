@@ -34,4 +34,10 @@ public class ThrowsTest
     {
         throw new IOException("Oh noez!");
     }
+
+    protected void castingThrower () throws IOException
+    {
+        Throwable ioe = new IOException();
+        throw (IOException) ioe;
+    }
 }
