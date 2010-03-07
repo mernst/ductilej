@@ -17,6 +17,8 @@ public class ThrowsTest
     {
         try {
             thrower();
+        } catch (java.io.FileNotFoundException fnfe) {
+            return;
         } catch (IOException ioe) {
             // test detyping of vars inside catch block; we detype inside, we don't detype vars in
             // the actual catch clause (ioe above)
