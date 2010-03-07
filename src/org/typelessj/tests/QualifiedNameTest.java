@@ -11,6 +11,8 @@ import static org.junit.Assert.*;
  */
 public class QualifiedNameTest
 {
+    public static boolean test = false;
+
     @Test public void testConstant ()
     {
         assertEquals("Center", java.awt.BorderLayout.CENTER);
@@ -19,5 +21,11 @@ public class QualifiedNameTest
     @Test public void testClassLiteral ()
     {
         assertEquals("[Ljava.lang.String;", String[].class.getName());
+    }
+
+    @Test public void testSameClassStaticField ()
+    {
+        QualifiedNameTest.test = true;
+        assertEquals(true, QualifiedNameTest.test);
     }
 }
