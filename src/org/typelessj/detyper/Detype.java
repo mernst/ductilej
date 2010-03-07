@@ -605,7 +605,9 @@ public class Detype extends PathedTreeTranslator
                     asMethodType().argtypes;
                 // if the method is defined in a library class, we need to cast the argument types
                 // back to the types it expects
-                if (ASTUtil.isLibraryOverrider(_types, mi.msym)) {
+                if (ASTUtil.isLibrary(mi.msym.owner) || // either the owner is a library
+                    // or we're overriding a "detyped" method that itself overrides a library
+                    ASTUtil.isLibraryOverrider(_types, mi.msym)) {
                     // we need to convert any formal type parameters on this method (as defined in
                     // the super class) to the actuals provided by our class in the extends clause
                     tree.args = castList(ptypes, tree.args);
@@ -762,6 +764,7 @@ public class Detype extends PathedTreeTranslator
 
         if (!(tree.clazz instanceof JCExpression)) {
             Debug.warn("Got cast to non-JCExpression node?", "tree", tree);
+
         } else if (!path().endsWith("Switch.Case")) {
             // TEMP: if the expression being casted is a null literal, leave the cast in place
             if (ASTUtil.isNullLiteral(tree.expr)) {
@@ -910,7 +913,8 @@ public class Detype extends PathedTreeTranslator
     {
         Type etype = _types.erasure(type);
         JCExpression clazz = _tmaker.at(expr.pos).Type(etype);
-        return (etype != type) ? typeVarCast(clazz, expr, type) : checkedCast(clazz, expr);
+        return !_types.isSameType(etype, type) ?
+            typeVarCast(clazz, expr, type) : checkedCast(clazz, expr);
     }
 
     protected List<JCExpression> castIntList (List<JCExpression> list)
