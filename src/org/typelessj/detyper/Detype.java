@@ -1029,19 +1029,28 @@ public class Detype extends PathedTreeTranslator
         if (catchers.isEmpty()) {
             return _tmaker.Throw(_tmaker.Ident(cvname));
         }
+
+        // create our new throw expression (exn.getCause())
         Name gcname = _names.fromString("getCause");
+        JCExpression texpr = _tmaker.Apply(List.<JCExpression>nil(),
+                                           _tmaker.Select(_tmaker.Ident(cvname), gcname),
+                                           List.<JCExpression>nil());
+
+        // if the type we're throwing is not already Throwable, then cast it
+        String vtype = catchers.head.param.vartype.toString();
+        if (!vtype.equals("java.lang.Throwable") && !vtype.equals("Throwable")) {
+            texpr = _tmaker.TypeCast((JCTree)catchers.head.param.vartype.clone(), texpr);
+        }
+
+        // finally wrap this all up in:
+        // if (exn.getCause() instanceof E) throw (E)exn.getCause() else ...
         return _tmaker.If(
             _tmaker.TypeTest(
                 _tmaker.Apply(List.<JCExpression>nil(),
                               _tmaker.Select(_tmaker.Ident(cvname), gcname),
                               List.<JCExpression>nil()),
                 (JCTree)catchers.head.param.vartype.clone()),
-            _tmaker.Throw(
-                _tmaker.TypeCast( // TODO: don't need the typecast if type is Throwable
-                    (JCTree)catchers.head.param.vartype.clone(),
-                    _tmaker.Apply(List.<JCExpression>nil(),
-                                  _tmaker.Select(_tmaker.Ident(cvname), gcname),
-                                  List.<JCExpression>nil()))),
+            _tmaker.Throw(texpr),
             unwrapExns(cvname, catchers.tail));
     }
 
