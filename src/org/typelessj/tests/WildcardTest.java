@@ -17,6 +17,22 @@ import static org.junit.Assert.*;
  */
 public class WildcardTest
 {
+    public static class A {
+        public A (Class<?>[] types) {
+        }
+    }
+
+    public static class B extends A {
+        public B () {
+            super(TYPES); // this becomes: super(TYPES, (Class<?>)null);
+            // we generate the Class<?> for the cast expression using TreeMaker.Type(), which has a
+            // bug, which causes javac to choke way later in the Flow or Check phases, so this code
+            // tests that our workaround for that bug is operational
+        }
+
+        protected static final Class<?>[] TYPES = { B.class };
+    }
+
     @Test public void testWildcard () {
         Class<?> clazz = WildcardTest.class;
         assertEquals("WildcardTest", clazz.getSimpleName());
