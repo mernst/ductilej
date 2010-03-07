@@ -23,6 +23,7 @@ Open issues
   called on one or two references should compare references.
 
 Detyper
+- Propagate final to shadow declarations in library overriders
 - See if we can add an import for org.typelessj.runtime.RT to avoid verbose dumps
 - Casting array dimension exprs to Integer isn't sufficient, they might
   (legally) be a Long (or other integer type) which we need to coerce
