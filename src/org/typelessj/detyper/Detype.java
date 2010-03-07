@@ -984,7 +984,9 @@ public class Detype extends PathedTreeTranslator
             JCFieldAccess fa = (JCFieldAccess)lhs;
             // if the expression is "this.something = ...", we want to avoid turning the lhs into a
             // reflective assignment; we want to preserve definite assignment in constructors
-            if (fa.selected instanceof JCIdent && ((JCIdent)fa.selected).name == _names._this) {
+            if ((fa.selected instanceof JCIdent && ((JCIdent)fa.selected).name == _names._this) ||
+                // TODO: in this case we should perform "assignStatic"
+                _resolver.isStaticSite(_env, fa.selected)) {
                 // TODO: resolve the field on the lhs and only preserve definite assignment if it
                 // exists and it's a final field
                 return _tmaker.at(pos).Assign(lhs, rhs);
