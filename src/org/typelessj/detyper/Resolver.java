@@ -450,7 +450,7 @@ public class Resolver
             } else {
                 Symbol sym = invoke(env, Backdoor.findIdent, _resolve, Detype.toAttrEnv(env),
                                     name, Kinds.PCK | Kinds.TYP | Kinds.VAL);
-                return (sym != null) && (sym.kind == Kinds.TYP);
+                return (sym != null) && ((sym.kind == Kinds.TYP) || (sym.kind == Kinds.PCK));
             }
         }
 
@@ -468,7 +468,7 @@ public class Resolver
             }
             Symbol sym = invoke(env, Backdoor.selectSym, _attr, facc, site, Detype.toAttrEnv(env),
                                 Type.noType, skind);
-            return (sym != null) && (sym.kind == Kinds.TYP);
+            return (sym != null) && ((sym.kind == Kinds.TYP) || (sym.kind == Kinds.PCK));
         }
 
         default:
