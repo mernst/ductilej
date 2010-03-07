@@ -6,6 +6,8 @@ package org.typelessj.tests;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
+import org.typelessj.tests.helper.HelperUtil;
+
 /**
  * Tests switch selector transformation.
  */
@@ -24,7 +26,8 @@ public class SwitchTest
             assertTrue(switchSelect(new Wrapper(CASES[ii])) == RESULTS[ii]);
             assertTrue(switchMethod(CASES[ii]) == RESULTS[ii]);
         }
-        assertEquals(switchEnum(Code.B), "B");
+        assertEquals("B", switchEnum(Code.B));
+        assertEquals("A", switchRemoteEnum());
     }
 
     @Test public void testCastedSwitch ()
@@ -108,6 +111,16 @@ public class SwitchTest
     protected String switchEnum (Code code)
     {
         switch (code) {
+        case A: return "A";
+        case B: return "B";
+        default:
+        case C: return "C";
+        }
+    }
+
+    protected String switchRemoteEnum ()
+    {
+        switch (HelperUtil.getA()) {
         case A: return "A";
         case B: return "B";
         default:
