@@ -15,6 +15,7 @@ public class SwitchTest
 {
     // we won't detype static final fields
     public static final int ONE = 1;
+    public static final int TWO = ONE+1;
 
     public enum Code { A, B, C };
 
@@ -69,7 +70,7 @@ public class SwitchTest
         case 0: return 3;
         default:
         case ONE:
-        case 2: return 1;
+        case TWO: return 1;
         case 3: return 0;
         }
     }
@@ -81,7 +82,7 @@ public class SwitchTest
         case 0: return 3;
         default:
         case ONE:
-        case 2: return 1;
+        case TWO: return 1;
         case 3: return 0;
         }
     }
@@ -92,7 +93,7 @@ public class SwitchTest
         case 0: return 3;
         default:
         case ONE:
-        case 2: return 1;
+        case TWO: return 1;
         case 3: return 0;
         }
     }
@@ -103,7 +104,7 @@ public class SwitchTest
         case 0: return 3;
         default:
         case ONE:
-        case 2: return 1;
+        case TWO: return 1;
         case 3: return 0;
         }
     }

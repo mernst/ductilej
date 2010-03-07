@@ -275,7 +275,17 @@ public class Detype extends PathedTreeTranslator
             _env.info.arrayElemType = tree.vartype;
         }
 
-        super.visitVarDef(tree);
+        // determine whether we're defining a const field
+        boolean isConstField = isConstField(tree);
+
+        // we don't want to detype the initializer of a const field, it would break the const-ness
+        // of switch expressions, and it would prevent the constant from being inlined (the latter
+        // in theory shouldn't change semantics but I don't ask me to provide a proof)
+        if (!isConstField) {
+            super.visitVarDef(tree);
+        } else {
+            result = tree;
+        }
         _env = oenv;
 
         // var symbols for member-level variables are already entered, we just want to handle
@@ -289,10 +299,8 @@ public class Detype extends PathedTreeTranslator
         }
 
         String path = path();
-        if (isInlinableField(tree) || (tree.sym != null && Flags.isEnum(tree.sym))) {
-            // we don't want to detype a field decl that could be inlined (it could break static
-            // analysis that the program may rely on for correct compilation); we also avoid
-            // touching synthesized enum field declarations in any way as that angers javac greatly
+        if (isConstField || (tree.sym != null && Flags.isEnum(tree.sym))) {
+            // we also avoid detyping synthesized enum field declarations as that confuses javac
 
         } else if (!path.endsWith(".Catch") && // don't detype the param(s) of a catch block
                    // nor the arguments of a library
@@ -857,11 +865,9 @@ public class Detype extends PathedTreeTranslator
             (_env.enclMethod.mods != null && (_env.enclMethod.mods.flags & Flags.STATIC) != 0);
     }
 
-    protected boolean isInlinableField (JCVariableDecl tree)
+    protected boolean isConstField (JCVariableDecl tree)
     {
-        // TODO: detect expressions that could be folded into constants
-        return ASTUtil.isStaticFinal(tree.mods) &&
-            (tree.init != null && tree.init.getTag() == JCTree.LITERAL);
+        return ASTUtil.isStaticFinal(tree.mods) && ASTUtil.isConstantExpr(tree.init);
     }
 
     protected JCMethodInvocation unop (int pos, Tree.Kind op, JCExpression arg)
