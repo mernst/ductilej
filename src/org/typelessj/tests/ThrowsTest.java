@@ -40,4 +40,20 @@ public class ThrowsTest
         Throwable ioe = new IOException();
         throw (IOException) ioe;
     }
+
+    protected void nonCastingThrower () throws IOException
+    {
+        IOException ioe = new IOException();
+        throw ioe;
+    }
+
+    protected void callingThrower () throws IOException
+    {
+        throw error();
+    }
+
+    protected static IOException error ()
+    {
+        return new IOException();
+    }
 }
