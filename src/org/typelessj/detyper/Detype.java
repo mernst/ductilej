@@ -840,15 +840,6 @@ public class Detype extends PathedTreeTranslator
 
     protected boolean inLibraryOverrider ()
     {
-        // if we're passed a method from an anonymous inner class, it will have no symbol
-        // information and we currently instead fall back on a hack that marks all methods in the
-        // inner class as detypable or not based on whether the parent of the anonymous inner class
-        // is a library class or not; this is not strictly correct, but strict correctness is going
-        // to be a huge pile of trouble that we want to make sure is worth it first
-        if (_env.info.anonParent != null) {
-            return ASTUtil.isLibrary(_env.info.anonParent);
-        }
-
         // if we're not in a method, we can't be in a library overrider
         if (_env.enclMethod == null) {
             return false;

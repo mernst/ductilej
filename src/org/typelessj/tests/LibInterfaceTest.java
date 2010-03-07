@@ -49,6 +49,16 @@ public class LibInterfaceTest
         assertTrue(icomp.compare(0, 5) < 0);
     }
 
+    @Test public void testOverride ()
+    {
+        Value v = new Value(15) {
+            @Override public String toString() {
+                return String.valueOf(value);
+            }
+        };
+        assertEquals("15", v.toString());
+    }
+
     protected static <V> void testForall (final V dummy)
     {
         Comparator<V> icomp = new Comparator<V>() {
