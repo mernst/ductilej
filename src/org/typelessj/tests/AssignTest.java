@@ -35,4 +35,18 @@ public class AssignTest
         iobj.value = -24;
         assertEquals(iobj.value, -24);
     }
+
+    @Test public void testDefiniteAssign ()
+    {
+        String a = "Hello!", b;
+        boolean cond = true;
+        if (cond && (b = next()) != null) {
+            a = b;
+        }
+        assertEquals("Hello!", a);
+    }
+
+    protected static String next() {
+        return null;
+    }
 }
