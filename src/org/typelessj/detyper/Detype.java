@@ -1008,17 +1008,16 @@ public class Detype extends PathedTreeTranslator
         if (catchers.isEmpty()) {
             return _tmaker.Throw(_tmaker.Ident(cvname));
         }
-        Name ctname = TreeInfo.name(catchers.head.param.vartype);
         Name gcname = _names.fromString("getCause");
         return _tmaker.If(
             _tmaker.TypeTest(
                 _tmaker.Apply(List.<JCExpression>nil(),
                               _tmaker.Select(_tmaker.Ident(cvname), gcname),
                               List.<JCExpression>nil()),
-                _tmaker.Ident(ctname)),
+                (JCTree)catchers.head.param.vartype.clone()),
             _tmaker.Throw(
                 _tmaker.TypeCast( // TODO: don't need the typecast if type is Throwable
-                    _tmaker.Ident(ctname),
+                    (JCTree)catchers.head.param.vartype.clone(),
                     _tmaker.Apply(List.<JCExpression>nil(),
                                   _tmaker.Select(_tmaker.Ident(cvname), gcname),
                                   List.<JCExpression>nil()))),
