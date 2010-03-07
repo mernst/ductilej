@@ -910,6 +910,10 @@ public class Detype extends PathedTreeTranslator
     protected JCExpression condCast (JCExpression expr)
     {
         switch (expr.getTag()) {
+        case JCTree.AND: // we don't turn && and || expressions into reflective calls
+        case JCTree.OR:  // to preserve short-circuit behavior, so we need not to wrap them here so
+                         // that the compiler can account for short-circuit behavior in definite
+                         // assignment analysis
         case JCTree.LITERAL: return expr;
         // TODO: special handling for static final constants?
         default: return callRT("asBoolean", expr.pos, expr);
