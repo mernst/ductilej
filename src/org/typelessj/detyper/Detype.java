@@ -238,7 +238,10 @@ public class Detype extends PathedTreeTranslator
         // void someLibMethod (String arg1$T, int arg2$T) {
         //     Object arg1 = arg1$T, argg2 = arg2$T; ... }
         } else if (!tree.params.isEmpty() && tree.body != null) {
-            // TODO: this is going to hose us in constructors with super/this calls... sigh
+            // we'll never have to insert shadow arguments into a constructor because a constructor
+            // is never a library signature overrider; this it will always be safe to jam
+            // declarations at the top of our method body (it would not be safe to do so in a
+            // constructor because they'd end up above the super() call)
             for (List<JCVariableDecl> p = tree.params; !p.isEmpty(); p = p.tail) {
                 if ((p.head.mods.flags & Flags.PARAMETER) != 0) {
                     continue; // no need to shadow final parameters
