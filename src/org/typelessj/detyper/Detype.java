@@ -243,13 +243,13 @@ public class Detype extends PathedTreeTranslator
             // declarations at the top of our method body (it would not be safe to do so in a
             // constructor because they'd end up above the super() call)
             for (List<JCVariableDecl> p = tree.params; !p.isEmpty(); p = p.tail) {
-                if ((p.head.mods.flags & Flags.PARAMETER) != 0) {
-                    continue; // no need to shadow final parameters
-                }
                 Name valname = p.head.name;
                 p.head.name = _names.fromString(valname + "$T");
                 tree.body.stats = tree.body.stats.prepend(
-                    _tmaker.VarDef(_tmaker.Modifiers(0L), valname, _tmaker.Type(_syms.objectType),
+                    // preserve the flags (e.g. final), but strip off PARAMETER as our synthesized
+                    // shadow field is not, in fact, a method parameter
+                    _tmaker.VarDef(_tmaker.Modifiers(p.head.mods.flags & ~Flags.PARAMETER),
+                                   valname, _tmaker.Type(_syms.objectType),
                                    _tmaker.Ident(p.head.name)));
             }
         }
