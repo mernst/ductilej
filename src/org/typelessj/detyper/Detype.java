@@ -279,8 +279,8 @@ public class Detype extends PathedTreeTranslator
         boolean isConstField = isConstField(tree);
 
         // we don't want to detype the initializer of a const field, it would break the const-ness
-        // of switch expressions, and it would prevent the constant from being inlined (the latter
-        // in theory shouldn't change semantics but I don't ask me to provide a proof)
+        // of switch case expressions, and it would prevent the constant from being inlined (the
+        // latter in theory shouldn't change semantics but I don't ask me to provide a proof)
         if (!isConstField) {
             super.visitVarDef(tree);
         } else {
@@ -769,6 +769,19 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
+    @Override public void visitThrow (JCThrow tree) {
+        // if the throw expression is not "new Something" or "(SomeExn)expr", we need to insert a
+        // dynamic cast back to the expected type of the throw to preserve exception flow analysis
+        Type etype = null;
+        if (tree.expr.getTag() != JCTree.NEWCLASS && tree.expr.getTag() != JCTree.TYPECAST) {
+            etype = _resolver.resolveType(_env, tree.expr, Kinds.VAL);
+        }
+        super.visitThrow(tree);
+        if (etype != null) {
+            tree.expr = cast(etype, tree.expr);
+        }
+    }
+
     @Override public void visitTypeCast (JCTypeCast tree)
     {
         super.visitTypeCast(tree);
@@ -779,8 +792,8 @@ public class Detype extends PathedTreeTranslator
             // just leave it as is and hope for the best
 
         } else if (path.endsWith("Switch.Case")) {
-            // leave casts in switch expressions alone, they are necessary to turn bytes into ints
-            // and so forth
+            // leave casts in switch case expressions alone, they are necessary to turn bytes into
+            // ints and so forth
 
         } else if (path.endsWith("Block.Throw")) {
             // if we're casting an expression to an exception type, turn it into a checked cast
