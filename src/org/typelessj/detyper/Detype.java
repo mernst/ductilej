@@ -26,6 +26,7 @@ import com.sun.tools.javac.tree.JCTree.*;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.tree.TreeMaker;
+import com.sun.tools.javac.tree.TreeScanner;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.Log;
@@ -1138,7 +1139,6 @@ public class Detype extends PathedTreeTranslator
      */
     protected JCExpression toTypedNull (Type type, JCExpression arg)
     {
-        JCExpression expr;
         switch (type.tag) {
         case TypeTags.BOOLEAN: // yes, this uses 0 well
         case TypeTags.BYTE:
@@ -1150,9 +1150,25 @@ public class Detype extends PathedTreeTranslator
         case TypeTags.DOUBLE:
             return _tmaker.Literal(type.tag, 0); // TODO
         default:
-            return _tmaker.at(arg.pos).TypeCast(
-                _tmaker.Type(type), _tmaker.Literal(TypeTags.BOT, null));
+            return fixUnboundWildcardInnerBug(
+                _tmaker.at(arg.pos).TypeCast(
+                    _tmaker.Type(type), _tmaker.Literal(TypeTags.BOT, null)));
         }
+    }
+
+    protected JCExpression fixUnboundWildcardInnerBug (JCExpression expr)
+    {
+        // there's a pesky bug in TreeMaker.Type() that puts java.lang.Object as the "inner"
+        // field of a JCWildcard for unbound declarations (i.e. Class<?>) which later causes
+        // havoc to be wreaked inside the compiler because it expects inner to be null
+        expr.accept(new TreeScanner() {
+            public void visitWildcard (JCWildcard tree) {
+                switch (tree.kind.kind) {
+                case UNBOUND: tree.inner = null; break;
+                }
+            }
+        });
+        return expr;
     }
 
     protected static String what (JCTree node)
