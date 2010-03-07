@@ -237,6 +237,7 @@ public class Detype extends PathedTreeTranslator
         // void someLibMethod (String arg1$T, int arg2$T) {
         //     Object arg1 = arg1$T, argg2 = arg2$T; ... }
         } else if (!tree.params.isEmpty() && tree.body != null) {
+            // TODO: this is going to hose us in constructors with super/this calls... sigh
             for (List<JCVariableDecl> p = tree.params; !p.isEmpty(); p = p.tail) {
                 if ((p.head.mods.flags & Flags.PARAMETER) != 0) {
                     continue; // no need to shadow final parameters
@@ -914,7 +915,13 @@ public class Detype extends PathedTreeTranslator
     protected JCMethodInvocation cast (Type type, JCExpression expr)
     {
         Type etype = _types.erasure(type);
-        JCExpression clazz = _tmaker.at(expr.pos).Type(etype);
+        JCExpression clazz;
+        if (etype.tag == TypeTags.CLASS) {
+            // TODO: why is TreeMaker.Type() creating bogus types?
+            clazz = mkFA(etype.toString(), expr.pos);
+        } else {
+            clazz = _tmaker.at(expr.pos).Type(etype);
+        }
         return !_types.isSameType(etype, type) ?
             typeVarCast(clazz, expr, type) : checkedCast(clazz, expr);
     }
