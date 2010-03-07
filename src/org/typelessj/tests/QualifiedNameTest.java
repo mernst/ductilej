@@ -15,4 +15,9 @@ public class QualifiedNameTest
     {
         assertEquals("Center", java.awt.BorderLayout.CENTER);
     }
+
+    @Test public void testClassLiteral ()
+    {
+        assertEquals("[Ljava.lang.String;", String[].class.getName());
+    }
 }
