@@ -560,9 +560,9 @@ public class Detype extends PathedTreeTranslator
             return;
         }
 
-        // if the selected expression is a static receiver (a class) then we don't want to
-        // transform, otherwise we do
-        if (!_resolver.isStaticSite(_env, tree.selected)) {
+        // if the selected expression is a static receiver (a class), or we're looking at a class
+        // literal expression (Foo.class) then we don't want to transform, otherwise we do
+        if (!_resolver.isStaticSite(_env, tree.selected) && tree.name != _names._class) {
             // transform obj.field into RT.select(obj, "field")
             result = callRT("select", tree.pos, _tmaker.Literal(tree.name.toString()),
                             tree.selected);
