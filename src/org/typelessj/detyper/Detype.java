@@ -238,11 +238,13 @@ public class Detype extends PathedTreeTranslator
         //     Object arg1 = arg1$T, argg2 = arg2$T; ... }
         } else if (!tree.params.isEmpty() && tree.body != null) {
             for (List<JCVariableDecl> p = tree.params; !p.isEmpty(); p = p.tail) {
+                if ((p.head.mods.flags & Flags.PARAMETER) != 0) {
+                    continue; // no need to shadow final parameters
+                }
                 Name valname = p.head.name;
                 p.head.name = _names.fromString(valname + "$T");
                 tree.body.stats = tree.body.stats.prepend(
-                    _tmaker.VarDef(_tmaker.Modifiers(0L), valname,
-                                   _tmaker.Ident(_names.fromString("Object")),
+                    _tmaker.VarDef(_tmaker.Modifiers(0L), valname, _tmaker.Type(_syms.objectType),
                                    _tmaker.Ident(p.head.name)));
             }
         }
