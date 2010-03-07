@@ -773,20 +773,28 @@ public class Detype extends PathedTreeTranslator
     {
         super.visitTypeCast(tree);
 
+        String path = path();
         if (!(tree.clazz instanceof JCExpression)) {
-            Debug.warn("Got cast to non-JCExpression node?", "tree", tree);
+            Debug.warn("Got cast to non-JCExpression clazz?", "tree", tree);
+            // just leave it as is and hope for the best
 
-        } else if (!path().endsWith("Switch.Case")) {
+        } else if (path.endsWith("Switch.Case")) {
+            // leave casts in switch expressions alone, they are necessary to turn bytes into ints
+            // and so forth
+
+        } else if (path.endsWith("Block.Throw")) {
+            // if we're casting an expression to an exception type, turn it into a checked cast
+            result = checkedCast((JCExpression)tree.clazz, tree.expr);
+
+        } else if (ASTUtil.isNullLiteral(tree.expr)) {
             // TEMP: if the expression being casted is a null literal, leave the cast in place
-            if (ASTUtil.isNullLiteral(tree.expr)) {
-                // nada
-            } else {
-                // TODO: if the cast expression contains type variables, we need to compute their
-                // upper bound and note a cast to that upper bound
-                result = tree.expr;
+
+        } else {
+            // TODO: if the cast expression contains type variables, we need to compute their upper
+            // bound and note a cast to that upper bound
+            result = tree.expr;
 //             result = callRT("noteCast", tree.pos,
 //                             classLiteral((JCExpression)tree.clazz, tree.pos), tree.expr);
-            }
         }
     }
 
