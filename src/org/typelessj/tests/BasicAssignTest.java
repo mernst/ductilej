@@ -9,7 +9,7 @@ import static org.junit.Assert.*;
 /**
  * Tests various assignment transformations.
  */
-public class AssignTest
+public class BasicAssignTest
 {
     // make sure the type of this initializer expression gets cast back to the declared type as we
     // don't detype static final fields
