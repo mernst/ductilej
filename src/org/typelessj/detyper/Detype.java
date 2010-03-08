@@ -1002,28 +1002,48 @@ public class Detype extends PathedTreeTranslator
     // NOTE: lhs must not have been translated, rhs must have been translated
     protected JCExpression mkAssign (JCExpression lhs, JCExpression rhs, int pos)
     {
-        if (lhs instanceof JCArrayAccess) {
+        switch (lhs.getTag()) {
+        case JCTree.INDEXED: {
             JCArrayAccess aa = (JCArrayAccess)lhs;
             return callRT("assignAt", pos, translate(aa.indexed), translate(aa.index), rhs);
+        }
 
-        } else if (lhs instanceof JCFieldAccess) {
+        case JCTree.SELECT: {
             JCFieldAccess fa = (JCFieldAccess)lhs;
             // if the expression is "this.something = ...", we want to avoid turning the lhs into a
             // reflective assignment; we want to preserve definite assignment in constructors
             if ((fa.selected instanceof JCIdent && ((JCIdent)fa.selected).name == _names._this) ||
                 // TODO: in this case we should perform "assignStatic"
                 _resolver.isStaticSite(_env, fa.selected)) {
+                // if the field being assigned is defined in a library class, we need to cast the
+                // right hand side back to the type 
+                return _tmaker.at(pos).Assign(lhs, maybeCastRHS(lhs, rhs));
                 // TODO: resolve the field on the lhs and only preserve definite assignment if it
                 // exists and it's a final field
-                return _tmaker.at(pos).Assign(lhs, rhs);
             } else {
                 return callRT("assign", pos, translate(fa.selected),
                               _tmaker.Literal(fa.name.toString()), rhs);
             }
+        }
+
+        case JCTree.IDENT:
+            // if the LHS is a field (with implicit this), we need to check whether it is defined
+            // in a library class; if so we to dynamically cast the RHS to the correct static type
+            return _tmaker.at(pos).Assign(translate(lhs), maybeCastRHS(lhs, rhs));
 
         // TODO: we need to handle (foo[ii]) = 1 (and maybe others?)
-        } else {
+        default:
             return _tmaker.at(pos).Assign(translate(lhs), rhs);
+        }
+    }
+
+    protected JCExpression maybeCastRHS (JCExpression lhs, JCExpression rhs)
+    {
+        Symbol sym = _resolver.resolveSymbol(_env, lhs, Kinds.VAR);
+        if (ASTUtil.isLibrary(sym)) {
+            return cast(_resolver.resolveType(_env, lhs, Kinds.VAR), rhs);
+        } else {
+            return rhs;
         }
     }
 
