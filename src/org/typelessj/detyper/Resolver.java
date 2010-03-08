@@ -94,7 +94,7 @@ public class Resolver
         }
 
         if (sym.kind >= Kinds.ERR) {
-            Debug.warn("Unable symbol resolution failed", "expr", expr, "sym", sym);
+            Debug.warn("Symbol resolution failed", "expr", expr, "sym", sym);
         }
         return sym;
     }
