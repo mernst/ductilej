@@ -56,6 +56,50 @@ public class Resolver
     }
 
     /**
+     * Resolves the symbol for the supplied expression. Currently only handles idents and select
+     * expressions.
+     */
+    public Symbol resolveSymbol (Env<DetypeContext> env, JCTree expr, int pkind)
+    {
+        Symbol sym;
+        switch (expr.getTag()) {
+        case JCTree.IDENT: {
+            Name name = TreeInfo.name(expr);
+            if (name == _names._this) {
+                sym = env.enclClass.sym;
+            } else {
+                // Debug.temp("Resoving ident", "name", name, "pkind", pkind);
+                sym = invoke(env, Backdoor.resolveIdent, _resolve,
+                             expr.pos(), Detype.toAttrEnv(env), name, pkind);
+            }
+            break;
+        }
+
+        case JCTree.SELECT: {
+            JCFieldAccess facc = (JCFieldAccess)expr;
+            Type site = resolveSelectSite(env, facc, pkind);
+            if (site == null) {
+                Debug.warn("Unable to resolve receiver of field select: " + expr);
+                return _syms.errSymbol;
+            }
+            sym = invoke(env, Backdoor.selectSym, _attr, facc, site, Detype.toAttrEnv(env),
+                         Type.noType, pkind);
+            break;
+        }
+
+        default:
+            Debug.warn("Unknown expr type in resolveSymbol()", "tag", expr.getTag(), "expr", expr,
+                       "etype", expr.getClass().getSimpleName());
+            return _syms.errSymbol;
+        }
+
+        if (sym.kind >= Kinds.ERR) {
+            Debug.warn("Unable symbol resolution failed", "expr", expr, "sym", sym);
+        }
+        return sym;
+    }
+
+    /**
      * Resolves a constructor for the specified class, given the supplied arguments and type
      * arguments, using information in the supplied context. Performs static resolution to choose
      * between overloaded candidates.
@@ -209,18 +253,7 @@ public class Resolver
         // Debug.temp("Resolving type", "expr", expr, "pkind", pkind);
         switch (expr.getTag()) {
         case JCTree.IDENT: {
-            Name name = TreeInfo.name(expr);
-            Symbol sym;
-            if (name == _names._this) {
-                sym = env.enclClass.sym;
-            } else {
-                // Debug.temp("Resoving ident", "name", name, "pkind", pkind);
-                sym = invoke(env, Backdoor.resolveIdent, _resolve,
-                             expr.pos(), Detype.toAttrEnv(env), name, pkind);
-            }
-            if (sym.kind >= Kinds.ERR) {
-                Debug.warn("Unable to resolve type of ident", "expr", expr, "sym", sym);
-            }
+            Symbol sym = resolveSymbol(env, expr, pkind);
 
             Env<DetypeContext> env1 = env;
             if (sym.kind < Kinds.ERR && sym.owner != null && sym.owner != env1.enclClass.sym) {
@@ -238,19 +271,9 @@ public class Resolver
         case JCTree.SELECT: {
             JCFieldAccess facc = (JCFieldAccess)expr;
 
-            // determine the expected kind of the qualifier expression
-            int skind = 0;
-            if (facc.name == _names._this || facc.name == _names._super ||
-                facc.name == _names._class) {
-                skind = Kinds.TYP;
-            } else {
-                if ((pkind & Kinds.PCK) != 0) skind = skind | Kinds.PCK;
-                if ((pkind & Kinds.TYP) != 0) skind = skind | Kinds.TYP | Kinds.PCK;
-                if ((pkind & (Kinds.VAL | Kinds.MTH)) != 0) skind = skind | Kinds.VAL | Kinds.TYP;
-            }
-
-            // otherwise this should be the selection of a field from an object
-            Type site = resolveType(env, facc.selected, skind);
+            // we'd just use resolveSymbol(), but annoyingly we need the array 'length' handling
+            // interjected between site type resolution and symbol resolution; sigh...
+            Type site = resolveSelectSite(env, facc, pkind);
             if (site == null) {
                 Debug.warn("Unable to resolve receiver of field select: " + expr);
                 return null;
@@ -262,13 +285,8 @@ public class Resolver
                 return _syms.typeOfTag[TypeTags.INT];
             }
 
-            // Debug.temp("Resolving type symbol", "site", site, "facc", facc);
             Symbol sym = invoke(env, Backdoor.selectSym, _attr, facc, site, Detype.toAttrEnv(env),
                                 Type.noType, pkind);
-            if (sym == null) {
-                Debug.warn("Unable to resolve symbol for field select", "expr", expr, "site", site);
-                return null;
-            }
             return _types.memberType(site, sym);
         }
 
@@ -506,6 +524,21 @@ public class Resolver
         }
         Type ubound = (types.head == null) ? null : _types.upperBound(types.head);
         return upperBounds(types.tail).prepend(ubound);
+    }
+
+    protected Type resolveSelectSite (Env<DetypeContext> env, JCFieldAccess facc, int pkind)
+    {
+        // determine the expected kind of the qualifier expression
+        int skind = 0;
+        if (facc.name == _names._this || facc.name == _names._super ||
+            facc.name == _names._class) {
+            skind = Kinds.TYP;
+        } else {
+            if ((pkind & Kinds.PCK) != 0) skind = skind | Kinds.PCK;
+            if ((pkind & Kinds.TYP) != 0) skind = skind | Kinds.TYP | Kinds.PCK;
+            if ((pkind & (Kinds.VAL | Kinds.MTH)) != 0) skind = skind | Kinds.VAL | Kinds.TYP;
+        }
+        return resolveType(env, facc.selected, skind);
     }
 
     /**
