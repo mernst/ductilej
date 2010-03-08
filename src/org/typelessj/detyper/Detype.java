@@ -825,8 +825,13 @@ public class Detype extends PathedTreeTranslator
 
     @Override public void visitAssign (JCAssign tree)
     {
-        // we don't call super as we may need to avoid translating the LHS
-        result = mkAssign(tree.lhs, translate(tree.rhs), tree.pos);
+        // if we're in an annotation declaration, don't touch anything
+        if (path().endsWith(".Annotation")) {
+            result = tree;
+        } else {
+            // we don't call super as we may need to avoid translating the LHS
+            result = mkAssign(tree.lhs, translate(tree.rhs), tree.pos);
+        }
     }
 
     @Override public void visitBlock (JCBlock tree)
