@@ -316,8 +316,9 @@ public class Detype extends PathedTreeTranslator
         // if we're about to transform a primitive field with no initializer, we need to synthesize
         // an initializer that mimics the default initialization provided for primitive fields
         if (path.endsWith(".ClassDef") && tree.init == null &&
-            tree.vartype.getTag() == JCTree.TYPEIDENT) {
-            Debug.temp("Need initializer", "name", tree.name, "path", path, "vtype", tree.vartype.getClass());
+            // if the field is final, they must assign it a non-default value in the constructor,
+            // so we need not (and indeed cannot) supply a synthesized initializer
+            tree.vartype.getTag() == JCTree.TYPEIDENT && (tree.mods.flags & Flags.FINAL) == 0) {
             // all primitive literals use (integer) 0 as their value (even boolean)
             tree.init = _tmaker.Literal(((JCPrimitiveTypeTree)tree.vartype).typetag, 0);
         }
