@@ -1,5 +1,5 @@
-TypelessJ TODO
---------------
+DuctileJ TODO
+-------------
 
 Evaluation
 - Look at untyped program in Eclipse to get a feel for the impact of the red
@@ -23,7 +23,7 @@ Open issues
   called on one or two references should compare references.
 
 Detyper
-- See if we can add an import for org.typelessj.runtime.RT to avoid verbose dumps
+- See if we can add an import for org.ductilej.runtime.RT to avoid verbose dumps
 - Casting array dimension exprs to Integer isn't sufficient, they might
   (legally) be a Long (or other integer type) which we need to coerce
 - Extract main() detection into ASTUtil, make it correct

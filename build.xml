@@ -2,8 +2,8 @@
 <project name="detyper" default="compile" basedir=".">
   <!-- project metadata -->
   <property name="lib.name"     value="detyper"/>
-  <property name="doc.packages" value="org.typelessj.detyper.*"/>
-  <property name="doc.overview" value="org/typelessj/detyper/overview.html"/>
+  <property name="doc.packages" value="org.ductilej.detyper.*"/>
+  <property name="doc.overview" value="org/ductilej/detyper/overview.html"/>
 
   <!-- various directories used when building things -->
   <property name="src.dir"     value="src"/>
@@ -72,7 +72,7 @@
            source="1.6" target="1.6" encoding="utf-8"
            srcdir="${src.dir}" destdir="${classes.dir}">
       <classpath refid="build.classpath"/>
-      <exclude name="org/typelessj/tests/**"/>
+      <exclude name="org/ductilej/tests/**"/>
       <compilerarg value="-Xlint"/>
       <compilerarg value="-Xlint:-serial"/>
     </javac>
@@ -84,7 +84,7 @@
              overview="${src.dir}/${doc.overview}" destdir="${javadoc.dir}"
              additionalparam="-breakiterator">
       <packageset dir="${src.dir}">
-        <exclude name="org/typelessj/detyper/tests/**"/>
+        <exclude name="org/ductilej/detyper/tests/**"/>
       </packageset>
       <classpath refid="build.classpath"/>
       <link href="http://java.sun.com/javase/6/docs/api/"/>
@@ -100,7 +100,7 @@
           description="Compiles the code and builds our jar file.">
     <jar destfile="${deploy.dir}/${lib.name}-bare.jar" basedir="${classes.dir}">
       <service type="javax.annotation.processing.Processor"
-               provider="org.typelessj.detyper.Processor"/>
+               provider="org.ductilej.detyper.Processor"/>
       <exclude name="**/tests/**"/>
     </jar>
 
@@ -123,7 +123,7 @@
     <unjar src="${deploy.dir}/${lib.name}.jar" dest="${auto.dir}"/>
     <jar destfile="${deploy.dir}/${lib.name}.jar" basedir="${auto.dir}">
       <service type="javax.annotation.processing.Processor"
-               provider="org.typelessj.detyper.Processor"/>
+               provider="org.ductilej.detyper.Processor"/>
     </jar>
     <delete dir="${auto.dir}"/>
   </target>
@@ -161,9 +161,9 @@
       <!--<compilerarg value="-XprintProcessorInfo"/>-->
       <compilerarg value="-implicit:class"/>
       <compilerarg value="-processor"/>
-      <compilerarg value="org.typelessj.detyper.Processor"/>
-      <compilerarg value="-Aorg.typelessj.showclass=${showclass}"/>
-      <compilerarg value="-Aorg.typelessj.debug=${debug}"/>
+      <compilerarg value="org.ductilej.detyper.Processor"/>
+      <compilerarg value="-Aorg.ductilej.showclass=${showclass}"/>
+      <compilerarg value="-Aorg.ductilej.debug=${debug}"/>
       <include name="**/tests/${test}*Test.java"/>
     </javac>
 
@@ -175,7 +175,7 @@
         <pathelement location="${dtclass.dir}"/>
         <path refid="build.classpath"/>
       </classpath>
-      <jvmarg value="-Dorg.typelessj.debug=${debug}"/>
+      <jvmarg value="-Dorg.ductilej.debug=${debug}"/>
       <formatter type="brief" usefile="false"/>
       <batchtest>
         <fileset dir="${src.dir}">
@@ -241,8 +241,8 @@
       <compilerarg value="-Xlint:-serial"/>
       <!--<compilerarg value="-XprintProcessorInfo"/>-->
       <compilerarg value="-processor"/>
-      <compilerarg value="org.typelessj.astviz.Processor"/>
-      <include name="org/typelessj/tests/${test}*"/>
+      <compilerarg value="org.ductilej.astviz.Processor"/>
+      <include name="org/ductilej/tests/${test}*"/>
     </javac>
   </target>
 </project>
