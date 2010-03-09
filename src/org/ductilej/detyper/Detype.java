@@ -658,9 +658,9 @@ public class Detype extends PathedTreeTranslator
         if (Flags.isStatic(mi.msym)) {
             // convert to RT.invokeStatic("method", decl.class, args)
             ClassSymbol osym = (ClassSymbol)mi.msym.owner;
-            recv = classLiteral(mkFA(osym.fullname.toString(), tree.pos), tree.pos);
             // TODO: this causes strangeness in weird places (See LibInterfaceTest)
             // recv = _tmaker.at(tree.pos).ClassLiteral((ClassSymbol)mi.msym.owner);
+            recv = classLiteral(mkFA(osym.fullname.toString(), tree.pos), tree.pos);
             invokeName = "invokeStatic";
 
         } else if (tree.meth instanceof JCFieldAccess) {
