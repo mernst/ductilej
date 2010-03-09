@@ -303,19 +303,29 @@ public class Detype extends PathedTreeTranslator
         }
 
         String path = path();
-        if (isConstField || (tree.sym != null && Flags.isEnum(tree.sym))) {
-            // we also avoid detyping synthesized enum field declarations as that confuses javac
+        if (isConstField ||
+            // avoid detyping synthesized enum field declarations as that confuses javac
+            (tree.sym != null && Flags.isEnum(tree.sym)) ||
+            // don't detype the param(s) of a catch block
+            path.endsWith(".Catch") ||
+            // nor the arguments of a library
+            (path.contains(".MethodDef.params") && inLibraryOverrider())) {
+            return;
+        }
 
-        } else if (!path.endsWith(".Catch") && // don't detype the param(s) of a catch block
-                   // nor the arguments of a library
-                   !(path.contains(".MethodDef.params") && inLibraryOverrider())) {
-//             Debug.log("Transforming vardef", "mods", tree.mods, "name", tree.name,
-//                      "vtype", what(tree.vartype), "init", tree.init,
-//                      "sym", ASTUtil.expand(tree.sym));
-            tree.vartype = _tmaker.Ident(_names.fromString("Object"));
-            if ((tree.mods.flags & Flags.VARARGS) != 0) {
-                tree.vartype = _tmaker.TypeArray(tree.vartype);
-            }
+        // if we're about to transform a primitive field with no initializer, we need to synthesize
+        // an initializer that mimics the default initialization provided for primitive fields
+        if (path.endsWith(".ClassDef") && tree.init == null &&
+            tree.vartype.getTag() == JCTree.TYPEIDENT) {
+            Debug.temp("Need initializer", "name", tree.name, "path", path, "vtype", tree.vartype.getClass());
+            // all primitive literals use (integer) 0 as their value (even boolean)
+            tree.init = _tmaker.Literal(((JCPrimitiveTypeTree)tree.vartype).typetag, 0);
+        }
+
+        // Debug.log("Xforming vardef", "mods", tree.mods, "name", tree.name, "init", tree.init);
+        tree.vartype = _tmaker.Ident(_names.fromString("Object"));
+        if ((tree.mods.flags & Flags.VARARGS) != 0) {
+            tree.vartype = _tmaker.TypeArray(tree.vartype);
         }
     }
 
@@ -803,8 +813,9 @@ public class Detype extends PathedTreeTranslator
             // if we're casting an expression to an exception type, turn it into a checked cast
             result = checkedCast((JCExpression)tree.clazz, tree.expr);
 
-        } else if (ASTUtil.isNullLiteral(tree.expr)) {
-            // TEMP: if the expression being casted is a null literal, leave the cast in place
+        } else if (tree.expr.getTag() == JCTree.LITERAL) {
+            // if the expression being casted is a literal, leave the cast in place; that's a
+            // conversion, not a type cast, and we need to preserve it
 
         } else {
             // TODO: if the cast expression contains type variables, we need to compute their upper

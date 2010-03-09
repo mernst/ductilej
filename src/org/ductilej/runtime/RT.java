@@ -488,7 +488,7 @@ public class RT
      */
     protected static Object invoke (Method method, Object receiver, Object... rargs)
     {
-        // Debug.log("Invoking " + method, "recv", receiver, "args", args);
+        // Debug.temp("Invoking " + method, "recv", receiver, "args", rargs);
 
         boolean isMangled = isMangled(method);
         List<Class<?>> ptypes = Arrays.asList(method.getParameterTypes());
