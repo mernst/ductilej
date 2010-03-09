@@ -121,9 +121,10 @@ public class RT
         }
         Class<?> orclass = receiver.getClass();
         Class<?> rclass = orclass;
+        Class<?>[] atypes = toArgTypes(args);
         Method m;
         do {
-            m = findMethod(mname, rclass, args);
+            m = findMethod(mname, rclass, atypes);
             if (m == null) {
                 rclass = rclass.getEnclosingClass();
                 receiver = getEnclosingReference(rclass, receiver);
@@ -138,7 +139,8 @@ public class RT
      */
     public static Object invokeStatic (String mname, Class<?> clazz, Object... args)
     {
-        return invoke(checkMethod(findMethod(mname, clazz, args), mname, clazz, args), null, args);
+        Method m = findMethod(mname, clazz, toArgTypes(args));
+        return invoke(checkMethod(m, mname, clazz, args), null, args);
     }
 
     /**
@@ -540,10 +542,10 @@ public class RT
      *
      * @throws NoSuchMethodError if a best matching method could not be found.
      */
-    protected static Method findMethod (String mname, Class<?> clazz, Object[] args)
+    protected static Method findMethod (String mname, Class<?> clazz, Class<?>[] atypes)
     {
         // TODO: this needs to follow the algorithm in JLS 15.12.2.1
-        List<Method> methods = collectMethods(new ArrayList<Method>(), mname, clazz, args);
+        List<Method> methods = collectMethods(new ArrayList<Method>(), mname, clazz, atypes);
 
         if (methods.size() == 0) {
             return null; // the caller may want to fall back to an outer class
@@ -557,9 +559,9 @@ public class RT
             Class<?>[] ptypes = m.getParameterTypes();
             int pcount = m.getName().endsWith(MM_SUFFIX) ? ptypes.length/2 : ptypes.length;
             int poff = ptypes.length - pcount;
-            for (int ii = 0, ll = Math.min(args.length, pcount); ii < ll; ii++) {
+            for (int ii = 0, ll = Math.min(atypes.length, pcount); ii < ll; ii++) {
                 Class<?> ptype = boxType(ptypes[poff+ii]);
-                if (args[ii] != null && !ptype.equals(args[ii].getClass())) {
+                if (atypes[ii] != null && !ptype.equals(atypes[ii])) {
                     continue METHOD;
                 }
             }
@@ -581,7 +583,7 @@ public class RT
      * A helper for {@link #findMethod}.
      */
     protected static List<Method> collectMethods (
-        List<Method> into, String mname, Class<?> clazz, Object[] args)
+        List<Method> into, String mname, Class<?> clazz, Class<?>[] atypes)
     {
         for (Method method : clazz.getDeclaredMethods()) {
             List<Class<?>> ptypes = Arrays.asList(method.getParameterTypes());
@@ -590,13 +592,14 @@ public class RT
             if (isMangled) {
                 cmname = cmname.substring(0, cmname.length()-MM_SUFFIX.length());
             }
-            if (cmname.equals(mname) && isApplicable(ptypes, isMangled, method.isVarArgs(), args)) {
+            if (cmname.equals(mname) &&
+                isApplicable(ptypes, isMangled, method.isVarArgs(), atypes)) {
                 into.add(method);
             }
         }
         Class<?> parent = clazz.getSuperclass();
         if (parent != null) {
-            collectMethods(into, mname, parent, args);
+            collectMethods(into, mname, parent, atypes);
         }
         return into;
     }
@@ -621,13 +624,14 @@ public class RT
     protected static Constructor<?> findConstructor (Class<?> clazz, boolean needsOuterThis,
                                                      boolean isMangled, Object... args)
     {
+        Class<?>[] atypes = toArgTypes(args);
         for (Constructor<?> ctor : clazz.getDeclaredConstructors()) {
             List<Class<?>> ptypes = Arrays.asList(ctor.getParameterTypes());
             if (needsOuterThis) {
                 // ignore the outer this argument when testing for applicability
                 ptypes = ptypes.subList(1, ptypes.size());
             }
-            if (isApplicable(ptypes, isMangled, ctor.isVarArgs(), args)) {
+            if (isApplicable(ptypes, isMangled, ctor.isVarArgs(), atypes)) {
                 return ctor; // TODO: enumerate and select best match like findMethod()
             }
         }
@@ -639,11 +643,10 @@ public class RT
      * be called with the supplied arguments.
      */
     protected static boolean isApplicable (
-        List<Class<?>> ptypes, boolean isMangled, boolean isVarArgs, Object[] args)
+        List<Class<?>> ptypes, boolean isMangled, boolean isVarArgs, Class<?>[] atypes)
     {
         int pcount = isMangled ? ptypes.size()/2 : ptypes.size();
-        int acount = (args == null) ? 0 : args.length;
-        if (!(pcount == acount || (isVarArgs && (pcount-1) <= acount))) {
+        if (!(pcount == atypes.length || (isVarArgs && (pcount-1) <= atypes.length))) {
             return false;
         }
 
@@ -651,7 +654,7 @@ public class RT
         int fpcount = isVarArgs ? pcount-1 : pcount, poff = isMangled ? pcount : 0;
         for (int ii = 0; ii < fpcount; ii++) {
             Class<?> ptype = boxType(ptypes.get(poff + ii));
-            if (args[ii] != null && !ptype.isAssignableFrom(args[ii].getClass())) {
+            if (atypes[ii] != null && !ptype.isAssignableFrom(atypes[ii])) {
                 return false;
             }
         }
@@ -664,7 +667,7 @@ public class RT
 //         if (isVarArgs) {
 //             Class<?> ptype = boxType(ptypes[poff+fpcount]);
 //             for (int ii = fpcount; ii < args.length; ii++) {
-//                 if (args[ii] != null && !ptype.isAssignableFrom(args[ii].getClass())) {
+//                 if (atypes[ii] != null && !ptype.isAssignableFrom(atypes[ii])) {
 //                     return false;
 //                 }
 //             }
@@ -728,6 +731,16 @@ public class RT
     protected static boolean isMangled (Method method)
     {
         return method.getName().endsWith(MM_SUFFIX);
+    }
+
+    protected static Class<?>[] toArgTypes (Object[] args)
+    {
+        Class<?>[] atypes = new Class<?>[args == null ? 0 : args.length];
+        for (int ii = 0, ll = atypes.length; ii < ll; ii++) {
+            // it'd be nice to have bottom here rather than null, alas
+            atypes[ii] = (args[ii] == null) ? null : args[ii].getClass();
+        }
+        return atypes;
     }
 
     protected static Object[] addMangleArgs (List<Class<?>> ptypes, Object[] args)
