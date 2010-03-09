@@ -119,7 +119,8 @@ public class RT
     public static Object invoke (String mname, Object receiver, Object... args)
     {
         if (receiver == null) {
-            throw new NullPointerException();
+            throw new NullPointerException(
+                Debug.format("Null receiver for " + mname, "atypes", toArgTypes(args)));
         }
         Class<?> orclass = receiver.getClass();
         Class<?> rclass = orclass;
@@ -616,7 +617,7 @@ public class RT
         if (m == null) {
             // TODO: if argument mismatch, clarify that, if total method lacking, clarify that
             throw new NoSuchMethodError(
-                "Can't find method " + clazz + "." + mname + " (" + args.length + " args)");
+                Debug.format(clazz + "." + mname, "atypes", toArgTypes(args)));
         } else {
             return m;
         }
@@ -681,8 +682,10 @@ public class RT
 
     protected static boolean isAssignableFrom (Class<?> ptype, Class<?> atype)
     {
-        return ptype.isAssignableFrom(atype) ||
-            (ptype.isPrimitive() && COERCIONS.containsEntry(atype, ptype));
+        return ptype.isAssignableFrom(atype) || // widening reference conversion
+            boxType(ptype).equals(atype) ||     // boxing conversion
+            (ptype.isPrimitive() &&             // widening primitve conversion
+             COERCIONS.containsEntry(atype, ptype));
     }
 
     protected static boolean isEqualTo (Object lhs, Object rhs)
