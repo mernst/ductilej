@@ -15,7 +15,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
 
 /**
  * Provides dynamic method dispatch, operator evaluation and other bits.
@@ -127,7 +129,9 @@ public class RT
             m = findMethod(mname, rclass, atypes);
             if (m == null) {
                 rclass = rclass.getEnclosingClass();
-                receiver = getEnclosingReference(rclass, receiver);
+                if (rclass != null) {
+                    receiver = getEnclosingReference(rclass, receiver);
+                }
             }
         } while (m == null && rclass != null);
         return invoke(checkMethod(m, mname, orclass, args), receiver, args);
@@ -653,8 +657,8 @@ public class RT
         // make sure all fixed arity arguments match
         int fpcount = isVarArgs ? pcount-1 : pcount, poff = isMangled ? pcount : 0;
         for (int ii = 0; ii < fpcount; ii++) {
-            Class<?> ptype = boxType(ptypes.get(poff + ii));
-            if (atypes[ii] != null && !ptype.isAssignableFrom(atypes[ii])) {
+            Class<?> ptype = /*boxType(*/ptypes.get(poff + ii)/*)*/;
+            if (atypes[ii] != null && !isAssignableFrom(ptype, atypes[ii])) {
                 return false;
             }
         }
@@ -667,12 +671,18 @@ public class RT
 //         if (isVarArgs) {
 //             Class<?> ptype = boxType(ptypes[poff+fpcount]);
 //             for (int ii = fpcount; ii < args.length; ii++) {
-//                 if (atypes[ii] != null && !ptype.isAssignableFrom(atypes[ii])) {
+//                 if (atypes[ii] != null && !isAssignableFrom(ptype, atypes[ii])) {
 //                     return false;
 //                 }
 //             }
 //         }
         return true;
+    }
+
+    protected static boolean isAssignableFrom (Class<?> ptype, Class<?> atype)
+    {
+        return ptype.isAssignableFrom(atype) ||
+            (ptype.isPrimitive() && COERCIONS.containsEntry(atype, ptype));
     }
 
     protected static boolean isEqualTo (Object lhs, Object rhs)
@@ -919,4 +929,56 @@ public class RT
             }
         }).
         build();
+
+    protected static final Multimap<Class<?>, Class<?>> COERCIONS = HashMultimap.create();
+    static {
+        // widening conversions
+        COERCIONS.put(Byte.class, Short.TYPE);
+        COERCIONS.put(Byte.class, Integer.TYPE);
+        COERCIONS.put(Byte.class, Long.TYPE);
+        COERCIONS.put(Byte.class, Float.TYPE);
+        COERCIONS.put(Byte.class, Double.TYPE);
+        COERCIONS.put(Short.class, Integer.TYPE);
+        COERCIONS.put(Short.class, Long.TYPE);
+        COERCIONS.put(Short.class, Float.TYPE);
+        COERCIONS.put(Short.class, Double.TYPE);
+        COERCIONS.put(Character.class, Integer.TYPE);
+        COERCIONS.put(Character.class, Long.TYPE);
+        COERCIONS.put(Character.class, Float.TYPE);
+        COERCIONS.put(Character.class, Double.TYPE);
+        COERCIONS.put(Integer.class, Long.TYPE);
+        COERCIONS.put(Integer.class, Float.TYPE);
+        COERCIONS.put(Integer.class, Double.TYPE);
+        COERCIONS.put(Long.class, Float.TYPE);
+        COERCIONS.put(Long.class, Double.TYPE);
+        COERCIONS.put(Float.class, Double.TYPE);
+
+        // widening and narrowing conversion (byte -> int -> char)
+        COERCIONS.put(Byte.class, Character.TYPE);
+
+        // narrowing conversions
+        // TODO: should we insert these automatically when we see a cast?
+//         COERCIONS.put(Short.class, Byte.TYPE);
+//         COERCIONS.put(Short.class, Character.TYPE);
+//         COERCIONS.put(Character.class, Byte.TYPE);
+//         COERCIONS.put(Character.class, Short.TYPE);
+//         COERCIONS.put(Integer.class, Byte.TYPE);
+//         COERCIONS.put(Integer.class, Short.TYPE);
+//         COERCIONS.put(Integer.class, Character.TYPE);
+//         COERCIONS.put(Long.class, Byte.TYPE);
+//         COERCIONS.put(Long.class, Short.TYPE);
+//         COERCIONS.put(Long.class, Character.TYPE);
+//         COERCIONS.put(Long.class, Integer.TYPE);
+//         COERCIONS.put(Float.class, Byte.TYPE);
+//         COERCIONS.put(Float.class, Short.TYPE);
+//         COERCIONS.put(Float.class, Character.TYPE);
+//         COERCIONS.put(Float.class, Integer.TYPE);
+//         COERCIONS.put(Float.class, Long.TYPE);
+//         COERCIONS.put(Double.class, Byte.TYPE);
+//         COERCIONS.put(Double.class, Short.TYPE);
+//         COERCIONS.put(Double.class, Character.TYPE);
+//         COERCIONS.put(Double.class, Integer.TYPE);
+//         COERCIONS.put(Double.class, Long.TYPE);
+//         COERCIONS.put(Double.class, Float.TYPE);
+    }
 }
