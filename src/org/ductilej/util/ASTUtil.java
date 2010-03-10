@@ -109,11 +109,11 @@ public class ASTUtil
     }
 
     /**
-     * Returns true if the supplied modifiers include 'static' and 'final', false otherwise.
+     * Returns true if the supplied modifiers include 'final', false otherwise.
      */
-    public static boolean isStaticFinal (JCModifiers mods)
+    public static boolean isFinal (JCModifiers mods)
     {
-        return (mods.flags & (Flags.STATIC|Flags.FINAL)) == (Flags.STATIC|Flags.FINAL);
+        return (mods.flags & Flags.FINAL) != 0;
     }
 
     /**

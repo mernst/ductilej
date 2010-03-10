@@ -279,13 +279,14 @@ public class Detype extends PathedTreeTranslator
             _env.info.arrayElemType = tree.vartype;
         }
 
-        // determine whether we're defining a const field
-        boolean isConstField = isConstField(tree);
+        // determine whether we're defining a constant (a final variable that references a constant
+        // expression, e.g. final int foo = 3)
+        boolean isConstDecl = isConstDecl(tree);
 
         // we don't want to detype the initializer of a const field, it would break the const-ness
         // of switch case expressions, and it would prevent the constant from being inlined (the
         // latter in theory shouldn't change semantics but I don't ask me to provide a proof)
-        if (!isConstField) {
+        if (!isConstDecl) {
             super.visitVarDef(tree);
         } else {
             result = tree;
@@ -303,7 +304,7 @@ public class Detype extends PathedTreeTranslator
         }
 
         String path = path();
-        if (isConstField ||
+        if (isConstDecl ||
             // avoid detyping synthesized enum field declarations as that confuses javac
             (tree.sym != null && Flags.isEnum(tree.sym)) ||
             // don't detype the param(s) of a catch block
@@ -316,9 +317,10 @@ public class Detype extends PathedTreeTranslator
         // if we're about to transform a primitive field with no initializer, we need to synthesize
         // an initializer that mimics the default initialization provided for primitive fields
         if (path.endsWith(".ClassDef") && tree.init == null &&
+            tree.vartype.getTag() == JCTree.TYPEIDENT &&
             // if the field is final, they must assign it a non-default value in the constructor,
             // so we need not (and indeed cannot) supply a synthesized initializer
-            tree.vartype.getTag() == JCTree.TYPEIDENT && (tree.mods.flags & Flags.FINAL) == 0) {
+            !ASTUtil.isFinal(tree.mods)) {
             // all primitive literals use (integer) 0 as their value (even boolean)
             tree.init = _tmaker.Literal(((JCPrimitiveTypeTree)tree.vartype).typetag, 0);
         }
@@ -914,9 +916,11 @@ public class Detype extends PathedTreeTranslator
             (_env.enclMethod.mods != null && (_env.enclMethod.mods.flags & Flags.STATIC) != 0);
     }
 
-    protected boolean isConstField (JCVariableDecl tree)
+    protected boolean isConstDecl (JCVariableDecl tree)
     {
-        return ASTUtil.isStaticFinal(tree.mods) && ASTUtil.isConstantExpr(tree.init);
+        return tree.vartype.getTag() == JCTree.TYPEIDENT & // must be a primitive type
+            ASTUtil.isFinal(tree.mods) &&
+            ASTUtil.isConstantExpr(tree.init);
     }
 
     protected JCMethodInvocation unop (int pos, Tree.Kind op, JCExpression arg)
