@@ -550,6 +550,13 @@ public class Detype extends PathedTreeTranslator
         if (etype == null) {
             // do nothing, we're probably looking at syntactically incorrect code
         } else if (tree.elems != null) {
+            // if our argument is is a single element which is a null literal, we need to add a
+            // cast to Object as we're going to translate it into a call of the form:
+            //   RT.boxArrayArgs(Type.class, null)
+            // which will be an ambiguous use of varargs
+            if (tree.elems.size() == 1 && ASTUtil.isNullLiteral(tree.elems.head)) {
+                tree.elems.head = toTypedNull(_syms.objectType, tree.elems.head);
+            }
             result = callRT("boxArrayArgs", tree.pos,
                             tree.elems.prepend(classLiteral(etype, etype.pos)));
         } else {
