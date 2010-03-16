@@ -1,0 +1,44 @@
+#!/usr/bin/perl -w
+#
+# $Id$
+#
+# Generates our myriad binary operator classes from a single template file.
+
+use Cwd 'realpath';
+
+my $root = `dirname $0`;
+chomp($root);
+$root = realpath("$root/..");
+my $opsdir = "$root/src/org/ductilej/runtime/ops";
+
+my %types = ( "byte" => "Byte",
+              "short" => "Short",
+              "char" => "Character",
+              "int" => "Integer",
+              "long" => "Long",
+              "float" => "Float",
+              "double" => "Double" );
+
+my $idata = `cat $opsdir/IntegralOps.tmpl`;
+my $fdata = `cat $opsdir/FloatingOps.tmpl`;
+
+foreach $left (keys %types) {
+    foreach $right (keys %types) {
+        my $lclass = $types{$left};
+        my $rclass = $types{$right};
+        my $xdata;
+        if ($left eq "float" || $right eq "float" || $left eq "double" || $right eq "double") {
+            $xdata = $fdata;
+        } else {
+            $xdata = $idata;
+        }
+        $xdata =~ s/\{left\}/$left/g;
+        $xdata =~ s/\{right\}/$right/g;
+        $xdata =~ s/\{LEFT\}/$lclass/g;
+        $xdata =~ s/\{RIGHT\}/$rclass/g;
+        my $xfile = "$opsdir/" . $lclass . $rclass . "Ops.java";
+        open(OUT, ">$xfile") or die "Can't write to $xfile: $!\n";
+        print OUT $xdata;
+        close(OUT);
+    }
+}

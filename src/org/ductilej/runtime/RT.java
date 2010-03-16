@@ -15,9 +15,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.base.Function;
+import com.google.common.collect.BiMap;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
+
+import org.ductilej.runtime.ops.OpsUtil;
 
 /**
  * Provides dynamic method dispatch, operator evaluation and other bits.
@@ -278,57 +283,61 @@ public class RT
             if (lhs instanceof String || rhs instanceof String) {
                 return String.valueOf(lhs) + String.valueOf(rhs);
             }
-            return OPS.get(promote((Number)lhs, (Number)rhs)).plus((Number)lhs, (Number)rhs);
+            return OpsUtil.get(lhs, rhs).plus(lhs, rhs);
 
         } else if ("MINUS".equals(opcode)) {
-            return OPS.get(promote((Number)lhs, (Number)rhs)).minus((Number)lhs, (Number)rhs);
+            return OpsUtil.get(lhs, rhs).minus(lhs, rhs);
 
         } else if ("MULTIPLY".equals(opcode)) {
-            return OPS.get(promote((Number)lhs, (Number)rhs)).multiply((Number)lhs, (Number)rhs);
+            return OpsUtil.get(lhs, rhs).multiply(lhs, rhs);
 
         } else if ("DIVIDE".equals(opcode)) {
-            return OPS.get(promote((Number)lhs, (Number)rhs)).divide((Number)lhs, (Number)rhs);
-
-        } else if ("LESS_THAN".equals(opcode)) {
-            return ((Number)lhs).doubleValue() < ((Number)rhs).doubleValue();
-
-        } else if ("GREATER_THAN".equals(opcode)) {
-            return ((Number)lhs).doubleValue() > ((Number)rhs).doubleValue();
-
-        } else if ("LESS_THAN_EQUAL".equals(opcode)) {
-            return ((Number)lhs).doubleValue() <= ((Number)rhs).doubleValue();
-
-        } else if ("GREATER_THAN_EQUAL".equals(opcode)) {
-            return ((Number)lhs).doubleValue() >= ((Number)rhs).doubleValue();
-
-        } else if ("EQUAL_TO".equals(opcode)) {
-            return isEqualTo(lhs, rhs);
-
-        } else if ("NOT_EQUAL_TO".equals(opcode)) {
-            return !isEqualTo(lhs, rhs);
-
-        } else if ("CONDITIONAL_AND".equals(opcode)) {
-            return !((Boolean)lhs).booleanValue() ? false : ((Boolean)rhs).booleanValue();
-
-        } else if ("CONDITIONAL_OR".equals(opcode)) {
-            return ((Boolean)lhs).booleanValue() ? true : ((Boolean)rhs).booleanValue();
-
-        } else if ("OR".equals(opcode)) {
-            return ((Number)lhs).intValue() | ((Number)rhs).intValue();
-
-        } else if ("AND".equals(opcode)) {
-            return ((Number)lhs).intValue() & ((Number)rhs).intValue();
-
-        } else if ("XOR".equals(opcode)) {
-            return ((Number)lhs).intValue() ^ ((Number)rhs).intValue();
+            return OpsUtil.get(lhs, rhs).divide(lhs, rhs);
 
         } else if ("REMAINDER".equals(opcode)) {
-            return ((Number)lhs).intValue() % ((Number)rhs).intValue();
+            return OpsUtil.get(lhs, rhs).remainder(lhs, rhs);
+
+        } else if ("LESS_THAN".equals(opcode)) {
+            return OpsUtil.get(lhs, rhs).lessThan(lhs, rhs);
+
+        } else if ("GREATER_THAN".equals(opcode)) {
+            return OpsUtil.get(lhs, rhs).greaterThan(lhs, rhs);
+
+        } else if ("LESS_THAN_EQUAL".equals(opcode)) {
+            return OpsUtil.get(lhs, rhs).lessThanEq(lhs, rhs);
+
+        } else if ("GREATER_THAN_EQUAL".equals(opcode)) {
+            return OpsUtil.get(lhs, rhs).greaterThanEq(lhs, rhs);
+
+        } else if ("EQUAL_TO".equals(opcode)) {
+            return OpsUtil.isEqualTo(lhs, rhs);
+
+        } else if ("NOT_EQUAL_TO".equals(opcode)) {
+            return !OpsUtil.isEqualTo(lhs, rhs);
+
+        } else if ("OR".equals(opcode)) {
+            return OpsUtil.get(lhs, rhs).bitOr(lhs, rhs);
+
+        } else if ("AND".equals(opcode)) {
+            return OpsUtil.get(lhs, rhs).bitAnd(lhs, rhs);
+
+        } else if ("XOR".equals(opcode)) {
+            return OpsUtil.get(lhs, rhs).bitXor(lhs, rhs);
+
+        } else if ("LEFT_SHIFT".equals(opcode)) {
+            return OpsUtil.get(lhs, rhs).leftShift(lhs, rhs);
+
+        } else if ("RIGHT_SHIFT".equals(opcode)) {
+            return OpsUtil.get(lhs, rhs).rightShift(lhs, rhs);
+
+        } else if ("CONDITIONAL_AND".equals(opcode)) {
+            throw new IllegalArgumentException("&& should not be lifted");
+
+        } else if ("CONDITIONAL_OR".equals(opcode)) {
+            throw new IllegalArgumentException("|| should not be lifted");
         }
 
 // TODO: implement
-//         LEFT_SHIFT(BinaryTree.class),
-//         RIGHT_SHIFT(BinaryTree.class),
 //         UNSIGNED_RIGHT_SHIFT(BinaryTree.class),
 //         MULTIPLY_ASSIGNMENT(CompoundAssignmentTree.class),
 //         DIVIDE_ASSIGNMENT(CompoundAssignmentTree.class),
@@ -374,6 +383,22 @@ public class RT
     public static Object atIndex (Object array, Object index)
     {
         return Array.get(array, ((Number)index).intValue());
+    }
+
+    /**
+     * Performs primitive numeric coercion on a value.
+     */
+    public static Object coerce (Class<?> clazz, Object value)
+    {
+        if (value == null) {
+            throw new NullPointerException("Cannot coerce null to " + clazz.getName());
+        }
+        Coercer c = COERCERS.get(Tuple.create(value.getClass(), clazz));
+        if (c == null) {
+            throw new IllegalArgumentException(
+                "Cannot coerce " + value.getClass().getName() + " to " + clazz.getName());
+        }
+        return c.coerce(value);
     }
 
     /**
@@ -688,25 +713,11 @@ public class RT
              COERCIONS.containsEntry(atype, ptype));
     }
 
-    protected static boolean isEqualTo (Object lhs, Object rhs)
-    {
-        // TODO: if the original code had Integer == Integer it would have done reference
-        // equality, but we don't (can't?) differentiate between that and two Integer objects
-        // that we promoted from ints and so we always do equals() equality on them as long as
-        // both sides are non-null
-        if (lhs instanceof Number && rhs instanceof Number) {
-            // TODO: handle promotion because Integer.equals(Byte) does not work
-            return lhs.equals(rhs);
-        } else {
-            return lhs == rhs;
-        }
-    }
-
     /**
      * Returns the class to which to promote both sides of a numeric operation involving the
      * supplied left- and right-hand-sides.
      */
-    protected static Class<?> promote (Number lhs, Number rhs)
+    protected static Class<?> promote (Object lhs, Object rhs)
     {
         // if either is a double, we promote to double
         Class<?> lhc = lhs.getClass(), rhc = rhs.getClass();
@@ -714,26 +725,20 @@ public class RT
             return Double.class;
         }
 
-        // if one side is a float, then we promote to float unless the other side is a long in
-        // which case we promote to double
-        if (lhc == Float.class) {
-            return promoteFloat(rhc);
-        }
-        if (rhc == Float.class) {
-            return promoteFloat(lhc);
+        // if either side is a long we'll either promote to long or double
+        if (lhs == Long.class) {
+            return (rhc == Float.class) ? Double.class : Long.class;
+        } else if (rhs == Long.class) {
+            return (lhc == Float.class) ? Double.class : Long.class;
         }
 
-        // otherwise we promote to the widest integer
-        for (Class<?> clazz : PROMOTE_ORDER) {
-            if (clazz == lhc || clazz == rhc) {
-                return clazz;
-            }
+        // if one side is a float, then we promote to float
+        if (lhc == Float.class || rhc == Float.class) {
+            return Float.class;
         }
 
-        // we're not dealing with primitive types, so rightfully we should fail (we could do fun
-        // things like support addition on BigDecimal and BigInteger and friends, but that's for
-        // another day)
-        throw new IllegalArgumentException("Unable to promote " + lhc + " and " + rhc);
+        // otherwise we promote to int
+        return Integer.class;
     }
 
     protected static Class<?> promoteFloat (Class<?> other)
@@ -811,15 +816,56 @@ public class RT
         return (t instanceof RuntimeException && t.getCause() != null) ? unwrap(t.getCause()) : t;
     }
 
-    protected static interface MathOps {
-        public Object plus (Number lhs, Number rhs);
-        public Object minus (Number lhs, Number rhs);
-        public Object multiply (Number lhs, Number rhs);
-        public Object divide (Number lhs, Number rhs);
-    };
+    /** A very non-general-purpose tuple class for use as a hash key. */
+    protected static class Tuple<L, R> {
+        public final L left;
+        public final R right;
 
-    protected static final Map<Class<?>, Class<?>> WRAPPERS =
-        ImmutableMap.<Class<?>, Class<?>>builder().
+        public static <A, B> Tuple<A, B> create (A left, B right) {
+            return new Tuple<A, B>(left, right);
+        }
+
+        public Tuple (L left, R right) {
+            this.left = left;
+            this.right = right;
+        }
+
+        @Override public int hashCode() {
+            return left.hashCode() ^ right.hashCode();
+        }
+
+        @Override public boolean equals (Object other) {
+            @SuppressWarnings("unchecked") Tuple<L, R> ot = (Tuple<L, R>)other;
+            return ot.left.equals(left) && ot.right.equals(right);
+        }
+
+        @Override public String toString () {
+            return "(" + left + "," + right + ")";
+        }
+    }
+
+    /** Used to coerce primitive types. */
+    protected static interface Coercer {
+        Object coerce (Object value);
+    }
+
+    /** Used to coerce a type to itself. */
+    protected static class IdentityCoercer implements Coercer {
+        public Object coerce (Object value) {
+            return value;
+        }
+    }
+
+    /** Used to coerce a numeric (non-char) type to another type. */
+    protected static abstract class NumberCoercer implements Coercer {
+        public Object coerce (Object value) {
+            return coerce((Number)value);
+        }
+        protected abstract Object coerce (Number value);
+    }
+
+    protected static final BiMap<Class<?>, Class<?>> WRAPPERS =
+        ImmutableBiMap.<Class<?>, Class<?>>builder().
         put(Boolean.TYPE, Boolean.class).
         put(Byte.TYPE, Byte.class).
         put(Character.TYPE, Character.class).
@@ -844,94 +890,6 @@ public class RT
 
     protected static final Class<?>[] PROMOTE_ORDER = {
         Long.class, Integer.class, Short.class, Byte.class };
-
-    protected static final Map<Class<?>, MathOps> OPS =
-        ImmutableMap.<Class<?>, MathOps>builder().
-        put(Byte.class, new MathOps() {
-            public Object plus (Number lhs, Number rhs) {
-                return lhs.byteValue() + rhs.byteValue();
-            }
-            public Object minus (Number lhs, Number rhs) {
-                return lhs.byteValue() - rhs.byteValue();
-            }
-            public Object multiply (Number lhs, Number rhs) {
-                return lhs.byteValue() * rhs.byteValue();
-            }
-            public Object divide (Number lhs, Number rhs) {
-                return lhs.byteValue() / rhs.byteValue();
-            }
-        }).
-        put(Short.class, new MathOps() {
-            public Object plus (Number lhs, Number rhs) {
-                return lhs.shortValue() + rhs.shortValue();
-            }
-            public Object minus (Number lhs, Number rhs) {
-                return lhs.shortValue() - rhs.shortValue();
-            }
-            public Object multiply (Number lhs, Number rhs) {
-                return lhs.shortValue() * rhs.shortValue();
-            }
-            public Object divide (Number lhs, Number rhs) {
-                return lhs.shortValue() / rhs.shortValue();
-            }
-        }).
-        put(Integer.class, new MathOps() {
-            public Object plus (Number lhs, Number rhs) {
-                return lhs.intValue() + rhs.intValue();
-            }
-            public Object minus (Number lhs, Number rhs) {
-                return lhs.intValue() - rhs.intValue();
-            }
-            public Object multiply (Number lhs, Number rhs) {
-                return lhs.intValue() * rhs.intValue();
-            }
-            public Object divide (Number lhs, Number rhs) {
-                return lhs.intValue() / rhs.intValue();
-            }
-        }).
-        put(Long.class, new MathOps() {
-            public Object plus (Number lhs, Number rhs) {
-                return lhs.longValue() + rhs.longValue();
-            }
-            public Object minus (Number lhs, Number rhs) {
-                return lhs.longValue() - rhs.longValue();
-            }
-            public Object multiply (Number lhs, Number rhs) {
-                return lhs.longValue() * rhs.longValue();
-            }
-            public Object divide (Number lhs, Number rhs) {
-                return lhs.longValue() / rhs.longValue();
-            }
-        }).
-        put(Float.class, new MathOps() {
-            public Object plus (Number lhs, Number rhs) {
-                return lhs.floatValue() + rhs.floatValue();
-            }
-            public Object minus (Number lhs, Number rhs) {
-                return lhs.floatValue() - rhs.floatValue();
-            }
-            public Object multiply (Number lhs, Number rhs) {
-                return lhs.floatValue() * rhs.floatValue();
-            }
-            public Object divide (Number lhs, Number rhs) {
-                return lhs.floatValue() / rhs.floatValue();
-            }
-        }).
-        put(Double.class, new MathOps() {
-            public Object plus (Number lhs, Number rhs) {
-                return lhs.doubleValue() + rhs.doubleValue();
-            }
-            public Object minus (Number lhs, Number rhs) {
-                return lhs.doubleValue() - rhs.doubleValue();
-            }
-            public Object multiply (Number lhs, Number rhs) {
-                return lhs.doubleValue() * rhs.doubleValue();
-            }
-            public Object divide (Number lhs, Number rhs) {
-                return lhs.doubleValue() / rhs.doubleValue();
-            }
-        }).
-        build();
 
     protected static final Multimap<Class<?>, Class<?>> COERCIONS = HashMultimap.create();
     static {
@@ -984,4 +942,148 @@ public class RT
 //         COERCIONS.put(Double.class, Long.TYPE);
 //         COERCIONS.put(Double.class, Float.TYPE);
     }
+
+    protected static final Map<Tuple<? extends Class<?>,? extends Class<?>>,Coercer> COERCERS =
+        ImmutableMap.<Tuple<? extends Class<?>,? extends Class<?>>,Coercer>builder().
+        // coercions from byte to X
+        put(Tuple.create(Byte.class, Byte.TYPE), new IdentityCoercer()).
+        put(Tuple.create(Byte.class, Short.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (short)value.byteValue(); }
+        }).
+        put(Tuple.create(Byte.class, Character.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (char)value.byteValue(); }
+        }).
+        put(Tuple.create(Byte.class, Integer.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (int)value.byteValue(); }
+        }).
+        put(Tuple.create(Byte.class, Long.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (long)value.byteValue(); }
+        }).
+        put(Tuple.create(Byte.class, Float.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (float)value.byteValue(); }
+        }).
+        put(Tuple.create(Byte.class, Double.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (double)value.byteValue(); }
+        }).
+        // coercions from short to X
+        put(Tuple.create(Short.class, Byte.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (byte)value.shortValue(); }
+        }).
+        put(Tuple.create(Short.class, Short.TYPE), new IdentityCoercer()).
+        put(Tuple.create(Short.class, Character.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (char)value.shortValue(); }
+        }).
+        put(Tuple.create(Short.class, Integer.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (int)value.shortValue(); }
+        }).
+        put(Tuple.create(Short.class, Long.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (long)value.shortValue(); }
+        }).
+        put(Tuple.create(Short.class, Float.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (float)value.shortValue(); }
+        }).
+        put(Tuple.create(Short.class, Double.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (double)value.shortValue(); }
+        }).
+        // coercions from char to X
+        put(Tuple.create(Character.class, Byte.TYPE), new Coercer() {
+            public Object coerce (Object value) { return (byte)((Character)value).charValue(); }
+        }).
+        put(Tuple.create(Character.class, Short.TYPE), new Coercer() {
+            public Object coerce (Object value) { return (short)((Character)value).charValue(); }
+        }).
+        put(Tuple.create(Character.class, Character.TYPE), new IdentityCoercer()).
+        put(Tuple.create(Character.class, Integer.TYPE), new Coercer() {
+            public Object coerce (Object value) { return (int)((Character)value).charValue(); }
+        }).
+        put(Tuple.create(Character.class, Long.TYPE), new Coercer() {
+            public Object coerce (Object value) { return (long)((Character)value).charValue(); }
+        }).
+        put(Tuple.create(Character.class, Float.TYPE), new Coercer() {
+            public Object coerce (Object value) { return (float)((Character)value).charValue(); }
+        }).
+        put(Tuple.create(Character.class, Double.TYPE), new Coercer() {
+            public Object coerce (Object value) { return (double)((Character)value).charValue(); }
+        }).
+        // coercions from int to X
+        put(Tuple.create(Integer.class, Byte.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (byte)value.intValue(); }
+        }).
+        put(Tuple.create(Integer.class, Short.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (short)value.intValue(); }
+        }).
+        put(Tuple.create(Integer.class, Character.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (char)value.intValue(); }
+        }).
+        put(Tuple.create(Integer.class, Integer.TYPE), new IdentityCoercer()).
+        put(Tuple.create(Integer.class, Long.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (long)value.intValue(); }
+        }).
+        put(Tuple.create(Integer.class, Float.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (float)value.intValue(); }
+        }).
+        put(Tuple.create(Integer.class, Double.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (double)value.intValue(); }
+        }).
+        // coercions from long to X
+        put(Tuple.create(Long.class, Byte.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (byte)value.longValue(); }
+        }).
+        put(Tuple.create(Long.class, Short.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (short)value.longValue(); }
+        }).
+        put(Tuple.create(Long.class, Character.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (char)value.longValue(); }
+        }).
+        put(Tuple.create(Long.class, Integer.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (int)value.longValue(); }
+        }).
+        put(Tuple.create(Long.class, Long.TYPE), new IdentityCoercer()).
+        put(Tuple.create(Long.class, Float.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (float)value.longValue(); }
+        }).
+        put(Tuple.create(Long.class, Double.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (double)value.longValue(); }
+        }).
+        // coercions from float to X
+        put(Tuple.create(Float.class, Byte.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (byte)value.floatValue(); }
+        }).
+        put(Tuple.create(Float.class, Short.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (short)value.floatValue(); }
+        }).
+        put(Tuple.create(Float.class, Character.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (char)value.floatValue(); }
+        }).
+        put(Tuple.create(Float.class, Integer.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (int)value.floatValue(); }
+        }).
+        put(Tuple.create(Float.class, Long.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (long)value.floatValue(); }
+        }).
+        put(Tuple.create(Float.class, Float.TYPE), new IdentityCoercer()).
+        put(Tuple.create(Float.class, Double.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (double)value.floatValue(); }
+        }).
+        // coercions from double to X
+        put(Tuple.create(Double.class, Byte.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (byte)value.doubleValue(); }
+        }).
+        put(Tuple.create(Double.class, Short.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (short)value.doubleValue(); }
+        }).
+        put(Tuple.create(Double.class, Character.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (char)value.doubleValue(); }
+        }).
+        put(Tuple.create(Double.class, Integer.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (int)value.doubleValue(); }
+        }).
+        put(Tuple.create(Double.class, Long.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (long)value.doubleValue(); }
+        }).
+        put(Tuple.create(Double.class, Float.TYPE), new NumberCoercer() {
+            public Object coerce (Number value) { return (float)value.doubleValue(); }
+        }).
+        put(Tuple.create(Double.class, Double.TYPE), new IdentityCoercer()).
+        build();
 }

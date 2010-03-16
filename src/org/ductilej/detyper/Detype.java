@@ -827,6 +827,30 @@ public class Detype extends PathedTreeTranslator
             // if the expression being casted is a literal, leave the cast in place; that's a
             // conversion, not a type cast, and we need to preserve it
 
+        } else if (tree.clazz.getTag() == JCTree.TYPEIDENT) {
+            // if the cast is to a primitive type, we need to emulate any coercions that would take
+            // place as a result of such a cast
+            switch (((JCPrimitiveTypeTree)tree.clazz).typetag) {
+            case TypeTags.BYTE:
+            case TypeTags.SHORT:
+            case TypeTags.INT:
+            case TypeTags.LONG:
+            case TypeTags.CHAR:
+            case TypeTags.FLOAT:
+            case TypeTags.DOUBLE:
+                result = callRT("coerce", tree.pos,
+                                classLiteral((JCExpression)tree.clazz, tree.pos), tree.expr);
+                break;
+
+            case TypeTags.BOOLEAN: // no representation change needed for boolean
+            case TypeTags.VOID: // this should never appear in Java code AFAIK
+                result = tree.expr;
+                break;
+
+            default:
+                throw new AssertionError("Unknown primitive type " + tree.clazz);
+            }
+
         } else {
             // TODO: if the cast expression contains type variables, we need to compute their upper
             // bound and note a cast to that upper bound
