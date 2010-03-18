@@ -363,16 +363,18 @@ public class Resolver
         case JCTree.MUL: // *
         case JCTree.DIV: // /
         case JCTree.MOD: // %
-            return _syms.typeOfTag[TypeTags.INT]; // TODO: is this true?
+            return _syms.typeOfTag[TypeTags.INT]; // TODO: should be numeric promotion
 
         case JCTree.POS: // +
         case JCTree.NEG: // -
         case JCTree.COMPL: // ~
+            return _syms.typeOfTag[TypeTags.INT]; // TODO: should be numeric promotion
+
         case JCTree.PREINC: // ++ _
         case JCTree.PREDEC: // -- _
         case JCTree.POSTINC: // _ ++
         case JCTree.POSTDEC: // _ --
-            return _syms.typeOfTag[TypeTags.INT]; // TODO: is this true?
+            return resolveType(env, ((JCUnary)expr).arg, Kinds.VAR);
 
         case JCTree.PLUS: { // +
             // if lhs or rhs is string, then expr is string
