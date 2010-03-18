@@ -18,7 +18,7 @@ public class LongOps implements UnOps
     }
     public Object increment (Object arg) {
 	long tmp = ((Long)arg).longValue();
-        return tmp++;
+        return ++tmp;
     }
     public Object decrement (Object arg) {
 	long tmp = ((Long)arg).longValue();

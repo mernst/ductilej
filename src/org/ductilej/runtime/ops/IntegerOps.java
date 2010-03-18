@@ -18,7 +18,7 @@ public class IntegerOps implements UnOps
     }
     public Object increment (Object arg) {
 	int tmp = ((Integer)arg).intValue();
-        return tmp++;
+        return ++tmp;
     }
     public Object decrement (Object arg) {
 	int tmp = ((Integer)arg).intValue();
