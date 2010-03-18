@@ -354,29 +354,22 @@ public class Detype extends PathedTreeTranslator
     {
         // we don't call super because mkAssign needs the untranslated expr for ++ and --
 
-        JCExpression expr;
-        JCLiteral one = _tmaker.Literal(1);
+        JCExpression expr = unop(tree.pos, tree.getKind(), translate(tree.arg));
         switch (tree.getKind()) {
-        case PREFIX_INCREMENT:  // ++i -> (i = i + 1)
-        case POSTFIX_INCREMENT: // i++ -> ((i = i + 1) - 1)
-            expr = mkAssign(tree.arg, binop(tree.pos, Tree.Kind.PLUS, translate(tree.arg), one),
-                            tree.pos);
+        case PREFIX_INCREMENT:  // ++i -> (i = unop("++", i))
+        case POSTFIX_INCREMENT: // i++ -> (i = unop("++", i) - 1)
+            expr = mkAssign(tree.arg, expr, tree.pos);
             if (tree.getKind() == Tree.Kind.POSTFIX_INCREMENT) {
-                expr = binop(tree.pos, Tree.Kind.MINUS, expr, one);
+                expr = binop(tree.pos, Tree.Kind.MINUS, expr, _tmaker.Literal(1));
             }
             break;
 
-        case PREFIX_DECREMENT:  // --i -> (i = i - 1)
-        case POSTFIX_DECREMENT: // i-- -> ((i = i - 1) + 1)
-            expr = mkAssign(tree.arg, binop(tree.pos, Tree.Kind.MINUS, translate(tree.arg),
-                                            _tmaker.Literal(1)), tree.pos);
+        case PREFIX_DECREMENT:  // --i -> (i = unop("--", i))
+        case POSTFIX_DECREMENT: // i-- -> (i = unop("--", i) + 1)
+            expr = mkAssign(tree.arg, expr, tree.pos);
             if (tree.getKind() == Tree.Kind.POSTFIX_DECREMENT) {
-                expr = binop(tree.pos, Tree.Kind.PLUS, expr, one);
+                expr = binop(tree.pos, Tree.Kind.PLUS, expr, _tmaker.Literal(1));
             }
-            break;
-
-        default:
-            expr = unop(tree.pos, tree.getKind(), translate(tree.arg));
             break;
         }
 

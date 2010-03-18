@@ -3,12 +3,12 @@
 
 package org.ductilej.runtime.ops;
 
-import org.ductilej.runtime.Ops;
+import org.ductilej.runtime.BinOps;
 
 /**
- * Implements binary operations with for lhs of Float and rhs of Short.
+ * Implements binary operations for lhs of Float and rhs of Short.
  */
-public class FloatShortOps implements Ops
+public class FloatShortOps implements BinOps
 {
     public Object plus (Object lhs, Object rhs) {
         return ((Float)lhs).floatValue() + ((Short)rhs).shortValue();

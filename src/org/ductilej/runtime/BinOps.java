@@ -8,7 +8,7 @@ package org.ductilej.runtime;
  * automatically generated for the cartesian product of all compatible primitive types for
  * reasonably fast dispatch of ad-hoc polymorphic binary operators.
  */
-public interface Ops
+public interface BinOps
 {
     public Object plus (Object lhs, Object rhs);
     public Object minus (Object lhs, Object rhs);

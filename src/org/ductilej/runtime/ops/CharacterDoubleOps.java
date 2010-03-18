@@ -3,12 +3,12 @@
 
 package org.ductilej.runtime.ops;
 
-import org.ductilej.runtime.Ops;
+import org.ductilej.runtime.BinOps;
 
 /**
- * Implements binary operations with for lhs of Character and rhs of Double.
+ * Implements binary operations for lhs of Character and rhs of Double.
  */
-public class CharacterDoubleOps implements Ops
+public class CharacterDoubleOps implements BinOps
 {
     public Object plus (Object lhs, Object rhs) {
         return ((Character)lhs).charValue() + ((Double)rhs).doubleValue();

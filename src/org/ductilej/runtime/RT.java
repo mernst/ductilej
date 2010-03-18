@@ -213,61 +213,29 @@ public class RT
      */
     public static Object unop (String opcode, Object arg)
     {
-        if (opcode.equals("UNARY_MINUS")) {
-            if (arg instanceof Byte) {
-                return -((Byte)arg).byteValue();
-            } else if (arg instanceof Short) {
-                return -((Short)arg).shortValue();
-            } else if (arg instanceof Integer) {
-                return -((Integer)arg).intValue();
-            } else if (arg instanceof Long) {
-                return -((Long)arg).longValue();
-            } else if (arg instanceof Float) {
-                return -((Float)arg).floatValue();
-            } else if (arg instanceof Double) {
-                return -((Double)arg).doubleValue();
-            } else {
-                throw new IllegalArgumentException("Non-numeric type passed to unary minus.");
-            }
-
-        } else if (opcode.equals("BITWISE_COMPLEMENT")) {
-            if (arg instanceof Byte) {
-                return ~((Byte)arg).byteValue();
-            } else if (arg instanceof Short) {
-                return ~((Short)arg).shortValue();
-            } else if (arg instanceof Integer) {
-                return ~((Integer)arg).intValue();
-            } else if (arg instanceof Long) {
-                return ~((Long)arg).longValue();
-            } else if (arg instanceof Float) {
-                return -((Float)arg).floatValue();
-            } else if (arg instanceof Double) {
-                return -((Double)arg).doubleValue();
-            } else {
-                throw new IllegalArgumentException(
-                    "Non-numeric type passed to bitwise complement.");
-            }
-
-        } else if ("LOGICAL_COMPLEMENT".equals(opcode)) {
-            if (arg instanceof Boolean) {
-                return !((Boolean)arg).booleanValue();
-            } else {
-                throw new IllegalArgumentException(
-                    "Non-boolean type passed to logical complement.");
-            }
-
+        if ("UNARY_MINUS".equals(opcode)) {
+            return OpsUtil.get(arg).minus(arg);
         } else if ("UNARY_PLUS".equals(opcode)) {
-            return arg;
+            return OpsUtil.get(arg).plus(arg);
 
-// these are handled with inline tree transformations
-//         case POSTFIX_INCREMENT
-//         case POSTFIX_DECREMENT
-//         case PREFIX_INCREMENT
-//         case PREFIX_DECREMENT
+        } else if ("BITWISE_COMPLEMENT".equals(opcode)) {
+            return OpsUtil.get(arg).bitComp(arg);
+        } else if ("LOGICAL_COMPLEMENT".equals(opcode)) {
+            return OpsUtil.get(arg).logicalComp(arg);
 
-        } else {
-            throw new IllegalArgumentException("Unknown unary operator: " + opcode);
+        // the side effects for these operations are handled by rewriting the AST, so they simply
+        // need to return an incremented or decremented value
+        } else if ("PREFIX_INCREMENT".equals(opcode)) {
+            return OpsUtil.get(arg).increment(arg);
+        } else if ("POSTFIX_INCREMENT".equals(opcode)) {
+            return OpsUtil.get(arg).increment(arg);
+        } else if ("PREFIX_DECREMENT".equals(opcode)) {
+            return OpsUtil.get(arg).decrement(arg);
+        } else if ("POSTFIX_DECREMENT".equals(opcode)) {
+            return OpsUtil.get(arg).decrement(arg);
         }
+
+        throw new IllegalArgumentException("Unsupported unary operator: " + opcode);
     }
 
     /**
@@ -278,7 +246,6 @@ public class RT
      */
     public static Object binop (String opcode, Object lhs, Object rhs)
     {
-        // TODO: this all needs to be much more sophisticated in the face of type errors
         if ("PLUS".equals(opcode)) {
             if (lhs instanceof String || rhs instanceof String) {
                 return String.valueOf(lhs) + String.valueOf(rhs);
@@ -287,58 +254,48 @@ public class RT
 
         } else if ("MINUS".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).minus(lhs, rhs);
-
         } else if ("MULTIPLY".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).multiply(lhs, rhs);
-
         } else if ("DIVIDE".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).divide(lhs, rhs);
-
         } else if ("REMAINDER".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).remainder(lhs, rhs);
 
         } else if ("LESS_THAN".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).lessThan(lhs, rhs);
-
         } else if ("GREATER_THAN".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).greaterThan(lhs, rhs);
-
         } else if ("LESS_THAN_EQUAL".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).lessThanEq(lhs, rhs);
-
         } else if ("GREATER_THAN_EQUAL".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).greaterThanEq(lhs, rhs);
 
         } else if ("EQUAL_TO".equals(opcode)) {
             return OpsUtil.isEqualTo(lhs, rhs);
-
         } else if ("NOT_EQUAL_TO".equals(opcode)) {
             return !OpsUtil.isEqualTo(lhs, rhs);
 
         } else if ("OR".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).bitOr(lhs, rhs);
-
         } else if ("AND".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).bitAnd(lhs, rhs);
-
         } else if ("XOR".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).bitXor(lhs, rhs);
 
         } else if ("LEFT_SHIFT".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).leftShift(lhs, rhs);
-
         } else if ("RIGHT_SHIFT".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).rightShift(lhs, rhs);
+// TODO: implement
+//         UNSIGNED_RIGHT_SHIFT(BinaryTree.class),
 
         } else if ("CONDITIONAL_AND".equals(opcode)) {
             throw new IllegalArgumentException("&& should not be lifted");
-
         } else if ("CONDITIONAL_OR".equals(opcode)) {
             throw new IllegalArgumentException("|| should not be lifted");
         }
 
-// TODO: implement
-//         UNSIGNED_RIGHT_SHIFT(BinaryTree.class),
+// the assignment operators are transformed into non-assignment versions by the detyper
 //         MULTIPLY_ASSIGNMENT(CompoundAssignmentTree.class),
 //         DIVIDE_ASSIGNMENT(CompoundAssignmentTree.class),
 //         REMAINDER_ASSIGNMENT(CompoundAssignmentTree.class),
@@ -351,7 +308,7 @@ public class RT
 //         XOR_ASSIGNMENT(CompoundAssignmentTree.class),
 //         OR_ASSIGNMENT(CompoundAssignmentTree.class),
 
-        throw new IllegalArgumentException("Binop not yet implemented: " + opcode);
+        throw new IllegalArgumentException("Unsupported binary op: " + opcode);
     }
 
     /**
