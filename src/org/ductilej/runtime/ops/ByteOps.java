@@ -18,7 +18,7 @@ public class ByteOps implements UnOps
     }
     public Object increment (Object arg) {
 	byte tmp = ((Byte)arg).byteValue();
-        return tmp++;
+        return ++tmp;
     }
     public Object decrement (Object arg) {
 	byte tmp = ((Byte)arg).byteValue();

@@ -18,7 +18,7 @@ public class ShortOps implements UnOps
     }
     public Object increment (Object arg) {
 	short tmp = ((Short)arg).shortValue();
-        return tmp++;
+        return ++tmp;
     }
     public Object decrement (Object arg) {
 	short tmp = ((Short)arg).shortValue();

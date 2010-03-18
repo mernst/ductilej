@@ -18,7 +18,7 @@ public class CharacterOps implements UnOps
     }
     public Object increment (Object arg) {
 	char tmp = ((Character)arg).charValue();
-        return tmp++;
+        return ++tmp;
     }
     public Object decrement (Object arg) {
 	char tmp = ((Character)arg).charValue();
