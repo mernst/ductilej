@@ -3,12 +3,12 @@
 
 package org.ductilej.runtime.ops;
 
-import org.ductilej.runtime.Ops;
+import org.ductilej.runtime.BinOps;
 
 /**
- * Implements binary operations with for lhs of Integer and rhs of Byte.
+ * Implements binary operations for lhs of Integer and rhs of Byte.
  */
-public class IntegerByteOps implements Ops
+public class IntegerByteOps implements BinOps
 {
     public Object plus (Object lhs, Object rhs) {
         return ((Integer)lhs).intValue() + ((Byte)rhs).byteValue();

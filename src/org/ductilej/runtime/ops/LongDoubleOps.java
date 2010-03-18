@@ -3,12 +3,12 @@
 
 package org.ductilej.runtime.ops;
 
-import org.ductilej.runtime.Ops;
+import org.ductilej.runtime.BinOps;
 
 /**
- * Implements binary operations with for lhs of Long and rhs of Double.
+ * Implements binary operations for lhs of Long and rhs of Double.
  */
-public class LongDoubleOps implements Ops
+public class LongDoubleOps implements BinOps
 {
     public Object plus (Object lhs, Object rhs) {
         return ((Long)lhs).longValue() + ((Double)rhs).doubleValue();

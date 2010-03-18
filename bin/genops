@@ -19,8 +19,9 @@ my %types = ( "byte" => "Byte",
               "float" => "Float",
               "double" => "Double" );
 
-my $idata = `cat $opsdir/IntegralOps.tmpl`;
-my $fdata = `cat $opsdir/FloatingOps.tmpl`;
+# First do the binops
+my $idata = `cat $opsdir/IntegralBinOps.tmpl`;
+my $fdata = `cat $opsdir/FloatingBinOps.tmpl`;
 
 foreach $left (keys %types) {
     foreach $right (keys %types) {
@@ -41,4 +42,24 @@ foreach $left (keys %types) {
         print OUT $xdata;
         close(OUT);
     }
+}
+
+# Then do the unops
+$idata = `cat $opsdir/IntegralUnOps.tmpl`;
+$fdata = `cat $opsdir/FloatingUnOps.tmpl`;
+
+foreach $arg (keys %types) {
+    my $aclass = $types{$arg};
+    my $xdata;
+    if ($arg eq "float" || $arg eq "double") {
+        $xdata = $fdata;
+    } else {
+        $xdata = $idata;
+    }
+    $xdata =~ s/\{arg\}/$arg/g;
+    $xdata =~ s/\{ARG\}/$aclass/g;
+    my $xfile = "$opsdir/" . $aclass . "Ops.java";
+    open(OUT, ">$xfile") or die "Can't write to $xfile: $!\n";
+    print OUT $xdata;
+    close(OUT);
 }
