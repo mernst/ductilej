@@ -51,6 +51,13 @@ public class OperatorTest
         assertEquals(1, value.value);
     }
 
+    @Test public void testCoercingAssignOp ()
+    {
+        short x = 3; // straight outta the JLS
+        x += 4.6;
+        assertEquals(7, x);
+    }
+
     @Test public void testStringPromote ()
     {
         assertEquals("1", ""+1);
