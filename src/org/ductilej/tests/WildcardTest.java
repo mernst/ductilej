@@ -48,11 +48,25 @@ public class WildcardTest
         }
     }
 
-    public static <T, C extends Collection<T>> C addAll (C col, Enumeration<? extends T> enm)
-    {
+    public static <T, C extends Collection<T>> C addAll (C col, Enumeration<? extends T> enm) {
         while (enm.hasMoreElements()) {
             col.add(enm.nextElement());
         }
         return col;
+    }
+
+    @Test public void testGetClassType () {
+        // resolveType() on Runnable.class should yield Class<Runnable>
+        takeRunnableClass(Runnable.class);
+
+        // resolveType() on r.getClass() should yield Class<? extends Runnable>
+        Runnable r = new Runnable() {
+            public void run () {}
+        };
+        takeRunnableClass(r.getClass());
+    }
+
+    protected void takeRunnableClass (Class<? extends Runnable> rclass) {
+        // nada
     }
 }
