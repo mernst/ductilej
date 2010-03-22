@@ -16,6 +16,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.comp.Attr;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
+import com.sun.tools.javac.comp.Infer;
 import com.sun.tools.javac.comp.Resolve;
 import com.sun.tools.javac.jvm.ClassReader;
 import com.sun.tools.javac.tree.JCTree.*;
@@ -313,7 +314,18 @@ public class Resolver
                 // otherwise we just need to convert it to a member type
                 mtype = _types.memberType(mi.site, mi.msym);
             }
-            return mtype.asMethodType().restype;
+
+            // if have a universally quantified return type, we need to instantiate the remaining
+            // type variables to their upper bounds; this is normally handled in a twisty maze of
+            // calls originating from Attr.checkReturn
+            Type rtype = mtype.asMethodType().restype;
+            if (rtype.tag == TypeTags.FORALL) {
+                // TODO: if we have an expected type (i.e. we're in an initializer expression),
+                // at some point we're going to need that here instead of Object; oh boy!
+                rtype = _infer.instantiateExpr((Type.ForAll)rtype, _syms.objectType, new Warner());
+            }
+            
+            return rtype;
         }
 
         case JCTree.NEWCLASS:
@@ -505,6 +517,7 @@ public class Resolver
         _names = Names.instance(ctx);
         _resolve = Resolve.instance(ctx);
         _attr = Attr.instance(ctx);
+        _infer = Infer.instance(ctx);
         _log = Log.instance(ctx);
     }
 
@@ -662,6 +675,7 @@ public class Resolver
     protected Names _names;
     protected Resolve _resolve;
     protected Attr _attr;
+    protected Infer _infer;
     protected Log _log;
 
     protected static final Context.Key<Resolver> RESOLVER_KEY = new Context.Key<Resolver>();
