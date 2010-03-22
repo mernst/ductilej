@@ -293,12 +293,14 @@ public class Resolver
 
         case JCTree.APPLY: {
             final Env<DetypeContext> fenv = env;
-            MethInfo mi = resolveMethod(env, (JCMethodInvocation)expr);
+            JCMethodInvocation app = (JCMethodInvocation)expr;
+            MethInfo mi = resolveMethod(env, app);
             if (mi.msym.kind >= Kinds.ERR) {
                 return null;
             }
-            // if the method is universally quantified, we need to bind its type variables
-            // based on the types of its actual arguments
+
+            // if the method is universally quantified, we need to bind its type variables based on
+            // the types of its actual arguments
             Type mtype;
             if (mi.msym.type.tag == TypeTags.FORALL) {
                 // Resolve.instantiate handles member type conversion for us
@@ -317,12 +319,34 @@ public class Resolver
 
             // if have a universally quantified return type, we need to instantiate the remaining
             // type variables to their upper bounds; this is normally handled in a twisty maze of
-            // calls originating from Attr.checkReturn
-            Type rtype = mtype.asMethodType().restype;
+            // calls originating from Attr.checkReturn()
+            Type rtype = mtype.getReturnType();
             if (rtype.tag == TypeTags.FORALL) {
                 // TODO: if we have an expected type (i.e. we're in an initializer expression),
                 // at some point we're going to need that here instead of Object; oh boy!
                 rtype = _infer.instantiateExpr((Type.ForAll)rtype, _syms.objectType, new Warner());
+            }
+
+// TODO
+//             // (from Attr) as a special case, array.clone() has a result that is the same as
+//             // static type of the array being cloned
+//             if (tree.meth.getTag() == JCTree.SELECT &&
+//                 allowCovariantReturns &&
+//                 methName == names.clone &&
+//                 types.isArray(((JCFieldAccess) tree.meth).selected.type)) {
+//                 rtype = ((JCFieldAccess) tree.meth).selected.type;
+//             }
+
+            // (from Attr) as a special case, x.getClass() has type Class<? extends |X|>
+            if (TreeInfo.name(app.meth) == _names.getClass && app.args.isEmpty()) {
+                Debug.temp("Need special getClass() handling", "site", mi.site);
+                Type qualifier = (app.meth.getTag() == JCTree.SELECT) ? mi.site :
+                    env.enclClass.sym.type;
+                rtype = new Type.ClassType(
+                    rtype.getEnclosingType(),
+                    List.<Type>of(new Type.WildcardType(_types.erasure(qualifier),
+                                                        BoundKind.EXTENDS, _syms.boundClass)),
+                    rtype.tsym);
             }
             
             return rtype;
