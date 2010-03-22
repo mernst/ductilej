@@ -339,7 +339,6 @@ public class Resolver
 
             // (from Attr) as a special case, x.getClass() has type Class<? extends |X|>
             if (TreeInfo.name(app.meth) == _names.getClass && app.args.isEmpty()) {
-                Debug.temp("Need special getClass() handling", "site", mi.site);
                 Type qualifier = (app.meth.getTag() == JCTree.SELECT) ? mi.site :
                     env.enclClass.sym.type;
                 rtype = new Type.ClassType(
