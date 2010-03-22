@@ -13,9 +13,9 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 /**
- * Does something extraordinary.
+ * Tests related to type variable inference.
  */
-public class TypeVarInfTest
+public class InfTypeVarTest
 {
     public static class Value
     {
