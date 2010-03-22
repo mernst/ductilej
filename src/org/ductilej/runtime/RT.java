@@ -496,11 +496,14 @@ public class RT
             int fpcount = pcount-1, vacount = rargs.length-fpcount;
             // TEMP: we heuristically assume that if there's only one argument in the varargs
             // position and it's an array, then the caller did the wrapping already; the correct
-            // thing to do is to use the static type of the single varargs argument and only skip
-            // boxing if the static type is not an array type, but we don't yet reify static type
-            // information into our runtime boxes
+            // thing to do is to use the static type of the single varargs argument and only
+            // perform boxing if the static type is not an array type, but we don't yet reify
+            // static type information into our runtime boxes
             if (vacount != 1 || (rargs[fpcount] != null && !rargs[fpcount].getClass().isArray())) {
-                Object[] vargs = new Object[vacount];
+                // the final argument position indicates the type of the varargs array
+                Class<?> vatype = ptypes.get(ptypes.size()-1);
+                assert vatype.getComponentType() != null : "Varargs position not array type";
+                Object vargs = Array.newInstance(vatype.getComponentType(), vacount);
                 System.arraycopy(rargs, fpcount, vargs, 0, rargs.length-fpcount);
                 aargs = new Object[fpcount+1];
                 System.arraycopy(rargs, 0, aargs, 0, fpcount);
