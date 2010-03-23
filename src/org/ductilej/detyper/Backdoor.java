@@ -60,6 +60,8 @@ public class Backdoor<T>
         newFieldRef(AttrContext.class, "scope");
     public static final FieldRef<AttrContext, Boolean> selectSuper =
         newFieldRef(AttrContext.class, "selectSuper");
+    public static final FieldRef<AttrContext, Boolean> varArgs =
+        newFieldRef(AttrContext.class, "varArgs");
 
     protected static <A, V> FieldRef<A, V> newFieldRef (Class<A> clazz, String name)
     {

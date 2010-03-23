@@ -6,6 +6,7 @@ package org.ductilej.detyper;
 import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.code.BoundKind;
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.code.Symbol;
@@ -42,6 +43,8 @@ public class Resolver
         public Symbol msym;
         public List<Type> atypes;
         public List<Type> tatypes;
+        // were varargs used at this call site? (needed by Resolve.instantiate)
+        public boolean varArgs;
     }
 
     /**
@@ -120,8 +123,10 @@ public class Resolver
         }
 
         // Debug.temp("Resolving ctor " + mi.site + "<" + mi.tatypes + ">(" + mi.atypes + ")");
+        Env<AttrContext> aenv = Detype.toAttrEnv(env);
         mi.msym = invoke(env, Backdoor.resolveConstructor, _resolve, clazz.pos(),
-                         Detype.toAttrEnv(env), mi.site, mi.atypes, mi.tatypes);
+                         aenv, mi.site, mi.atypes, mi.tatypes);
+        mi.varArgs = Backdoor.varArgs.get(aenv.info);
         if (mi.msym.kind >= Kinds.ERR) {
             Debug.warn("Unable to resolve ctor", "clazz", clazz, "args", args, "targrs", typeargs);
         }
@@ -161,10 +166,12 @@ public class Resolver
                 // Debug.log("Resolving " + mname + "<" + mi.tatypes + ">(" + mi.atypes + ")");
                 mi.msym = invoke(env, Backdoor.resolveConstructor, _resolve, mexpr.pos(),
                                  aenv, mi.site, mi.atypes, mi.tatypes);
+                mi.varArgs = Backdoor.varArgs.get(aenv.info);
             } else {
                 // Debug.log("Resolving " + mname + "<" + mi.tatypes + ">(" + mi.atypes + ")");
                 mi.msym = invoke(env, Backdoor.resolveMethod, _resolve, mexpr.pos(),
                                  aenv, mname, mi.atypes, mi.tatypes);
+                mi.varArgs = Backdoor.varArgs.get(aenv.info);
             }
             if (mi.msym.kind >= Kinds.ERR) {
                 Debug.warn("Unable to resolve method", "expr", mexpr, "site", mi.site,
@@ -201,6 +208,7 @@ public class Resolver
             // Debug.temp("Resolving {"+mi.site+"}." + mname + "<"+mi.tatypes+">("+mi.atypes+")");
             mi.msym = invoke(env, Backdoor.resolveQualifiedMethod, _resolve, mexpr.pos(),
                              aenv, mi.site, mname, mi.atypes, mi.tatypes);
+            mi.varArgs = Backdoor.varArgs.get(aenv.info);
             if (mi.msym.kind >= Kinds.ERR) {
                 Debug.warn("Unable to resolve method", "expr", mexpr, "site", mi.site);
             }
@@ -251,9 +259,8 @@ public class Resolver
         // types of its actual arguments
         if (mi.msym.type.tag == TypeTags.FORALL) {
             // Resolve.instantiate handles member type conversion for us
-            boolean useVarargs = false; // TODO
             Type mtype = invoke(env, Backdoor.instantiate, _resolve, Detype.toAttrEnv(env),
-                                mi.site, mi.msym, mi.atypes, mi.tatypes, true, useVarargs,
+                                mi.site, mi.msym, mi.atypes, mi.tatypes, true, mi.varArgs,
                                 new Warner());
             if (mtype == null) {
                 Debug.warn("Failed to instantiate forall type", "sym", mi.msym);
