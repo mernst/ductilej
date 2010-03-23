@@ -409,22 +409,22 @@ public class Resolver
         case JCTree.NOT: // !
             return _syms.typeOfTag[TypeTags.BOOLEAN];
 
-        case JCTree.BITOR: // |
-        case JCTree.BITXOR: // ^
-        case JCTree.BITAND: // &
         case JCTree.SL: // <<
         case JCTree.SR: // >>
         case JCTree.USR: // >>>
+        case JCTree.BITOR: // |
+        case JCTree.BITXOR: // ^
+        case JCTree.BITAND: // &
         case JCTree.MINUS: // -
         case JCTree.MUL: // *
         case JCTree.DIV: // /
         case JCTree.MOD: // %
-            return _syms.typeOfTag[TypeTags.INT]; // TODO: should be numeric promotion
+            return numericPromote(env, ((JCBinary)expr).lhs, ((JCBinary)expr).rhs);
 
         case JCTree.POS: // +
         case JCTree.NEG: // -
         case JCTree.COMPL: // ~
-            return _syms.typeOfTag[TypeTags.INT]; // TODO: should be numeric promotion
+            return numericPromote(env, ((JCUnary)expr).arg);
 
         case JCTree.PREINC: // ++ _
         case JCTree.PREDEC: // -- _
@@ -440,7 +440,7 @@ public class Resolver
                 _types.isSameType(rhs, _syms.stringType)) {
                 return _syms.stringType;
             } else {
-                return lhs; // TODO: numeric promotion
+                return numericPromote(lhs, rhs);
             }
         }
 
@@ -450,7 +450,7 @@ public class Resolver
             if (_types.isSameType(lhs, _syms.stringType)) {
                 return _syms.stringType;
             } else {
-                return lhs; // TODO: numeric promotion
+                return lhs;
             }
         }
 
@@ -710,6 +710,47 @@ public class Resolver
         }
 
         return rtype;
+    }
+
+    protected Type numericPromote (Env<DetypeContext> env, JCTree arg)
+    {
+        return numericPromote(resolveType(env, arg, Kinds.VAL));
+    }
+
+    protected Type numericPromote (Type arg)
+    {
+        switch (arg.tag) {
+        case TypeTags.BYTE:
+        case TypeTags.SHORT:
+        case TypeTags.CHAR:
+        case TypeTags.INT: return _syms.intType;
+        case TypeTags.LONG: return _syms.longType;
+        case TypeTags.FLOAT: return _syms.floatType;
+        case TypeTags.DOUBLE: return _syms.doubleType;
+        default:
+            throw new IllegalArgumentException("Cannot promote non-numeric type " + arg);
+        }
+    }
+
+    protected Type numericPromote (Env<DetypeContext> env, JCTree lhs, JCTree rhs)
+    {
+        return numericPromote(resolveType(env, lhs, Kinds.VAL), resolveType(env, rhs, Kinds.VAL));
+    }
+
+    protected Type numericPromote (Type lhs, Type rhs)
+    {
+        switch (Math.max(lhs.tag, rhs.tag)) {
+        case TypeTags.BYTE:
+        case TypeTags.SHORT:
+        case TypeTags.CHAR:
+        case TypeTags.INT: return _syms.intType;
+        case TypeTags.LONG: return _syms.longType;
+        case TypeTags.FLOAT: return _syms.floatType;
+        case TypeTags.DOUBLE: return _syms.doubleType;
+        default:
+            throw new IllegalArgumentException(
+                "Cannot promote non-numeric type [lhs=" + lhs + ", rhs=" + rhs + "]");
+        }
     }
 
     protected ClassReader _reader;
