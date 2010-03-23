@@ -14,7 +14,7 @@ import static org.junit.Assert.*;
 /**
  * Tests handling of super constructors and super method calls.
  */
-public class SuperTest
+public class SuperCallTest
 {
     public static class A {
         public final int value;
