@@ -323,6 +323,11 @@ public class Detype extends PathedTreeTranslator
             !ASTUtil.isFinal(tree.mods)) {
             // all primitive literals use (integer) 0 as their value (even boolean)
             tree.init = _tmaker.Literal(((JCPrimitiveTypeTree)tree.vartype).typetag, 0);
+
+        // if the vardef has an initializer, we may need to emulate an implicit narrowing
+        // conversion if the rvalue is a constant that is wider than the type of the lvalue
+        } else {
+            // TODO!
         }
 
         // Debug.log("Xforming vardef", "mods", tree.mods, "name", tree.name, "init", tree.init);
@@ -503,8 +508,7 @@ public class Detype extends PathedTreeTranslator
         // if we didn't rewrite the constructor call to newInstance(), we need to insert either
         // runtime casts to the the formal parameter types, or type carrying args
         } else if (!tree.args.isEmpty()) {
-            List<Type> ptypes = _types.memberType(_env.enclClass.sym.type, mi.msym).
-                asMethodType().argtypes;
+            List<Type> ptypes = _resolver.instantiateType(_env, mi).asMethodType().argtypes;
             if (ASTUtil.isLibrary(_env.info.anonParent)) {
                 tree.args = castList(ptypes, tree.args);
             } else {
@@ -629,8 +633,7 @@ public class Detype extends PathedTreeTranslator
         // if this is a chained constructor call or super.foo(), we can't call it reflectively
         if (isChainedCons || isSuperMethodCall(tree)) {
             if (!tree.args.isEmpty()) {
-                List<Type> ptypes = _types.memberType(_env.enclClass.sym.type, mi.msym).
-                    asMethodType().argtypes;
+                List<Type> ptypes = _resolver.instantiateType(_env, mi).asMethodType().argtypes;
                 // if the method is defined in a library class, we need to cast the argument types
                 // back to the types it expects
                 if (ASTUtil.isLibrary(mi.msym.owner) || // either the owner is a library

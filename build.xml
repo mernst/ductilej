@@ -169,7 +169,7 @@
 
     <taskdef name="unit" classpathref="build.classpath"
       classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask"/>
-    <unit printsummary="off" haltonfailure="yes" fork="yes">
+    <unit printsummary="off" haltonfailure="no" fork="yes">
       <classpath>
         <pathelement location="${classes.dir}"/>
         <pathelement location="${dtclass.dir}"/>
