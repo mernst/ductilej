@@ -246,6 +246,7 @@ public class RT
      */
     public static Object binop (String opcode, Object lhs, Object rhs)
     {
+        // TODO: transform this into a hash lookup
         if ("PLUS".equals(opcode)) {
             if (lhs instanceof String || rhs instanceof String) {
                 return String.valueOf(lhs) + String.valueOf(rhs);
@@ -286,8 +287,8 @@ public class RT
             return OpsUtil.get(lhs, rhs).leftShift(lhs, rhs);
         } else if ("RIGHT_SHIFT".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).rightShift(lhs, rhs);
-// TODO: implement
-//         UNSIGNED_RIGHT_SHIFT(BinaryTree.class),
+        } else if ("UNSIGNED_RIGHT_SHIFT".equals(opcode)) {
+            return OpsUtil.get(lhs, rhs).unsignedRightShift(lhs, rhs);
 
         } else if ("CONDITIONAL_AND".equals(opcode)) {
             throw new IllegalArgumentException("&& should not be lifted");

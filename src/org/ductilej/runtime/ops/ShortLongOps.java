@@ -42,6 +42,9 @@ public class ShortLongOps implements BinOps
     public Object rightShift (Object lhs, Object rhs) {
         return ((Short)lhs).shortValue() >> ((Long)rhs).longValue();
     }
+    public Object unsignedRightShift (Object lhs, Object rhs) {
+        return ((Short)lhs).shortValue() >>> ((Long)rhs).longValue();
+    }
 
     public boolean equalTo (Object lhs, Object rhs) {
         return ((Short)lhs).shortValue() == ((Long)rhs).longValue();

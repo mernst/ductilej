@@ -42,6 +42,9 @@ public class IntegerShortOps implements BinOps
     public Object rightShift (Object lhs, Object rhs) {
         return ((Integer)lhs).intValue() >> ((Short)rhs).shortValue();
     }
+    public Object unsignedRightShift (Object lhs, Object rhs) {
+        return ((Integer)lhs).intValue() >>> ((Short)rhs).shortValue();
+    }
 
     public boolean equalTo (Object lhs, Object rhs) {
         return ((Integer)lhs).intValue() == ((Short)rhs).shortValue();

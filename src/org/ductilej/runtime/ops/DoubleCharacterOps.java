@@ -42,6 +42,9 @@ public class DoubleCharacterOps implements BinOps
     public Object rightShift (Object lhs, Object rhs) {
         throw new RuntimeException("Cannot right-shift LEFT and RIGHT");
     }
+    public Object unsignedRightShift (Object lhs, Object rhs) {
+        throw new RuntimeException("Cannot unsigned right-shift LEFT and RIGHT");
+    }
 
     public boolean equalTo (Object lhs, Object rhs) {
         return ((Double)lhs).doubleValue() == ((Character)rhs).charValue();

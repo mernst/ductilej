@@ -42,6 +42,9 @@ public class CharacterByteOps implements BinOps
     public Object rightShift (Object lhs, Object rhs) {
         return ((Character)lhs).charValue() >> ((Byte)rhs).byteValue();
     }
+    public Object unsignedRightShift (Object lhs, Object rhs) {
+        return ((Character)lhs).charValue() >>> ((Byte)rhs).byteValue();
+    }
 
     public boolean equalTo (Object lhs, Object rhs) {
         return ((Character)lhs).charValue() == ((Byte)rhs).byteValue();

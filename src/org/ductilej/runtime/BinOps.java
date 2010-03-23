@@ -22,6 +22,7 @@ public interface BinOps
 
     public Object leftShift (Object lhs, Object rhs);
     public Object rightShift (Object lhs, Object rhs);
+    public Object unsignedRightShift (Object lhs, Object rhs);
 
     public boolean equalTo (Object lhs, Object rhs);
     public boolean lessThan (Object lhs, Object rhs);

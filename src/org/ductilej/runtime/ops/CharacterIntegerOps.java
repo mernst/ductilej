@@ -42,6 +42,9 @@ public class CharacterIntegerOps implements BinOps
     public Object rightShift (Object lhs, Object rhs) {
         return ((Character)lhs).charValue() >> ((Integer)rhs).intValue();
     }
+    public Object unsignedRightShift (Object lhs, Object rhs) {
+        return ((Character)lhs).charValue() >>> ((Integer)rhs).intValue();
+    }
 
     public boolean equalTo (Object lhs, Object rhs) {
         return ((Character)lhs).charValue() == ((Integer)rhs).intValue();
