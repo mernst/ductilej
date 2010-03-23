@@ -719,6 +719,9 @@ public class Resolver
 
     protected Type numericPromote (Type arg)
     {
+        if (arg.tag == TypeTags.CLASS) {
+            arg = _types.unboxedType(arg);
+        }
         switch (arg.tag) {
         case TypeTags.BYTE:
         case TypeTags.SHORT:
@@ -739,6 +742,12 @@ public class Resolver
 
     protected Type numericPromote (Type lhs, Type rhs)
     {
+        if (lhs.tag == TypeTags.CLASS) {
+            lhs = _types.unboxedType(lhs);
+        }
+        if (rhs.tag == TypeTags.CLASS) {
+            rhs = _types.unboxedType(rhs);
+        }
         switch (Math.max(lhs.tag, rhs.tag)) {
         case TypeTags.BYTE:
         case TypeTags.SHORT:
