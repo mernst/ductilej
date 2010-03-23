@@ -119,13 +119,13 @@ public class Resolver
             return mi;
         }
 
-        // Debug.log("Resolving ctor " + mi.site + "<" + mi.tatypes + ">(" + mi.atypes + ")");
+        // Debug.temp("Resolving ctor " + mi.site + "<" + mi.tatypes + ">(" + mi.atypes + ")");
         mi.msym = invoke(env, Backdoor.resolveConstructor, _resolve, clazz.pos(),
                          Detype.toAttrEnv(env), mi.site, mi.atypes, mi.tatypes);
         if (mi.msym.kind >= Kinds.ERR) {
             Debug.warn("Unable to resolve ctor", "clazz", clazz, "args", args, "targrs", typeargs);
         }
-        // Debug.log("Asked javac to resolve ctor " + clazz + " got " + mi.msym);
+        // Debug.temp("Asked javac to resolve ctor " + clazz + " got " + mi.msym);
         return mi;
     }
 
@@ -241,6 +241,31 @@ public class Resolver
     }
 
     /**
+     * Instantiates the type of a method for its call site. This binds type variables as
+     * appropriate (via Resolve.instantiate) and converts the method to a member of its calling
+     * site (via Types.memberType).
+     */
+    public Type instantiateType (Env<DetypeContext> env, MethInfo mi)
+    {
+        // if the method is universally quantified, we need to bind its type variables based on the
+        // types of its actual arguments
+        if (mi.msym.type.tag == TypeTags.FORALL) {
+            // Resolve.instantiate handles member type conversion for us
+            boolean useVarargs = false; // TODO
+            Type mtype = invoke(env, Backdoor.instantiate, _resolve, Detype.toAttrEnv(env),
+                                mi.site, mi.msym, mi.atypes, mi.tatypes, true, useVarargs,
+                                new Warner());
+            if (mtype == null) {
+                Debug.warn("Failed to instantiate forall type", "sym", mi.msym);
+            }
+            return mtype;
+        } else {
+            // otherwise we just need to convert it to a member type
+            return _types.memberType(mi.site, mi.msym);
+        }
+    }
+
+    /**
      * Returns the (possibly parameterized) type of the supplied expression.
      */
     public Type resolveType (Env<DetypeContext> env, JCTree expr, int pkind)
@@ -299,22 +324,11 @@ public class Resolver
                 return null;
             }
 
-            // if the method is universally quantified, we need to bind its type variables based on
-            // the types of its actual arguments
-            Type mtype;
-            if (mi.msym.type.tag == TypeTags.FORALL) {
-                // Resolve.instantiate handles member type conversion for us
-                boolean useVarargs = false; // TODO
-                mtype = invoke(fenv, Backdoor.instantiate, _resolve, Detype.toAttrEnv(fenv),
-                               mi.site, mi.msym, mi.atypes, mi.tatypes, true, useVarargs,
-                               new Warner());
-                if (mtype == null) {
-                    Debug.warn("Failed to instantiate forall type", "sym", mi.msym);
-                    return null;
-                }
-            } else {
-                // otherwise we just need to convert it to a member type
-                mtype = _types.memberType(mi.site, mi.msym);
+            // we need to instantiate the type of this method which binds type variables based on
+            // actual type arguments and/or converts it to a member type
+            Type mtype = instantiateType(env, mi);
+            if (mtype == null) {
+                return null;
             }
 
             // if have a universally quantified return type, we need to instantiate the remaining
@@ -613,9 +627,8 @@ public class Resolver
             if (rtype.tag == TypeTags.CLASS) {
                 Type ownOuter = rtype.getEnclosingType();
 
-                // (a) If the symbol's type is parameterized, erase it because no type
-                // parameters were given.
-                // We recover generic outer type later in visitTypeApply.
+                // (a) If the symbol's type is parameterized, erase it because no type parameters
+                // were given. We recover generic outer type later in visitTypeApply.
                 if (rtype.tsym.type.getTypeArguments().nonEmpty()) {
                     rtype = _types.erasure(rtype);
                 }
