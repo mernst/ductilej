@@ -249,7 +249,7 @@ public class Detype extends PathedTreeTranslator
                     // preserve the flags (e.g. final), but strip off PARAMETER as our synthesized
                     // shadow field is not, in fact, a method parameter
                     _tmaker.VarDef(_tmaker.Modifiers(p.head.mods.flags & ~Flags.PARAMETER),
-                                   valname, _tmaker.Type(_syms.objectType),
+                                   valname, classLiteral(_syms.objectType, p.head.pos),
                                    _tmaker.Ident(p.head.name)));
             }
         }
@@ -982,20 +982,14 @@ public class Detype extends PathedTreeTranslator
         // we specify the return type of the dynamic cast explicitly so that we can supply the
         // concrete upper bound as the runtime class but still retain the type variable as our
         // static return type, e.g.: T val = RT.<T>checkedCast(Object.class, oval)
-        inv.typeargs = List.<JCExpression>of(_tmaker.at(expr.pos).Type(ptype));
+        inv.typeargs = List.<JCExpression>of(classLiteral(ptype, expr.pos));
         return inv;
     }
 
     protected JCMethodInvocation cast (Type type, JCExpression expr)
     {
         Type etype = _types.erasure(type);
-        JCExpression clazz;
-        if (etype.tag == TypeTags.CLASS) {
-            // TODO: why is TreeMaker.Type() creating bogus types?
-            clazz = mkFA(etype.toString(), expr.pos);
-        } else {
-            clazz = _tmaker.at(expr.pos).Type(etype);
-        }
+        JCExpression clazz = classLiteral(etype, expr.pos);
         return !_types.isSameType(etype, type) ?
             typeVarCast(clazz, expr, type) : checkedCast(clazz, expr);
     }
@@ -1022,7 +1016,7 @@ public class Detype extends PathedTreeTranslator
     protected List<JCExpression> typesToTree (List<Type> types, int pos)
     {
         return types.isEmpty() ? List.<JCExpression>nil() :
-            typesToTree(types.tail, pos).prepend(_tmaker.at(pos).Type(types.head));
+            typesToTree(types.tail, pos).prepend(classLiteral(types.head, pos));
     }
 
     protected JCMethodInvocation callRT (String method, int pos, JCExpression... args) {
@@ -1098,6 +1092,39 @@ public class Detype extends PathedTreeTranslator
     protected JCExpression classLiteral (JCExpression expr, int pos)
     {
         return _tmaker.at(pos).Select(expr, _names._class);
+    }
+
+    protected JCExpression classLiteral (Type type, final int pos)
+    {
+        JCExpression expr = _tmaker.at(pos).Type(type);
+
+        // there's a pesky bug in TreeMaker.Type that puts java.lang.Object as the "inner" field of
+        // a JCWildcard for unbound declarations (i.e. Class<?>) which later causes havoc to be
+        // wreaked inside the compiler because it expects inner to be null
+        expr.accept(new TreeScanner() {
+            public void visitWildcard (JCWildcard tree) {
+                switch (tree.kind.kind) {
+                case UNBOUND: tree.inner = null; break;
+                }
+            }
+        });
+
+        // there's another pesky bug in TreeMaker.Type that creates ASTs that look like
+        // .com.foo.bar.Baz instead of com.foo.bar.Baz, so we work around that here
+        expr.accept(new TreeScanner() {
+            public void visitSelect (JCFieldAccess tree) {
+                if (tree.selected instanceof JCFieldAccess) {
+                    JCFieldAccess stree = (JCFieldAccess)tree.selected;
+                    if (stree.selected instanceof JCIdent &&
+                        TreeInfo.name(stree.selected) == _names.empty) {
+                        tree.selected = _tmaker.at(pos).Ident(stree.name);
+                    }
+                }
+                super.visitSelect(tree);
+            }
+        });
+
+        return expr;
     }
 
     protected JCStatement unwrapExns (Name cvname, List<JCCatch> catchers)
@@ -1176,7 +1203,7 @@ public class Detype extends PathedTreeTranslator
             if (!atypes.isEmpty() && atypes.tail.isEmpty() && atypes.head.equals(ptypes.head)) {
                 return args;
             } else {
-                return List.<JCExpression>of(_tmaker.NewArray(_tmaker.Type(etype),
+                return List.<JCExpression>of(_tmaker.NewArray(classLiteral(etype, args.head.pos),
                                                               List.<JCExpression>nil(),
                                                               castList(etype, args)));
             }
@@ -1197,7 +1224,8 @@ public class Detype extends PathedTreeTranslator
     {
         JCExpression clazzid = (clazz.getTag() == JCTree.TYPEAPPLY) ?
             ((JCTypeApply)clazz).clazz : clazz;
-        clazzid = _tmaker.at(clazz.pos).Select(_tmaker.Type(site), ((JCIdent)clazzid).name);
+        clazzid = _tmaker.at(clazz.pos).Select(
+            classLiteral(site, clazz.pos), ((JCIdent)clazzid).name);
         return (clazz.getTag() != JCTree.TYPEAPPLY) ? clazzid :
             _tmaker.at(clazz.pos).TypeApply(clazzid, ((JCTypeApply)clazz).arguments);
     }
@@ -1221,25 +1249,9 @@ public class Detype extends PathedTreeTranslator
         case TypeTags.DOUBLE:
             return _tmaker.Literal(type.tag, 0); // TODO
         default:
-            return fixUnboundWildcardInnerBug(
-                _tmaker.at(arg.pos).TypeCast(
-                    _tmaker.Type(type), _tmaker.Literal(TypeTags.BOT, null)));
+            return _tmaker.at(arg.pos).TypeCast(
+                classLiteral(type, arg.pos), _tmaker.Literal(TypeTags.BOT, null));
         }
-    }
-
-    protected JCExpression fixUnboundWildcardInnerBug (JCExpression expr)
-    {
-        // there's a pesky bug in TreeMaker.Type() that puts java.lang.Object as the "inner"
-        // field of a JCWildcard for unbound declarations (i.e. Class<?>) which later causes
-        // havoc to be wreaked inside the compiler because it expects inner to be null
-        expr.accept(new TreeScanner() {
-            public void visitWildcard (JCWildcard tree) {
-                switch (tree.kind.kind) {
-                case UNBOUND: tree.inner = null; break;
-                }
-            }
-        });
-        return expr;
     }
 
     protected static String what (JCTree node)
