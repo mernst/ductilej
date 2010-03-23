@@ -42,6 +42,9 @@ public class ByteByteOps implements BinOps
     public Object rightShift (Object lhs, Object rhs) {
         return ((Byte)lhs).byteValue() >> ((Byte)rhs).byteValue();
     }
+    public Object unsignedRightShift (Object lhs, Object rhs) {
+        return ((Byte)lhs).byteValue() >>> ((Byte)rhs).byteValue();
+    }
 
     public boolean equalTo (Object lhs, Object rhs) {
         return ((Byte)lhs).byteValue() == ((Byte)rhs).byteValue();

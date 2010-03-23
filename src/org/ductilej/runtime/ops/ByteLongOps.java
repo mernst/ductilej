@@ -42,6 +42,9 @@ public class ByteLongOps implements BinOps
     public Object rightShift (Object lhs, Object rhs) {
         return ((Byte)lhs).byteValue() >> ((Long)rhs).longValue();
     }
+    public Object unsignedRightShift (Object lhs, Object rhs) {
+        return ((Byte)lhs).byteValue() >>> ((Long)rhs).longValue();
+    }
 
     public boolean equalTo (Object lhs, Object rhs) {
         return ((Byte)lhs).byteValue() == ((Long)rhs).longValue();

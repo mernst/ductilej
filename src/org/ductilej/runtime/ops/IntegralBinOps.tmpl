@@ -42,6 +42,9 @@ public class {LEFT}{RIGHT}Ops implements BinOps
     public Object rightShift (Object lhs, Object rhs) {
         return (({LEFT})lhs).{left}Value() >> (({RIGHT})rhs).{right}Value();
     }
+    public Object unsignedRightShift (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() >>> (({RIGHT})rhs).{right}Value();
+    }
 
     public boolean equalTo (Object lhs, Object rhs) {
         return (({LEFT})lhs).{left}Value() == (({RIGHT})rhs).{right}Value();

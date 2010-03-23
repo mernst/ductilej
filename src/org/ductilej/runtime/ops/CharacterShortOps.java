@@ -42,6 +42,9 @@ public class CharacterShortOps implements BinOps
     public Object rightShift (Object lhs, Object rhs) {
         return ((Character)lhs).charValue() >> ((Short)rhs).shortValue();
     }
+    public Object unsignedRightShift (Object lhs, Object rhs) {
+        return ((Character)lhs).charValue() >>> ((Short)rhs).shortValue();
+    }
 
     public boolean equalTo (Object lhs, Object rhs) {
         return ((Character)lhs).charValue() == ((Short)rhs).shortValue();
