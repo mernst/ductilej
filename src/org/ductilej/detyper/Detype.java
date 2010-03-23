@@ -1203,7 +1203,7 @@ public class Detype extends PathedTreeTranslator
             if (!atypes.isEmpty() && atypes.tail.isEmpty() && atypes.head.equals(ptypes.head)) {
                 return args;
             } else {
-                return List.<JCExpression>of(_tmaker.NewArray(classLiteral(etype, args.head.pos),
+                return List.<JCExpression>of(_tmaker.NewArray(classLiteral(etype, 0),
                                                               List.<JCExpression>nil(),
                                                               castList(etype, args)));
             }
