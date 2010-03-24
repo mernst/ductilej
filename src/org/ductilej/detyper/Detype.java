@@ -899,14 +899,15 @@ public class Detype extends PathedTreeTranslator
         } else {
             // if the RHS is a constant expression that is wider than the LHS, we must implicitly
             // narrow it; if it is any expression that is narrower, we must implicitly widen it
-            JCExpression trhs = translate(tree.rhs);
             Type ltype = _resolver.resolveType(_env, tree.lhs, Kinds.VAR);
-            if (ltype.isPrimitive()) {
-                Type rtype = _resolver.resolveType(_env, tree.rhs, Kinds.VAL);
-                // TODO: only implicitly narrow when RHS is a constant expr?
-                if (ltype.tag != rtype.tag) {
-                    trhs = callRT("coerce", tree.rhs.pos, classLiteral(ltype, tree.rhs.pos), trhs);
-                }
+            Type rtype = ltype.isPrimitive() ?
+                _resolver.resolveType(_env, tree.rhs, Kinds.VAL) : null;
+            // we have to do the above type resolution *before* we translate the rhs as it may make
+            // in-place modifications to the AST
+            JCExpression trhs = translate(tree.rhs);
+            // TODO: only implicitly narrow when RHS is a constant expr?
+            if (ltype.isPrimitive() && ltype.tag != rtype.tag) {
+                trhs = callRT("coerce", tree.rhs.pos, classLiteral(ltype, tree.rhs.pos), trhs);
             }
             result = mkAssign(tree.lhs, trhs, tree.pos);
         }
