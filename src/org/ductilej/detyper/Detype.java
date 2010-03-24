@@ -6,6 +6,7 @@ package org.ductilej.detyper;
 import javax.tools.JavaFileObject;
 
 import com.sun.source.tree.Tree;
+import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Kinds;
 import com.sun.tools.javac.code.Scope;
@@ -615,8 +616,10 @@ public class Detype extends PathedTreeTranslator
 
     @Override public void visitApply (JCMethodInvocation tree)
     {
-//         Debug.log("Method invocation", "typeargs", tree.typeargs, "method", what(tree.meth),
-//                   "args", tree.args, "varargs", tree.varargsElement);
+//         Debug.temp("Method invocation", "typeargs", tree.typeargs, "method", tree.meth,
+//                    "args", tree.args, "varargs", tree.varargsElement);
+
+        assert !tree.meth.toString().startsWith(RT.class.getName()) : "Doubly transforming";
 
         // if this is a zero args super() call, we'll be doing no detyping and if we try to resolve
         // the method we may run into annoying warnings relating to the fact that enums have no
@@ -702,7 +705,14 @@ public class Detype extends PathedTreeTranslator
             tree.args.head = toTypedNull(_syms.objectType, tree.args.head);
         }
 
+        // this hairy mess generates a Class<?> AST node which we use below to make Class<?>[]
+        JCExpression clazza = _tmaker.TypeApply(
+            _tmaker.Ident(_names.fromString("Class")), List.<JCExpression>of(
+                _tmaker.Wildcard(_tmaker.TypeBoundKind(BoundKind.UNBOUND), null)));
         tree.args = tree.args.prepend(recv).
+            prepend(_tmaker.NewArray(
+                        clazza, List.<JCExpression>nil(),
+                        classLiterals(mi.msym.type.getParameterTypes(), tree.meth.pos))).
             prepend(_tmaker.Literal(TreeInfo.name(tree.meth).toString()));
         tree.meth = mkRT(invokeName, tree.meth.pos);
         // Debug.log("APPLY " + mi.msym + " -> " + tree);
@@ -881,23 +891,24 @@ public class Detype extends PathedTreeTranslator
 
     @Override public void visitAssign (JCAssign tree)
     {
+        // we don't call super as we may need to avoid translating the LHS
+
         // if we're in an annotation declaration, don't touch anything
         if (path().endsWith(".Annotation")) {
             result = tree;
         } else {
             // if the RHS is a constant expression that is wider than the LHS, we must implicitly
             // narrow it; if it is any expression that is narrower, we must implicitly widen it
+            JCExpression trhs = translate(tree.rhs);
             Type ltype = _resolver.resolveType(_env, tree.lhs, Kinds.VAR);
             if (ltype.isPrimitive()) {
                 Type rtype = _resolver.resolveType(_env, tree.rhs, Kinds.VAL);
                 // TODO: only implicitly narrow when RHS is a constant expr?
                 if (ltype.tag != rtype.tag) {
-                    tree.rhs = callRT("coerce", tree.rhs.pos,
-                                      classLiteral(ltype, tree.rhs.pos), tree.rhs);
+                    trhs = callRT("coerce", tree.rhs.pos, classLiteral(ltype, tree.rhs.pos), trhs);
                 }
             }
-            // we don't call super as we may need to avoid translating the LHS
-            result = mkAssign(tree.lhs, translate(tree.rhs), tree.pos);
+            result = mkAssign(tree.lhs, trhs, tree.pos);
         }
     }
 
@@ -1039,12 +1050,6 @@ public class Detype extends PathedTreeTranslator
             castList(type, list.tail).prepend(cast(type, list.head));
     }
 
-    protected List<JCExpression> typesToTree (List<Type> types, int pos)
-    {
-        return types.isEmpty() ? List.<JCExpression>nil() :
-            typesToTree(types.tail, pos).prepend(typeToTree(types.head, pos));
-    }
-
     protected JCMethodInvocation callRT (String method, int pos, JCExpression... args) {
         return _tmaker.at(pos).Apply(null, mkRT(method, pos), List.from(args));
     }
@@ -1125,6 +1130,12 @@ public class Detype extends PathedTreeTranslator
         return _tmaker.at(pos).Select(typeToTree(type, pos), _names._class);
     }
 
+    protected List<JCExpression> classLiterals (List<Type> types, int pos)
+    {
+        return types.isEmpty() ? List.<JCExpression>nil() :
+            classLiterals(types.tail, pos).prepend(classLiteral(types.head, pos));
+    }
+
     protected JCExpression typeToTree (Type type, final int pos)
     {
         JCExpression expr = _tmaker.at(pos).Type(type);
@@ -1156,6 +1167,12 @@ public class Detype extends PathedTreeTranslator
         });
 
         return expr;
+    }
+
+    protected List<JCExpression> typesToTree (List<Type> types, int pos)
+    {
+        return types.isEmpty() ? List.<JCExpression>nil() :
+            typesToTree(types.tail, pos).prepend(typeToTree(types.head, pos));
     }
 
     protected JCStatement unwrapExns (Name cvname, List<JCCatch> catchers)

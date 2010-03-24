@@ -118,10 +118,9 @@ public class RT
     }
 
     /**
-     * Invokes the specified method via reflection, performing runtime type resolution and handling
-     * the necessary signature de-mangling.
+     * Invokes the specified method via reflection, handling the necessary signature de-mangling.
      */
-    public static Object invoke (String mname, Object receiver, Object... args)
+    public static Object invoke (String mname, Class<?>[] atypes, Object receiver, Object... args)
     {
         if (receiver == null) {
             throw new NullPointerException(
@@ -129,10 +128,10 @@ public class RT
         }
         Class<?> orclass = receiver.getClass();
         Class<?> rclass = orclass;
-        Class<?>[] atypes = toArgTypes(args);
+        // Class<?>[] atypes = toArgTypes(args);
         Method m;
         do {
-            m = findMethod(mname, rclass, atypes);
+            m = findMethod(rclass, mname, atypes);
             if (m == null) {
                 rclass = rclass.getEnclosingClass();
                 if (rclass != null) {
@@ -144,12 +143,13 @@ public class RT
     }
 
     /**
-     * Invokes the specified static method via reflection, performing runtime type resolution and
-     * handling the necessary de-signature mangling.
+     * Invokes the specified static method via reflection, handling the necessary signature
+     * de-mangling.
      */
-    public static Object invokeStatic (String mname, Class<?> clazz, Object... args)
+    public static Object invokeStatic (String mname, Class<?>[] atypes, Class<?> clazz,
+                                       Object... args)
     {
-        Method m = findMethod(mname, clazz, toArgTypes(args));
+        Method m = findMethod(clazz, mname, atypes);
         return invoke(checkMethod(m, mname, clazz, args), null, args);
     }
 
@@ -530,69 +530,30 @@ public class RT
 
     /**
      * A helper for {@link #invoke} and {@link #invokeStatic}.
-     *
-     * @throws NoSuchMethodError if a best matching method could not be found.
      */
-    protected static Method findMethod (String mname, Class<?> clazz, Class<?>[] atypes)
+    protected static Method findMethod (Class<?> clazz, String mname, Class<?>[] atypes)
     {
-        // TODO: this needs to follow the algorithm in JLS 15.12.2.1
-        List<Method> methods = collectMethods(new ArrayList<Method>(), mname, clazz, atypes);
-
-        if (methods.size() == 0) {
-            return null; // the caller may want to fall back to an outer class
-        } else if (methods.size() == 1) {
-            return methods.get(0); // no ambiguity, no problem!
-        }
-
-        // look for an exact type match (simplifies life for now)
-      METHOD:
-        for (Method m : methods) {
-            Class<?>[] ptypes = m.getParameterTypes();
-            int pcount = m.getName().endsWith(MM_SUFFIX) ? ptypes.length/2 : ptypes.length;
-            int poff = ptypes.length - pcount;
-            for (int ii = 0, ll = Math.min(atypes.length, pcount); ii < ll; ii++) {
-                Class<?> ptype = boxType(ptypes[poff+ii]);
-                if (atypes[ii] != null && !ptype.equals(atypes[ii])) {
-                    continue METHOD;
-                }
-            }
-            return m;
-        }
-
-        // first look for matching non-varargs methods
-        for (Method m : methods) {
-            if (!m.isVarArgs()) {
-                return m;
-            }
-        }
-
-        // now look for any method
-        return methods.get(0);
-    }
-
-    /**
-     * A helper for {@link #findMethod}.
-     */
-    protected static List<Method> collectMethods (
-        List<Method> into, String mname, Class<?> clazz, Class<?>[] atypes)
-    {
+      OUTER:
         for (Method method : clazz.getDeclaredMethods()) {
-            List<Class<?>> ptypes = Arrays.asList(method.getParameterTypes());
             String cmname = method.getName();
             boolean isMangled = isMangled(method);
             if (isMangled) {
                 cmname = cmname.substring(0, cmname.length()-MM_SUFFIX.length());
             }
-            if (cmname.equals(mname) &&
-                isApplicable(ptypes, isMangled, method.isVarArgs(), atypes)) {
-                into.add(method);
+            if (!cmname.equals(mname)) {
+                continue;
             }
+            Class<?>[] ptypes = method.getParameterTypes();
+            int poff = isMangled ? ptypes.length/2 : 0;
+            for (int ii = 0; ii < atypes.length; ii++) {
+                if (ptypes[ii+poff] != atypes[ii]) {
+                    continue OUTER;
+                }
+            }
+            return method;
         }
         Class<?> parent = clazz.getSuperclass();
-        if (parent != null) {
-            collectMethods(into, mname, parent, atypes);
-        }
-        return into;
+        return (parent == null) ? null : findMethod(parent, mname, atypes);
     }
 
     /**
