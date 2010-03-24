@@ -545,6 +545,9 @@ public class RT
             }
             Class<?>[] ptypes = method.getParameterTypes();
             int poff = isMangled ? ptypes.length/2 : 0;
+            if (ptypes.length - poff != atypes.length) {
+                continue;
+            }
             for (int ii = 0; ii < atypes.length; ii++) {
                 if (ptypes[ii+poff] != atypes[ii]) {
                     continue OUTER;
