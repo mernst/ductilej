@@ -156,6 +156,7 @@
         <pathelement location="${dtclass.dir}"/>
         <path refid="build.classpath"/>
       </classpath>
+      <compilerarg value="-J-ea"/>
       <compilerarg value="-Xlint"/>
       <compilerarg value="-Xlint:-serial"/>
       <!--<compilerarg value="-XprintProcessorInfo"/>-->
@@ -176,6 +177,7 @@
         <path refid="build.classpath"/>
       </classpath>
       <jvmarg value="-Dorg.ductilej.debug=${debug}"/>
+      <assertions><enable/></assertions>
       <formatter type="brief" usefile="false"/>
       <batchtest>
         <fileset dir="${src.dir}">
@@ -200,6 +202,7 @@
         <pathelement location="${stclass.dir}"/>
         <path refid="build.classpath"/>
       </classpath>
+      <compilerarg value="-J-ea"/>
       <compilerarg value="-Xlint"/>
       <compilerarg value="-Xlint:-serial"/>
       <include name="**/tests/${test}*Test.java"/>
@@ -213,6 +216,7 @@
         <pathelement location="${stclass.dir}"/>
         <path refid="build.classpath"/>
       </classpath>
+      <assertions><enable/></assertions>
       <formatter type="brief" usefile="false"/>
       <batchtest>
         <fileset dir="${src.dir}">
