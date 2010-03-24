@@ -425,10 +425,16 @@ public class Detype extends PathedTreeTranslator
     {
         // we don't call super because mkAssign needs the untranslated LHS
 
+        // assign ops implicitly coerce the result back to the type of the left-hand-side, so we
+        // need to resolve said lhs type and insert a coercion
+        Type ltype = _resolver.resolveType(_env, tree.lhs, Kinds.VAR);
+
         // we create this temporary JCBinary so that we can call bop.getKind() below which calls
         // into non-public code that would otherwise be annoying to call
         JCExpression bop = _tmaker.Binary(tree.getTag() - JCTree.ASGOffset, tree.lhs, tree.rhs);
         bop = binop(tree.pos, bop.getKind(), translate(tree.lhs), translate(tree.rhs));
+        bop = callRT("coerce", bop.pos, classLiteral(ltype, bop.pos), bop);
+
         // TODO: this a problem wrt evaluating the LHS more than once, we probably need to do
         // something painfully complicated
         result = mkAssign(tree.lhs, bop, tree.pos);
