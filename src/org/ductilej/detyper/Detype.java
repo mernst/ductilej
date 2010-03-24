@@ -249,7 +249,7 @@ public class Detype extends PathedTreeTranslator
                     // preserve the flags (e.g. final), but strip off PARAMETER as our synthesized
                     // shadow field is not, in fact, a method parameter
                     _tmaker.VarDef(_tmaker.Modifiers(p.head.mods.flags & ~Flags.PARAMETER),
-                                   valname, classLiteral(_syms.objectType, p.head.pos),
+                                   valname, typeToTree(_syms.objectType, p.head.pos),
                                    _tmaker.Ident(p.head.name)));
             }
         }
@@ -278,6 +278,12 @@ public class Detype extends PathedTreeTranslator
         if (tree.vartype instanceof JCArrayTypeTree) {
             _env.info.arrayElemType = tree.vartype;
         }
+
+        // if the declaration has primitive type and an initializer, we need to resolve the type of
+        // the initializer expression so that we can determine whether we need coercions
+        boolean isPrimitive = tree.vartype.getTag() == JCTree.TYPEIDENT;
+        Type itype = (!isPrimitive || tree.init == null) ? null :
+            _resolver.resolveType(_env, tree.init, Kinds.VAL);
 
         // determine whether we're defining a constant (a final variable that references a constant
         // expression, e.g. final int foo = 3)
@@ -316,18 +322,23 @@ public class Detype extends PathedTreeTranslator
 
         // if we're about to transform a primitive field with no initializer, we need to synthesize
         // an initializer that mimics the default initialization provided for primitive fields
-        if (path.endsWith(".ClassDef") && tree.init == null &&
-            tree.vartype.getTag() == JCTree.TYPEIDENT &&
+        if (path.endsWith(".ClassDef") && tree.init == null && isPrimitive &&
             // if the field is final, they must assign it a non-default value in the constructor,
             // so we need not (and indeed cannot) supply a synthesized initializer
             !ASTUtil.isFinal(tree.mods)) {
             // all primitive literals use (integer) 0 as their value (even boolean)
             tree.init = _tmaker.Literal(((JCPrimitiveTypeTree)tree.vartype).typetag, 0);
 
-        // if the vardef has an initializer, we may need to emulate an implicit narrowing
-        // conversion if the rvalue is a constant that is wider than the type of the lvalue
-        } else {
-            // TODO!
+        // if the vardef is a primitive and has an initializer, we may need to emulate an implicit
+        // narrowing or widening conversion if the rvalue differs from the type of the lvalue
+        } else if (isPrimitive && tree.init != null) {
+            int vtag = ((JCPrimitiveTypeTree)tree.vartype).typetag;
+            // TODO: only implicitly narrow when RHS is a constant expr?
+            if (vtag != itype.tag &&
+                !_types.isSameType(_types.boxedClass(_syms.typeOfTag[vtag]).type, itype)) {
+                tree.init = callRT("coerce", tree.init.pos,
+                                   classLiteral(tree.vartype, tree.init.pos), tree.init);
+            }
         }
 
         // Debug.log("Xforming vardef", "mods", tree.mods, "name", tree.name, "init", tree.init);
@@ -365,7 +376,9 @@ public class Detype extends PathedTreeTranslator
         case POSTFIX_INCREMENT: // i++ -> (i = unop("++", i) - 1)
             expr = mkAssign(tree.arg, expr, tree.pos);
             if (tree.getKind() == Tree.Kind.POSTFIX_INCREMENT) {
-                expr = binop(tree.pos, Tree.Kind.MINUS, expr, _tmaker.Literal(1));
+                // we use unop("--", e) here instead of binop("-", e, 1) because unop-- avoids
+                // promoting its operand to int
+                expr = unop(tree.pos, Tree.Kind.POSTFIX_DECREMENT, expr);
             }
             break;
 
@@ -373,7 +386,9 @@ public class Detype extends PathedTreeTranslator
         case POSTFIX_DECREMENT: // i-- -> (i = unop("--", i) + 1)
             expr = mkAssign(tree.arg, expr, tree.pos);
             if (tree.getKind() == Tree.Kind.POSTFIX_DECREMENT) {
-                expr = binop(tree.pos, Tree.Kind.PLUS, expr, _tmaker.Literal(1));
+                // we use unop("++", e) here instead of binop("+", e, 1) because unop++ avoids
+                // promoting its operand to int
+                expr = unop(tree.pos, Tree.Kind.POSTFIX_INCREMENT, expr);
             }
             break;
         }
@@ -870,6 +885,17 @@ public class Detype extends PathedTreeTranslator
         if (path().endsWith(".Annotation")) {
             result = tree;
         } else {
+            // if the RHS is a constant expression that is wider than the LHS, we must implicitly
+            // narrow it; if it is any expression that is narrower, we must implicitly widen it
+            Type ltype = _resolver.resolveType(_env, tree.lhs, Kinds.VAR);
+            if (ltype.isPrimitive()) {
+                Type rtype = _resolver.resolveType(_env, tree.rhs, Kinds.VAL);
+                // TODO: only implicitly narrow when RHS is a constant expr?
+                if (ltype.tag != rtype.tag) {
+                    tree.rhs = callRT("coerce", tree.rhs.pos,
+                                      classLiteral(ltype, tree.rhs.pos), tree.rhs);
+                }
+            }
             // we don't call super as we may need to avoid translating the LHS
             result = mkAssign(tree.lhs, translate(tree.rhs), tree.pos);
         }
@@ -982,14 +1008,14 @@ public class Detype extends PathedTreeTranslator
         // we specify the return type of the dynamic cast explicitly so that we can supply the
         // concrete upper bound as the runtime class but still retain the type variable as our
         // static return type, e.g.: T val = RT.<T>checkedCast(Object.class, oval)
-        inv.typeargs = List.<JCExpression>of(classLiteral(ptype, expr.pos));
+        inv.typeargs = List.<JCExpression>of(typeToTree(ptype, expr.pos));
         return inv;
     }
 
     protected JCMethodInvocation cast (Type type, JCExpression expr)
     {
         Type etype = _types.erasure(type);
-        JCExpression clazz = classLiteral(etype, expr.pos);
+        JCExpression clazz = typeToTree(etype, expr.pos);
         return !_types.isSameType(etype, type) ?
             typeVarCast(clazz, expr, type) : checkedCast(clazz, expr);
     }
@@ -1016,7 +1042,7 @@ public class Detype extends PathedTreeTranslator
     protected List<JCExpression> typesToTree (List<Type> types, int pos)
     {
         return types.isEmpty() ? List.<JCExpression>nil() :
-            typesToTree(types.tail, pos).prepend(classLiteral(types.head, pos));
+            typesToTree(types.tail, pos).prepend(typeToTree(types.head, pos));
     }
 
     protected JCMethodInvocation callRT (String method, int pos, JCExpression... args) {
@@ -1094,7 +1120,12 @@ public class Detype extends PathedTreeTranslator
         return _tmaker.at(pos).Select(expr, _names._class);
     }
 
-    protected JCExpression classLiteral (Type type, final int pos)
+    protected JCExpression classLiteral (Type type, int pos)
+    {
+        return _tmaker.at(pos).Select(typeToTree(type, pos), _names._class);
+    }
+
+    protected JCExpression typeToTree (Type type, final int pos)
     {
         JCExpression expr = _tmaker.at(pos).Type(type);
 
@@ -1203,7 +1234,7 @@ public class Detype extends PathedTreeTranslator
             if (!atypes.isEmpty() && atypes.tail.isEmpty() && atypes.head.equals(ptypes.head)) {
                 return args;
             } else {
-                return List.<JCExpression>of(_tmaker.NewArray(classLiteral(etype, 0),
+                return List.<JCExpression>of(_tmaker.NewArray(typeToTree(etype, 0),
                                                               List.<JCExpression>nil(),
                                                               castList(etype, args)));
             }
@@ -1225,7 +1256,7 @@ public class Detype extends PathedTreeTranslator
         JCExpression clazzid = (clazz.getTag() == JCTree.TYPEAPPLY) ?
             ((JCTypeApply)clazz).clazz : clazz;
         clazzid = _tmaker.at(clazz.pos).Select(
-            classLiteral(site, clazz.pos), ((JCIdent)clazzid).name);
+            typeToTree(site, clazz.pos), ((JCIdent)clazzid).name);
         return (clazz.getTag() != JCTree.TYPEAPPLY) ? clazzid :
             _tmaker.at(clazz.pos).TypeApply(clazzid, ((JCTypeApply)clazz).arguments);
     }
@@ -1250,7 +1281,7 @@ public class Detype extends PathedTreeTranslator
             return _tmaker.Literal(type.tag, 0); // TODO
         default:
             return _tmaker.at(arg.pos).TypeCast(
-                classLiteral(type, arg.pos), _tmaker.Literal(TypeTags.BOT, null));
+                typeToTree(type, arg.pos), _tmaker.Literal(TypeTags.BOT, null));
         }
     }
 
