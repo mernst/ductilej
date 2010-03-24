@@ -1128,7 +1128,8 @@ public class Detype extends PathedTreeTranslator
 
     protected JCExpression classLiteral (Type type, int pos)
     {
-        return _tmaker.at(pos).Select(typeToTree(type, pos), _names._class);
+        // because we're generating a class literal from a type, we always want its erasure
+        return _tmaker.at(pos).Select(typeToTree(_types.erasure(type), pos), _names._class);
     }
 
     protected List<JCExpression> classLiterals (List<Type> types, int pos)
