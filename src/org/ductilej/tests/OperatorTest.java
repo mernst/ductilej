@@ -53,9 +53,9 @@ public class OperatorTest
 
     @Test public void testCoercingAssignOp ()
     {
-        short x = 3; // straight outta the JLS
-        x += 4.6;
-        assertEquals(7, x);
+        short x = 3;
+        x *= 4.6; // this will do the multiply, then coerce the result to short
+        assertEquals(13, x);
     }
 
     @Test public void testStringPromote ()
