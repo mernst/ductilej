@@ -261,6 +261,16 @@ public class Detype extends PathedTreeTranslator
 
     @Override public void visitVarDef (JCVariableDecl tree)
     {
+        // var symbols for member-level variables are already entered, we just want to handle
+        // formal parameters and local variable declarations
+        if (_env.tree.getTag() != JCTree.CLASSDEF) {
+            // create a placeholder VarSymbol for this variable so that we can use it later
+            // during some simple name resolution
+            Type vtype = _resolver.resolveType(_env, tree.vartype, Kinds.TYP);
+            // Debug.temp("Creating var symbol with type " + vtype + " (" + vtype.tsym + ")");
+            _env.info.scope.enter(new VarSymbol(0, tree.name, vtype, _env.info.scope.owner));
+        }
+
         // we need a new environment here to keep our Env tree isomorphic to javac's
         Env<DetypeContext> oenv = _env;
         _env = _env.dup(tree, oenv.info.dup());
@@ -299,16 +309,6 @@ public class Detype extends PathedTreeTranslator
             result = tree;
         }
         _env = oenv;
-
-        // var symbols for member-level variables are already entered, we just want to handle
-        // formal parameters and local variable declarations
-        if (_env.tree.getTag() != JCTree.CLASSDEF) {
-            // create a placeholder VarSymbol for this variable so that we can use it later
-            // during some simple name resolution
-            Type vtype = _resolver.resolveType(_env, tree.vartype, Kinds.TYP);
-            // Debug.temp("Creating var symbol with type " + vtype + " (" + vtype.tsym + ")");
-            _env.info.scope.enter(new VarSymbol(0, tree.name, vtype, _env.info.scope.owner));
-        }
 
         String path = path();
         if (isConstDecl ||
