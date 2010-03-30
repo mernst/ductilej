@@ -433,7 +433,11 @@ public class Detype extends PathedTreeTranslator
         // into non-public code that would otherwise be annoying to call
         JCExpression bop = _tmaker.Binary(tree.getTag() - JCTree.ASGOffset, tree.lhs, tree.rhs);
         bop = binop(tree.pos, bop.getKind(), translate(tree.lhs), translate(tree.rhs));
-        bop = callRT("coerce", bop.pos, classLiteral(ltype, bop.pos), bop);
+        // if the lhs is a primitive, we need to insert a coercion back to its type; this is
+        // because 'shortv += intv' is equivalent to 'shortv = (short)(shortv + intv)'.
+        if (ltype.isPrimitive()) {
+            bop = callRT("coerce", bop.pos, classLiteral(ltype, bop.pos), bop);
+        }
 
         // TODO: this a problem wrt evaluating the LHS more than once, we probably need to do
         // something painfully complicated

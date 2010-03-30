@@ -79,6 +79,14 @@ public class OperatorTest
         assertTrue(true || fail());
     }
 
+    @Test public void testStringAppend ()
+    {
+        String foo = "foo";
+        foo = foo + " bar";
+        foo += " baz";
+        assertEquals("foo bar baz", foo);
+    }
+
     protected static class Value {
         public int value = 0;
     }
