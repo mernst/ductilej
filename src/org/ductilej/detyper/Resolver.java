@@ -398,6 +398,7 @@ public class Resolver
             // don't match, but should work for our purposes)
             return resolveType(env, ((JCConditional)expr).truepart, pkind);
 
+        case JCTree.TYPETEST: // instanceof
         case JCTree.OR: // ||
         case JCTree.AND: // &&
         case JCTree.EQ: // ==
