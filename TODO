@@ -17,7 +17,6 @@ Open issues
     - main(String[] args) { foo(args); }
     - foo(new String[] { ... })
 - What to do about string concatenation when one or the other argument is null?
-- What math ops are legal for Character (+ and -, but * and /?)
 - Need to do the "right" thing with == (assuming there is a right thing),
   i.e. if == is called on boxed integers, we need to unbox and compare, but ==
   called on one or two references should compare references.
