@@ -20,6 +20,10 @@ Open issues
 - Need to do the "right" thing with == (assuming there is a right thing),
   i.e. if == is called on boxed integers, we need to unbox and compare, but ==
   called on one or two references should compare references.
+- Pesky situation:
+  + abstract A { boolean next(); }
+  + class B extends A implements Iterator<> { /* inherits next() */ }
+  + next() is detyped in A, but B needs an undetyped next()
 
 Detyper
 - See if we can add an import for org.ductilej.runtime.RT to avoid verbose dumps
