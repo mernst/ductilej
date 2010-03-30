@@ -469,21 +469,14 @@ public class Detype extends PathedTreeTranslator
         // if we can't reflectively call the constructor, we need to resolve the specific
         // constructor being called
         Resolver.MethInfo mi = null;
+        Type ctype = _resolver.resolveType(_env, tree.clazz, Kinds.TYP);
         if (!canReflect) {
-            Type ctype = null;
-            if (tree.args.isEmpty()) {
-                ctype = _resolver.resolveType(_env, tree.clazz, Kinds.TYP);
-            } else {
+            if (!tree.args.isEmpty()) {
                 mi = _resolver.resolveConstructor(_env, tree.clazz, tree.args, tree.typeargs);
                 if (mi.msym.kind < Kinds.ERR) {
                     ctype = mi.site;
                 }
             }
-            if (ctype == null) {
-                result = tree;
-                return; // abort! (error will have been logged)
-            }
-
             if (tree.def != null) {
                 _env.info.anonParent = ctype.tsym;
                 // Attr does some massaging of anonymous JCClassDecls which we need to manually
@@ -521,7 +514,19 @@ public class Detype extends PathedTreeTranslator
             } else if (inStatic()) {
                 args = args.prepend(_tmaker.at(tree.pos).Literal(TypeTags.BOT, null));
             } else {
-                args = args.prepend(_tmaker.at(tree.pos).Ident(_names._this));
+                // we may be looking at a situation like:
+                // class A { class B {} class C { foo() { new B(); }}}
+                // in which case "this" is C.this but we really need A.this to instantiate a B, so
+                // we have to resolve the "outer" type of the class we're instantiating and compare
+                // it to the current enclosing class
+                JCExpression thisex;
+                if (_types.isSameType(_env.enclClass.sym.type, ctype.getEnclosingType())) {
+                    thisex = _tmaker.at(tree.pos).Ident(_names._this);
+                } else {
+                    thisex = _tmaker.at(tree.pos).Select(
+                        typeToTree(ctype.getEnclosingType(), tree.pos), _names._this);
+                }
+                args = args.prepend(thisex);
             }
             args = args.prepend(classLiteral(tree.clazz, tree.clazz.pos));
 
