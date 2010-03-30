@@ -983,8 +983,27 @@ public class Detype extends PathedTreeTranslator
     protected boolean isConstDecl (JCVariableDecl tree)
     {
         return tree.vartype.getTag() == JCTree.TYPEIDENT & // must be a primitive type
-            ASTUtil.isFinal(tree.mods) &&
-            ASTUtil.isConstantExpr(tree.init);
+            ASTUtil.isFinal(tree.mods) && isConstantExpr(tree.init);
+    }
+
+    protected boolean isConstantExpr (JCTree expr)
+    {
+        if (expr == null) {
+            return false;
+        } else if (expr.getTag() == JCTree.LITERAL) {
+            return true;
+        } else if (expr.getTag() == JCTree.IDENT) {
+            Symbol sym = _resolver.resolveSymbol(_env, expr, Kinds.VAL);
+            return (sym instanceof Symbol.VarSymbol) &&
+                ((Symbol.VarSymbol)sym).getConstantValue() != null;
+        } else if (expr instanceof JCUnary) {
+            return isConstantExpr(((JCUnary)expr).arg);
+        } else if (expr instanceof JCBinary) {
+            return isConstantExpr(((JCBinary)expr).lhs) &&
+                isConstantExpr(((JCBinary)expr).rhs);
+        } else {
+            return false;
+        }
     }
 
     protected JCMethodInvocation unop (int pos, Tree.Kind op, JCExpression arg)

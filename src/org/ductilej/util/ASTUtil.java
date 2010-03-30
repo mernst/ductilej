@@ -117,32 +117,6 @@ public class ASTUtil
     }
 
     /**
-     * Returns true if the supplied AST represents a constant expression (one that the compiler
-     * will fold into a constant and which is thus usable as a switch expression). This method is
-     * currently only approximate, it assumes all identifiers represent constant expressions and it
-     * fails to identify fully qualified identifiers that represent constant expressions.
-     */
-    public static boolean isConstantExpr (JCTree expr)
-    {
-        if (expr == null) {
-            return false;
-        } else if (expr.getTag() == JCTree.LITERAL) {
-            return true;
-        } else if (expr.getTag() == JCTree.IDENT) {
-            // we punt here and pretend like all identifiers reference static final fields, we'll
-            // eventually probably have to do this more correctly and it's going to be painful
-            return true;
-        } else if (expr instanceof JCUnary) {
-            return isConstantExpr(((JCUnary)expr).arg);
-        } else if (expr instanceof JCBinary) {
-            return isConstantExpr(((JCBinary)expr).lhs) &&
-                isConstantExpr(((JCBinary)expr).rhs);
-        } else {
-            return false;
-        }
-    }
-
-    /**
      * Returns true if the supplied AST node represents the 'null' literal.
      */
     public static boolean isNullLiteral (JCTree expr)
