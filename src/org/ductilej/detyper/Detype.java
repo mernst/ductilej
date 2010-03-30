@@ -511,7 +511,7 @@ public class Detype extends PathedTreeTranslator
                 // given that "site" and use the resolved type to create our class literal expr
                 Type site = _resolver.resolveType(_env, tree.encl, Kinds.VAL);
                 tree.clazz = qualifyClass(site, tree.clazz);
-            } else if (inStatic()) {
+            } else if (inStatic() || ctype.getEnclosingType() == Type.noType) {
                 args = args.prepend(_tmaker.at(tree.pos).Literal(TypeTags.BOT, null));
             } else {
                 // we may be looking at a situation like:
