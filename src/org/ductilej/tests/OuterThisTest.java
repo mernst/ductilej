@@ -18,11 +18,23 @@ public class OuterThisTest
         public B newB () {
             return new B();
         }
+        public D newD () {
+            return new D();
+        }
     }
 
-    @Test public void testNewB ()
+    public static class D {
+    }
+
+    @Test public void testThisResolve ()
     {
         C c = new C();
         assertTrue(c.newB() != null);
+    }
+
+    @Test public void testNoThis ()
+    {
+        C c = new C();
+        assertTrue(c.newD() != null);
     }
 }
