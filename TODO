@@ -24,6 +24,23 @@ Open issues
   + abstract A { boolean next(); }
   + class B extends A implements Iterator<> { /* inherits next() */ }
   + next() is detyped in A, but B needs an undetyped next()
+- Another pesky situation:
+  + class A implements Serializable {
+        private int _foo;
+        private void readObject (ObjectInputStream in) {
+            _foo++;
+        }
+    }
+  + class A implements Serializable {
+        private Object _foo = 0; // synthesized initializer
+        private void readObject (ObjectInputStream in) {
+            _foo = RT.unop("++", _foo);
+        }
+    }
+  + problem is that _foo is null because our constructor was not run; in the
+    case of normal unserialization, _foo will be populated with a value, but
+    when using readObject(), the method is called on a totally uninitialized
+    object
 
 Detyper
 - See if we can add an import for org.ductilej.runtime.RT to avoid verbose dumps
