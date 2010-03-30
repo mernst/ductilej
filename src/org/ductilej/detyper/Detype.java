@@ -963,6 +963,10 @@ public class Detype extends PathedTreeTranslator
         _rootmaker = TreeMaker.instance(ctx);
         _log = Log.instance(ctx);
 
+        _mainName = _names.fromString("main");
+        _readObjectName = _names.fromString("readObject");
+        _writeObjectName = _names.fromString("writeObject");
+
         // a class that will enclose all outer classes
         _predefClassDef = _rootmaker.ClassDef(
             _rootmaker.Modifiers(Flags.PUBLIC),
@@ -977,10 +981,29 @@ public class Detype extends PathedTreeTranslator
             return false;
         }
 
-        // TODO: make this more correct: only match public static methods named 'main' with a
-        // single String[] argument
-        return _env.enclMethod.getName().toString().equals("main") ||
-            ASTUtil.isLibraryOverrider(_types, _env.enclMethod.sym);
+        // if these are magic serialization methods (readObject, writeObject), they are considered
+        // library overriders (they must not be detyped)
+        Name mname = _env.enclMethod.getName();
+        int pcount = _env.enclMethod.params.size();
+        if (mname == _readObjectName && pcount == 1) {
+            return String.valueOf(_env.enclMethod.params.head.sym.type).equals(
+                "java.io.ObjectInputStream");
+
+        } else if (mname == _writeObjectName && pcount == 1) {
+            return String.valueOf(_env.enclMethod.params.head.sym.type).equals(
+                "java.io.ObjectOutputStream");
+
+        // "public static void main (String[] args)" must also remain undetyped
+        } else if (mname == _mainName && pcount == 1) {
+            return (_env.enclMethod.sym.flags() & PUBSTATIC) == PUBSTATIC &&
+                String.valueOf(_env.enclMethod.params.head.sym.type).equals("java.lang.String[]");
+        }
+
+        // other serialization methods exist: readObjectNoData, readReplace, writeReplace,
+        // readResolve; fortunately their signatures do not change under detyping
+
+        // otherwise we need to actually look at the type hierarchy
+        return ASTUtil.isLibraryOverrider(_types, _env.enclMethod.sym);
     }
 
     protected boolean inStatic ()
@@ -1358,6 +1381,7 @@ public class Detype extends PathedTreeTranslator
     protected TreeMaker _tmaker;
 
     protected JCTree.JCClassDecl _predefClassDef;
+    protected Name _mainName, _readObjectName, _writeObjectName;
 
     protected Resolver _resolver;
     protected Types _types;
@@ -1373,4 +1397,6 @@ public class Detype extends PathedTreeTranslator
 
     protected static final String TP_SUFFIX = "$T";
     protected static final Context.Key<Detype> DETYPE_KEY = new Context.Key<Detype>();
+
+    protected static final int PUBSTATIC = Flags.PUBLIC | Flags.STATIC;
 }
