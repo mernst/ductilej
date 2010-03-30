@@ -524,7 +524,12 @@ public class RT
         } catch (IllegalAccessException iae) {
             throw new RuntimeException(iae);
         } catch (InvocationTargetException ite) {
-            throw new RuntimeException(unwrap(ite.getCause()));
+            Throwable t = unwrap(ite.getCause());
+            if (t instanceof RuntimeException) {
+                throw (RuntimeException)t;
+            } else {
+                throw new RuntimeException(t); // TODO: use WrappedException
+            }
         }
     }
 
