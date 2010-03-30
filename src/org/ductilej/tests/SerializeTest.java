@@ -18,24 +18,47 @@ import static org.junit.Assert.*;
  */
 public class SerializeTest
 {
+    public static class MyString {
+        public final String value;
+        public MyString (String value) {
+            this.value = value;
+        }
+    }
+
     public static class Person implements Serializable
     {
-        public final String firstName;
-        public final String lastName;
-        public final int age;
+        public MyString firstName;
+        public MyString lastName;
+        public int age;
 
         public Person (String firstName, String lastName, int age)
         {
-            this.firstName = firstName;
-            this.lastName = lastName;
+            this.firstName = new MyString(firstName);
+            this.lastName = new MyString(lastName);
             this.age = age;
         }
 
         public boolean equals (Object other)
         {
             Person op = (Person)other;
-            return firstName.equals(op.firstName) &&
-                lastName.equals(op.lastName) && age == op.age;
+            return firstName.value.equals(op.firstName.value) &&
+                lastName.value.equals(op.lastName.value) && age == op.age;
+        }
+
+        private void readObject (ObjectInputStream in)
+            throws IOException, ClassNotFoundException
+        {
+            firstName = new MyString(in.readUTF());
+            lastName = new MyString(in.readUTF());
+            age = in.readInt();
+        }
+
+        private void writeObject (ObjectOutputStream out)
+            throws IOException
+        {
+            out.writeUTF(firstName.value);
+            out.writeUTF(lastName.value);
+            out.writeInt(age);
         }
     }
 
