@@ -644,24 +644,26 @@ public class Resolver
                 if (rtype.tsym.type.getTypeArguments().nonEmpty()) {
                     rtype = _types.erasure(rtype);
                 }
-
-//                     // (b) If the symbol's type is an inner class, then we have to interpret its
-//                     // outer type as a superclass of the site type. Example:
-//                     //
-//                     // class Tree<A> { class Visitor { ... } }
-//                     // class PointTree extends Tree<Point> { ... }
-//                     // ...PointTree.Visitor...
-//                     //
-//                     // Then the type of the last expression above is Tree<Point>.Visitor.
-//                     else if (ownOuter.tag == CLASS && site != ownOuter) {
-//                         Type normOuter = site;
-//                         if (normOuter.tag == CLASS)
-//                             normOuter = _types.asEnclosingSuper(site, ownOuter.tsym);
-//                         if (normOuter == null) // perhaps from an import
-//                             normOuter = _types.erasure(ownOuter);
-//                         if (normOuter != ownOuter)
-//                             rtype = new ClassType(normOuter, List.<Type>nil(), rtype.tsym);
-//                     }
+                // (b) If the symbol's type is an inner class, then we have to interpret its
+                // outer type as a superclass of the site type. Example:
+                //
+                // class Tree<A> { class Visitor { ... } }
+                // class PointTree extends Tree<Point> { ... }
+                // ...PointTree.Visitor...
+                //
+                // Then the type of the last expression above is Tree<Point>.Visitor.
+                else if (ownOuter.tag == TypeTags.CLASS && site != ownOuter) {
+                    Type normOuter = site;
+                    if (normOuter.tag == TypeTags.CLASS) {
+                        normOuter = _types.asEnclosingSuper(site, ownOuter.tsym);
+                    }
+                    if (normOuter == null) { // perhaps from an import
+                        normOuter = _types.erasure(ownOuter);
+                    }
+                    if (normOuter != ownOuter) {
+                        rtype = new Type.ClassType(normOuter, List.<Type>nil(), rtype.tsym);
+                    }
+                }
             }
             break;
 
