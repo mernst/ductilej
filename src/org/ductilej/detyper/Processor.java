@@ -18,6 +18,7 @@ import javax.annotation.processing.SupportedOptions;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 
@@ -73,7 +74,14 @@ public class Processor extends AbstractProcessor
         // only want to process each compilation unit once, so we have to manually consolidate
         List<JCCompilationUnit> units = new ArrayList<JCCompilationUnit>();
         for (Element elem : roundEnv.getRootElements()) {
+            if (elem instanceof PackageElement) {
+                continue; // nothing to do for package elements
+            }
             JCCompilationUnit unit = toUnit(elem);
+            if (unit == null) {
+                Debug.warn("Unable to obtain compilation unit for element", "elem", elem);
+                continue;
+            }
             // Debug.temp("Root elem " + elem, "unit", unit.getClass().getSimpleName());
             if (!units.contains(unit)) {
                 units.add(unit);
