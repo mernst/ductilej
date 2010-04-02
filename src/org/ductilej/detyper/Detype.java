@@ -117,6 +117,7 @@ public class Detype extends PathedTreeTranslator
         // be renamed and in any event will not appear in the detyped source of this class (all
         // calls will be rewritten to invokeStatic)
         if (tree.isStatic()) {
+            // TODO: if this is a static field import, or *, we should probably leave it in
             result = _tmaker.at(tree.pos).Skip();
         }
     }
