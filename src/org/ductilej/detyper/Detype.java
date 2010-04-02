@@ -110,6 +110,17 @@ public class Detype extends PathedTreeTranslator
         super.visitTopLevel(tree);
     }
 
+    @Override public void visitImport (JCImport tree) {
+        super.visitImport(tree);
+
+        // if this is a static method import, we want to remove it; the method being imported may
+        // be renamed and in any event will not appear in the detyped source of this class (all
+        // calls will be rewritten to invokeStatic)
+        if (tree.isStatic()) {
+            result = _tmaker.at(tree.pos).Skip();
+        }
+    }
+
     @Override public void visitClassDef (JCClassDecl tree)
     {
         Debug.log("Visiting class '" + tree.name + "'", "sym", tree.sym);
