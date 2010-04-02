@@ -466,13 +466,32 @@ public class Detype extends PathedTreeTranslator
         // field initializer and we're not looking at an anonmyous inner class declaration
         boolean canReflect = (tree.def == null && !inEnumFieldInit);
 
-        // if we can't reflectively call the constructor, we need to resolve the specific
-        // constructor being called
+        // If we are seeing a qualified new, of the form:
+        //    <expr>.new C <...> (...) ...
+        // we let clazz stand for the name of the allocated class C prefixed with the type of the
+        // qualifier expression, so that we can resolve it with standard techniques later. If
+        // <expr> has type T, then <expr>.new C <...> (...) yields a clazz T.C.
+        JCExpression clazz = tree.clazz;
+        if (tree.encl != null) {
+            Type enctype = _resolver.resolveType(_env, tree.encl, Kinds.VAL);
+            JCExpression clazzid = (clazz.getTag() == JCTree.TYPEAPPLY) ?
+                ((JCTypeApply) clazz).clazz : clazz;
+            clazzid = _tmaker.at(clazz.pos).Select(
+                typeToTree(enctype, clazz.pos), ((JCIdent) clazzid).name);
+            if (clazz.getTag() == JCTree.TYPEAPPLY) {
+                clazz = _tmaker.at(tree.pos).TypeApply(clazzid, ((JCTypeApply) clazz).arguments);
+            } else {
+                clazz = clazzid;
+            }
+        }
+
         Resolver.MethInfo mi = null;
-        Type ctype = _resolver.resolveType(_env, tree.clazz, Kinds.TYP);
+        Type ctype = _resolver.resolveType(_env, clazz, Kinds.TYP);
         if (!canReflect) {
+            // if we can't reflectively call the constructor, we need to resolve the specific
+            // constructor being called
             if (!tree.args.isEmpty()) {
-                mi = _resolver.resolveConstructor(_env, tree.clazz, tree.args, tree.typeargs);
+                mi = _resolver.resolveConstructor(_env, clazz, tree.args, tree.typeargs);
                 if (mi.msym.kind < Kinds.ERR) {
                     ctype = mi.site;
                 }
@@ -500,35 +519,35 @@ public class Detype extends PathedTreeTranslator
                 args.head = toTypedNull(_syms.objectType, args.head);
             }
 
-            // if there is a specific enclosing instance provided, use tree, otherwise use this
-            // unless we're in a static context in which case use nothing
+            // if there is a specific enclosing instance provided, pass it to newInstance()
+            JCExpression thisex;
             if (tree.encl != null) {
-                args = args.prepend(tree.encl);
+                thisex = tree.encl;
                 // we can no longer just use tree.clazz as our class literal because the enclosing
                 // reference moves us into its namespace; thus outer.new Inner() needs to result in
-                // a reflective instantiation of Outer.Inner.class not just Inner.class; so we have
-                // to resolve the type of the enclosing reference, resolve the type of the class
-                // given that "site" and use the resolved type to create our class literal expr
-                Type site = _resolver.resolveType(_env, tree.encl, Kinds.VAL);
-                tree.clazz = qualifyClass(site, tree.clazz);
+                // a reflective instantiation of Outer.Inner.class not just Inner.class; we already
+                // generated our fully qualified class name above, so we use it here
+                tree.clazz = clazz;
+
+            // if we're in a static state or have a static inner class, pass null
             } else if (inStatic() || ctype.getEnclosingType() == Type.noType) {
-                args = args.prepend(_tmaker.at(tree.pos).Literal(TypeTags.BOT, null));
+                thisex = _tmaker.at(tree.pos).Literal(TypeTags.BOT, null);
+
+            // otherwise we have to figure out the appropriate implicit enclosing this
             } else {
                 // we may be looking at a situation like:
                 // class A { class B {} class C { foo() { new B(); }}}
                 // in which case "this" is C.this but we really need A.this to instantiate a B, so
                 // we have to resolve the "outer" type of the class we're instantiating and compare
                 // it to the current enclosing class
-                JCExpression thisex;
                 if (_types.isSameType(_env.enclClass.sym.type, ctype.getEnclosingType())) {
                     thisex = _tmaker.at(tree.pos).Ident(_names._this);
                 } else {
                     thisex = _tmaker.at(tree.pos).Select(
                         typeToTree(ctype.getEnclosingType(), tree.pos), _names._this);
                 }
-                args = args.prepend(thisex);
             }
-            args = args.prepend(classLiteral(tree.clazz, tree.clazz.pos));
+            args = args.prepend(thisex).prepend(classLiteral(tree.clazz, tree.clazz.pos));
 
             // TODO: we can't reflectively create anonymous inner classes so maybe we should not
             // detype any constructor invocation...
@@ -1325,16 +1344,6 @@ public class Detype extends PathedTreeTranslator
             return List.nil();
         }
         return toTypedNulls(types.tail, args.tail).prepend(toTypedNull(types.head, args.head));
-    }
-
-    protected JCExpression qualifyClass (Type site, JCExpression clazz)
-    {
-        JCExpression clazzid = (clazz.getTag() == JCTree.TYPEAPPLY) ?
-            ((JCTypeApply)clazz).clazz : clazz;
-        clazzid = _tmaker.at(clazz.pos).Select(
-            typeToTree(site, clazz.pos), ((JCIdent)clazzid).name);
-        return (clazz.getTag() != JCTree.TYPEAPPLY) ? clazzid :
-            _tmaker.at(clazz.pos).TypeApply(clazzid, ((JCTypeApply)clazz).arguments);
     }
 
     /**
