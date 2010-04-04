@@ -738,8 +738,19 @@ public class Detype extends PathedTreeTranslator
             invokeName = "invoke";
 
         } else {
+            // if we're calling a method on an enclosing class, we need to supply "Enclosing.this"
+            // instead of simply "this", this is for two reasons: one, it's more efficient to do
+            // the runtime method lookup directly on its defining class, and two, we may be calling
+            // an enclosing class's method as an argument to super(), where it is illegal to
+            // reference "this"
+            JCExpression thisex;
+            if (_types.isSameType(_env.enclClass.sym.type, mi.msym.owner.type)) {
+                recv = _tmaker.at(tree.pos).Ident(_names._this);
+            } else {
+                recv = _tmaker.at(tree.pos).Select(
+                    typeToTree(mi.msym.owner.type, tree.pos), _names._this);
+            }
             // convert to RT.invoke("method", this, args)
-            recv = _tmaker.at(tree.meth.pos).Ident(_names._this);
             invokeName = "invoke";
         }
 
