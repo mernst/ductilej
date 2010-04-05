@@ -46,4 +46,21 @@ public class ConditionalTest
         }
         assertEquals(count, 5);
     }
+
+    @Test public void condExprTypeTest ()
+    {
+        // ensure that resolveType() on a conditional expression with a null in one or the other
+        // position properly returns the type of the non-null expression
+        int a = 0;
+        foo(a < 2 ? "bar" : null);
+        foo(a < 2 ? null : "bar");
+    }
+
+    protected void foo (String value)
+    {
+    }
+
+    protected void foo (Integer value)
+    {
+    }
 }
