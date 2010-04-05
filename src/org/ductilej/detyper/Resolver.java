@@ -163,12 +163,12 @@ public class Resolver
                     // we need to twiddle the selectSuper bit in the env we pass to Resolve
                     Backdoor.selectSuper.set(aenv.info, true);
                 }
-                // Debug.log("Resolving " + mname + "<" + mi.tatypes + ">(" + mi.atypes + ")");
+                // Debug.temp("Resolving " + mname + "<" + mi.tatypes + ">(" + mi.atypes + ")");
                 mi.msym = invoke(env, Backdoor.resolveConstructor, _resolve, mexpr.pos(),
                                  aenv, mi.site, mi.atypes, mi.tatypes);
                 mi.varArgs = Backdoor.varArgs.get(aenv.info);
             } else {
-                // Debug.log("Resolving " + mname + "<" + mi.tatypes + ">(" + mi.atypes + ")");
+                // Debug.temp("Resolving " + mname + "<" + mi.tatypes + ">(" + mi.atypes + ")");
                 mi.msym = invoke(env, Backdoor.resolveMethod, _resolve, mexpr.pos(),
                                  aenv, mname, mi.atypes, mi.tatypes);
                 mi.varArgs = Backdoor.varArgs.get(aenv.info);
@@ -177,7 +177,7 @@ public class Resolver
                 Debug.warn("Unable to resolve method", "expr", mexpr, "site", mi.site,
                            "encl", env.enclClass.sym);
             }
-            // Debug.log("Asked javac to resolve method " + mexpr + " got " + mi.msym);
+            // Debug.temp("Asked javac to resolve method " + mexpr + " got " + mi.msym);
             return mi;
         }
 
