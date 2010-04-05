@@ -552,11 +552,11 @@ public class Detype extends PathedTreeTranslator
                 // in which case "this" is C.this but we really need A.this to instantiate a B, so
                 // we have to resolve the "outer" type of the class we're instantiating and compare
                 // it to the current enclosing class
-                if (_types.isSameType(_env.enclClass.sym.type, ctype.getEnclosingType())) {
+                Type etype = _types.erasure(ctype.getEnclosingType());
+                if (_types.isSubtype(_types.erasure(_env.enclClass.sym.type), etype)) {
                     thisex = _tmaker.at(tree.pos).Ident(_names._this);
                 } else {
-                    thisex = _tmaker.at(tree.pos).Select(
-                        typeToTree(ctype.getEnclosingType(), tree.pos), _names._this);
+                    thisex = _tmaker.at(tree.pos).Select(typeToTree(etype, tree.pos), _names._this);
                 }
             }
             args = args.prepend(thisex).prepend(classLiteral(tree.clazz, tree.clazz.pos));
