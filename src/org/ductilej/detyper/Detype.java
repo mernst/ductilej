@@ -744,11 +744,11 @@ public class Detype extends PathedTreeTranslator
             // an enclosing class's method as an argument to super(), where it is illegal to
             // reference "this"
             JCExpression thisex;
-            if (_types.isSuperType(mi.msym.owner.type, _env.enclClass.sym.type)) {
+            Type otype = _types.erasure(mi.msym.owner.type);
+            if (_types.isSubtype(_types.erasure(_env.enclClass.sym.type), otype)) {
                 recv = _tmaker.at(tree.pos).Ident(_names._this);
             } else {
-                recv = _tmaker.at(tree.pos).Select(
-                    typeToTree(mi.msym.owner.type, tree.pos), _names._this);
+                recv = _tmaker.at(tree.pos).Select(typeToTree(otype, tree.pos), _names._this);
             }
             // convert to RT.invoke("method", this, args)
             invokeName = "invoke";

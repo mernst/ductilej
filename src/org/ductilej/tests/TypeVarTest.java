@@ -22,6 +22,15 @@ public class TypeVarTest
         public void wibble (A value) {
             super.add(value);
         }
+
+        @Override
+        public boolean add (A element)
+        {
+            // test whether we correctly determine that the below add() is a method defined by our
+            // supertype (which involves some annoying manual type variable translation)
+            add(size(), element);
+            return true;
+        }
     }
 
     public class Tuple<L,R> {
