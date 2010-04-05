@@ -744,11 +744,23 @@ public class Detype extends PathedTreeTranslator
             // an enclosing class's method as an argument to super(), where it is illegal to
             // reference "this"
             JCExpression thisex;
+            Type etype = _types.erasure(_env.enclClass.sym.type);
             Type otype = _types.erasure(mi.msym.owner.type);
-            if (_types.isSubtype(_types.erasure(_env.enclClass.sym.type), otype)) {
+            if (_types.isSubtype(etype, otype)) {
                 recv = _tmaker.at(tree.pos).Ident(_names._this);
             } else {
-                recv = _tmaker.at(tree.pos).Select(typeToTree(otype, tree.pos), _names._this);
+                // we can't just use the method owner's type, the method may be declared in a
+                // parent of our enclosing class, and we need the type of our enclosing class in
+                // our qualified this expression; for example:
+                // class A { void foo (); }
+                // class B extends A {
+                //   class C { void bar () {
+                //     foo(); // --> RT.invoke("foo", B.this); not A.this
+                // }}}
+                do {
+                    etype = _types.erasure(etype.getEnclosingType());
+                } while (!_types.isSubtype(etype, otype));
+                recv = _tmaker.at(tree.pos).Select(typeToTree(etype, tree.pos), _names._this);
             }
             // convert to RT.invoke("method", this, args)
             invokeName = "invoke";
