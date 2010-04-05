@@ -116,8 +116,8 @@ public class Detype extends PathedTreeTranslator
         // if this is a static method import, we want to remove it; the method being imported may
         // be renamed and in any event will not appear in the detyped source of this class (all
         // calls will be rewritten to invokeStatic)
-        if (tree.isStatic()) {
-            // TODO: if this is a static field import, or *, we should probably leave it in
+        if (tree.isStatic() && TreeInfo.name(tree.qualid) != _names.asterisk &&
+            !isVarImport(tree)) {
             result = _tmaker.at(tree.pos).Skip();
         }
     }
@@ -1391,6 +1391,17 @@ public class Detype extends PathedTreeTranslator
             return _tmaker.at(arg.pos).TypeCast(
                 typeToTree(type, arg.pos), _tmaker.Literal(TypeTags.BOT, null));
         }
+    }
+
+    protected boolean isVarImport (JCImport tree)
+    {
+        Scope.Entry e = _env.toplevel.namedImportScope.lookup(TreeInfo.name(tree.qualid));
+        for (; e.scope != null; e = e.next()) {
+            if (e.sym.kind == Kinds.VAR) {
+                return true;
+            }
+        }
+        return false;
     }
 
     protected static String what (JCTree node)
