@@ -402,10 +402,12 @@ public class Resolver
             }
         }
 
-        case JCTree.CONDEXPR:
-            // obtain the type of a ?: expr from the true part (could cause confusion if the types
-            // don't match, but should work for our purposes)
-            return resolveType(env, ((JCConditional)expr).truepart, pkind);
+        case JCTree.CONDEXPR: {
+            // if one side is null, use type of other side (in general should we unify?)
+            Type type = resolveType(env, ((JCConditional)expr).truepart, pkind);
+            return (type.tag != TypeTags.BOT) ? type :
+                resolveType(env, ((JCConditional)expr).falsepart, pkind);
+        }
 
         case JCTree.TYPETEST: // instanceof
         case JCTree.OR: // ||
