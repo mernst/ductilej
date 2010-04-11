@@ -45,6 +45,11 @@ public class Resolver
         public List<Type> tatypes;
         // were varargs used at this call site? (needed by Resolve.instantiate)
         public boolean varArgs;
+
+        /** Returns true if we were able to resolve the method, false if not. */
+        public boolean isValid () {
+            return msym.kind < Kinds.ERR;
+        }
     }
 
     /**
