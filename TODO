@@ -41,6 +41,14 @@ Open issues
     case of normal unserialization, _foo will be populated with a value, but
     when using readObject(), the method is called on a totally uninitialized
     object
+- What to do about this sort of error:
+    Runtime.exec(...) (should be Runtime.getRuntime().exec(...))
+  We find the method and then assume Runtime is an identifier, which fails to
+  compile; should we note that the method is non-static and that we resolved it
+  assuming it was static and leave it untransformed? Or maybe turn it into
+  compiling code but that fails at runtime. Can we, in general, generate code
+  that replaces a method call that fails at runtime and preserves compilability
+  of the rest of the method?
 
 Detyper
 - See if we can add an import for org.ductilej.runtime.RT to avoid verbose dumps
