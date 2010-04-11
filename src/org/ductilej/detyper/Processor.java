@@ -36,7 +36,8 @@ import org.ductilej.util.ASTUtil;
  * The main entry point for the detyping processor.
  */
 @SupportedAnnotationTypes("*")
-@SupportedOptions({Processor.SHOWCLASS_ARG, Processor.WRITECLASS_ARG, Processor.DEBUG_ARG})
+@SupportedOptions({Processor.SHOWCLASS_ARG, Processor.WRITECLASS_ARG, Processor.DEBUG_ARG,
+                   Processor.WARNINGS_ARG})
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public class Processor extends AbstractProcessor
 {
