@@ -3,6 +3,7 @@
 
 package org.ductilej.detyper;
 
+import javax.lang.model.element.ElementKind;
 import javax.tools.JavaFileObject;
 
 import com.sun.source.tree.Tree;
@@ -504,7 +505,7 @@ public class Detype extends PathedTreeTranslator
             // constructor being called
             if (!tree.args.isEmpty()) {
                 mi = _resolver.resolveConstructor(_env, clazz, tree.args, tree.typeargs);
-                if (mi.msym.kind < Kinds.ERR) {
+                if (mi.isValid()) {
                     ctype = mi.site;
                 }
             }
@@ -678,10 +679,6 @@ public class Detype extends PathedTreeTranslator
 
         // resolve the called method before we transform the leaves of this tree
         Resolver.MethInfo mi = _resolver.resolveMethod(_env, tree);
-        if (mi.msym.kind >= Kinds.ERR) {
-            result = tree; // abort! (error will have been logged)
-            return;
-        }
         // Debug.temp("Method invocation", "tree", tree, "sym", mi.msym);
 
         // we need to track whether we're processing the arguments of a this() or super()
@@ -697,6 +694,7 @@ public class Detype extends PathedTreeTranslator
         // if this is a chained constructor call or super.foo(), we can't call it reflectively
         if (isChainedCons || isSuperMethodCall(tree)) {
             if (!tree.args.isEmpty()) {
+                assert mi.isValid(); // TODO: cope when we can't resolve this() or super()
                 List<Type> ptypes = _resolver.instantiateType(_env, mi).asMethodType().argtypes;
                 // if the method is defined in a library class, we need to cast the argument types
                 // back to the types it expects
@@ -724,12 +722,34 @@ public class Detype extends PathedTreeTranslator
 
         String invokeName;
         JCExpression recv;
-        if (Flags.isStatic(mi.msym)) {
+        if (!mi.isValid()) {
+            // if we were unable to resolve the target method, try some fallback heuristics to
+            // determine whether it has a static or non-static receiver
+            if (tree.meth instanceof JCFieldAccess) {
+                Symbol rsym = _resolver.resolveSymbol(
+                    _env, ((JCFieldAccess)tree.meth).selected, Kinds.VAL|Kinds.TYP);
+                if (rsym.getKind() == ElementKind.CLASS) {
+                    String fqName = rsym.getQualifiedName().toString();
+                    recv = classLiteral(mkFA(fqName, tree.pos), tree.pos);
+                    invokeName = "invokeStatic";
+                    Debug.temp("Falling back to invokeStatic", "tree", tree);
+                } else {
+                    recv = ((JCFieldAccess)tree.meth).selected;
+                    invokeName = "invoke";
+                    Debug.temp("Falling back to invoke", "tree", tree);
+                }
+            } else {
+                recv = _tmaker.at(tree.pos).Ident(_names._this);
+                invokeName = "invoke";
+                Debug.temp("Falling back to invoke this", "tree", tree);
+            }
+
+        } else if (Flags.isStatic(mi.msym)) {
             // convert to RT.invokeStatic("method", decl.class, args)
-            ClassSymbol osym = (ClassSymbol)mi.msym.owner;
+            String fqName = mi.msym.owner.getQualifiedName().toString();
+            recv = classLiteral(mkFA(fqName, tree.pos), tree.pos);
             // TODO: this causes strangeness in weird places (See LibInterfaceTest)
             // recv = _tmaker.at(tree.pos).ClassLiteral((ClassSymbol)mi.msym.owner);
-            recv = classLiteral(mkFA(osym.fullname.toString(), tree.pos), tree.pos);
             invokeName = "invokeStatic";
 
         } else if (tree.meth instanceof JCFieldAccess) {
@@ -774,14 +794,21 @@ public class Detype extends PathedTreeTranslator
             tree.args.head = toTypedNull(_syms.objectType, tree.args.head);
         }
 
-        // this hairy mess generates a Class<?> AST node which we use below to make Class<?>[]
-        JCExpression clazza = _tmaker.TypeApply(
-            _tmaker.Ident(_names.fromString("Class")), List.<JCExpression>of(
-                _tmaker.Wildcard(_tmaker.TypeBoundKind(BoundKind.UNBOUND), null)));
+        JCExpression mtypes;
+        if (mi.isValid()) {
+            // this hairy mess generates a Class<?> AST node which we use below to make Class<?>[]
+            JCExpression clazza = _tmaker.TypeApply(
+                _tmaker.Ident(_names.fromString("Class")), List.<JCExpression>of(
+                    _tmaker.Wildcard(_tmaker.TypeBoundKind(BoundKind.UNBOUND), null)));
+            mtypes = _tmaker.NewArray(
+                clazza, List.<JCExpression>nil(),
+                classLiterals(mi.msym.type.getParameterTypes(), tree.meth.pos));
+        } else {
+            // if we failed to resolve the method, just pass null for our types
+            mtypes = _tmaker.Literal(TypeTags.BOT, null);
+        }
         tree.args = tree.args.prepend(recv).
-            prepend(_tmaker.NewArray(
-                        clazza, List.<JCExpression>nil(),
-                        classLiterals(mi.msym.type.getParameterTypes(), tree.meth.pos))).
+            prepend(mtypes).
             prepend(_tmaker.Literal(TreeInfo.name(tree.meth).toString()));
         tree.meth = mkRT(invokeName, tree.meth.pos);
         // Debug.log("APPLY " + mi.msym + " -> " + tree);
