@@ -58,7 +58,8 @@ public class Processor extends AbstractProcessor
         // note our options
         _showclass = "true".equalsIgnoreCase(procenv.getOptions().get(SHOWCLASS_ARG));
         _writeclass = "true".equalsIgnoreCase(procenv.getOptions().get(WRITECLASS_ARG));
-        Debug.debug = "true".equalsIgnoreCase(procenv.getOptions().get(DEBUG_ARG));
+        Debug.DEBUG = "true".equalsIgnoreCase(procenv.getOptions().get(DEBUG_ARG));
+        Resolver.WARNINGS = "true".equalsIgnoreCase(procenv.getOptions().get(WARNINGS_ARG));
 
         Debug.log("Detyper running", "vers", procenv.getSourceVersion());
     }
@@ -124,4 +125,6 @@ public class Processor extends AbstractProcessor
     protected static final String SHOWCLASS_ARG = "org.ductilej.showclass";
     // -Aorg.ductilej.writeclass=true causes classes to be written to a .djava file after detyping
     protected static final String WRITECLASS_ARG = "org.ductilej.writeclass";
+    // -Aorg.ductilej.warnings=true causes warnings to be printed for unresolvable symbols
+    protected static final String WARNINGS_ARG = "org.ductilej.warnings";
 }

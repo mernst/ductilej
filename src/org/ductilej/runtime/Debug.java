@@ -14,7 +14,7 @@ import org.ductilej.util.LogBuilder;
 public class Debug
 {
     /** Whether or not debug logging is enabled. */
-    public static boolean debug = Boolean.getBoolean("org.ductilej.debug");
+    public static boolean DEBUG = Boolean.getBoolean("org.ductilej.debug");
 
     /**
      * Emits a debug message to stderr.
@@ -24,7 +24,7 @@ public class Debug
      */
     public static void log (String message, Object... args)
     {
-        if (debug) {
+        if (DEBUG) {
             System.err.println(format(message, args));
         }
     }

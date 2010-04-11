@@ -41,14 +41,18 @@ public class Backdoor<T>
         newMethodRef(Enter.class, "classEnter", 2);
     public static final MethodRef<Resolve, Symbol> findIdent =
         newMethodRef(Resolve.class, "findIdent", 3);
+    public static final MethodRef<Resolve, Symbol> findFun =
+        newMethodRef(Resolve.class, "findFun", 6);
+    public static final MethodRef<Resolve, Symbol> findMethod =
+        newMethodRef(Resolve.class, "findMethod", 8);
     public static final MethodRef<Resolve, Symbol> resolveIdent =
         newMethodRef(Resolve.class, "resolveIdent", 4);
     public static final MethodRef<Resolve, Symbol> resolveMethod =
         newMethodRef(Resolve.class, "resolveMethod", 5);
-    public static final MethodRef<Resolve, Symbol> resolveConstructor =
-        newMethodRef(Resolve.class, "resolveConstructor", 5);
     public static final MethodRef<Resolve, Symbol> resolveQualifiedMethod =
         newMethodRef(Resolve.class, "resolveQualifiedMethod", 6);
+    public static final MethodRef<Resolve, Symbol> resolveConstructor =
+        newMethodRef(Resolve.class, "resolveConstructor", 5);
     public static final MethodRef<Resolve, Type> instantiate =
         newMethodRef(Resolve.class, "instantiate", 8);
     public static final MethodRef<Attr, Symbol> selectSym =
