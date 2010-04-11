@@ -353,6 +353,13 @@ public class Detype extends PathedTreeTranslator
                 tree.init = callRT("coerce", tree.init.pos,
                                    classLiteral(tree.vartype, tree.init.pos), tree.init);
             }
+
+        // lastly, if this is just a plain old vardef with no initializer, we add a default
+        // initializer to relax the requirement for definite assignment
+        } else if (RELAX_DEFASSIGN && !path.endsWith(".ClassDef") && tree.init == null &&
+                   !ASTUtil.isFinal(tree.mods)) {
+            tree.init = _tmaker.Literal(
+                isPrimitive ? ((JCPrimitiveTypeTree)tree.vartype).typetag : TypeTags.BOT, 0);
         }
 
         // Debug.log("Xforming vardef", "mods", tree.mods, "name", tree.name, "init", tree.init);
@@ -1480,4 +1487,7 @@ public class Detype extends PathedTreeTranslator
     protected static final Context.Key<Detype> DETYPE_KEY = new Context.Key<Detype>();
 
     protected static final int PUBSTATIC = Flags.PUBLIC | Flags.STATIC;
+
+    // whether definite assignment relaxation is enabled
+    protected static final boolean RELAX_DEFASSIGN = true;
 }
