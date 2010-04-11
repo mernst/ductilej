@@ -668,9 +668,10 @@ public class Detype extends PathedTreeTranslator
 
         assert !tree.meth.toString().startsWith(RT.class.getName()) : "Doubly transforming";
 
-        // if this is a zero args super() call, we'll be doing no detyping and if we try to resolve
-        // the method we may run into annoying warnings relating to the fact that enums have no
-        // legal super constructor
+        // if this is a zero args super() call, we'll be doing no detyping and we just stop here;
+        // normally going through the motions would be of no consequence, but in the case of
+        // synthesized enum code we run into annoying warnings relating to the fact that enums have
+        // no legal super constructor
         Name mname = TreeInfo.name(tree.meth);
         if (mname == _names._super && tree.args.isEmpty()) {
             result = tree;
