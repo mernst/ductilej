@@ -339,6 +339,10 @@ public class Resolver
         switch (expr.getTag()) {
         case JCTree.IDENT: {
             Symbol sym = resolveSymbol(env, expr, pkind);
+            if (sym.kind >= Kinds.ERR) {
+                Debug.warn("Unable to resolve type", "expr", expr, "pkind", pkind);
+                return null;
+            }
 
             Env<DetypeContext> env1 = env;
             if (sym.kind < Kinds.ERR && sym.owner != null && sym.owner != env1.enclClass.sym) {
