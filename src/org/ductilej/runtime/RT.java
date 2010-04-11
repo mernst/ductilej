@@ -126,20 +126,39 @@ public class RT
             throw new NullPointerException(
                 Debug.format("Null receiver for " + mname, "atypes", toArgTypes(args)));
         }
-        Class<?> orclass = receiver.getClass();
-        Class<?> rclass = orclass;
-        // Class<?>[] atypes = toArgTypes(args);
+        Class<?> rclass = receiver.getClass();
         Method m;
-        do {
-            m = findMethod(rclass, mname, atypes);
-            if (m == null) {
-                rclass = rclass.getEnclosingClass();
-                if (rclass != null) {
-                    receiver = getEnclosingReference(rclass, receiver);
+
+        // if we were able to resolve the method at compile time, the exact argument types will be
+        // provided in atypes which we can use to precise and fast(er) method lookup
+        if (atypes != null) {
+            Class<?> cclass = rclass;
+            do {
+                m = findMethod(cclass, mname, atypes);
+                if (m == null) {
+                    cclass = cclass.getEnclosingClass();
+                    if (cclass != null) {
+                        receiver = getEnclosingReference(cclass, receiver);
+                    }
                 }
-            }
-        } while (m == null && rclass != null);
-        return invoke(checkMethod(m, mname, orclass, args), receiver, args);
+            } while (m == null && cclass != null);
+
+        } else {
+            // otherwise we've got to do an expensive search using the runtime argument types
+            atypes = toArgTypes(args);
+            Class<?> cclass = rclass;
+            do {
+                m = resolveMethod(cclass, mname, atypes);
+                if (m == null) {
+                    cclass = cclass.getEnclosingClass();
+                    if (cclass != null) {
+                        receiver = getEnclosingReference(cclass, receiver);
+                    }
+                }
+            } while (m == null && cclass != null);
+        }
+
+        return invoke(checkMethod(m, mname, rclass, args), receiver, args);
     }
 
     /**
@@ -149,7 +168,11 @@ public class RT
     public static Object invokeStatic (String mname, Class<?>[] atypes, Class<?> clazz,
                                        Object... args)
     {
-        Method m = findMethod(clazz, mname, atypes);
+        // if we were able to resolve the method at compile time, the exact argument types will be
+        // provided in atypes which we can use to precise and fast(er) method lookup
+        Method m = (atypes != null) ? findMethod(clazz, mname, atypes) :
+            // otherwise we've got to do an expensive search using the runtime argument types
+            resolveMethod(clazz, mname, toArgTypes(args));
         return invoke(checkMethod(m, mname, clazz, args), null, args);
     }
 
@@ -478,7 +501,7 @@ public class RT
     {
         // Debug.temp("Invoking " + method, "recv", receiver, "args", rargs);
 
-        boolean isMangled = isMangled(method);
+        boolean isMangled = isMangled(method.getName());
         List<Class<?>> ptypes = Arrays.asList(method.getParameterTypes());
         int pcount = ptypes.size();
         if (isMangled) {
@@ -541,7 +564,7 @@ public class RT
       OUTER:
         for (Method method : clazz.getDeclaredMethods()) {
             String cmname = method.getName();
-            boolean isMangled = isMangled(method);
+            boolean isMangled = isMangled(cmname);
             if (isMangled) {
                 cmname = cmname.substring(0, cmname.length()-MM_SUFFIX.length());
             }
@@ -564,6 +587,63 @@ public class RT
         return (parent == null) ? null : findMethod(parent, mname, atypes);
     }
 
+    protected static class MethodData
+    {
+        public Method best;
+        public boolean typeMatch;
+    }
+
+    /**
+     * Resolves the best matching method given the supplied runtime argument types. This is used
+     * for methods that could not be resolved at compile time and thus for which we do not have to
+     * preserve method resolution equivalent equivalent to that done for type correct code.
+     */
+    protected static Method resolveMethod (Class<?> clazz, String mname, Class<?>[] atypes)
+    {
+        MethodData mdata = new MethodData();
+        resolveMethod(clazz, mname, atypes, mdata);
+        return mdata.best;
+    }
+
+    protected static void resolveMethod (Class<?> clazz, String mname, Class<?>[] atypes,
+                                         MethodData mdata)
+    {
+        for (Method method : clazz.getDeclaredMethods()) {
+            String cmname = method.getName();
+            boolean isMangled = isMangled(cmname);
+            if (isMangled) {
+                cmname = cmname.substring(0, cmname.length()-MM_SUFFIX.length());
+            }
+            if (!cmname.equals(mname)) {
+                continue;
+            }
+
+            Class<?>[] ptypes = method.getParameterTypes();
+            if (!argCountMatch(isMangled, method.isVarArgs(), ptypes.length, atypes.length)) {
+                continue;
+            }
+
+            boolean typeMatch = argTypeMatch(
+                Arrays.asList(ptypes), isMangled, method.isVarArgs(), atypes);
+
+            if ((mdata.best == null) || (typeMatch && !mdata.typeMatch)) {
+                mdata.best = method;
+                mdata.typeMatch = typeMatch;
+
+            } else if (typeMatch && mdata.typeMatch) {
+                throw new AmbiguousMethodError(
+                    Debug.format("Two methods (or more) with matching types", "mname", mname,
+                                 "atypes", atypes, "m1", mdata.best, "m2", method));
+
+            } // else: 'best' is a type match and the current method is not, so we skip it
+        }
+
+        Class<?> parent = clazz.getSuperclass();
+        if (parent != null) {
+            resolveMethod(parent, mname, atypes, mdata);
+        }
+    }
+
     /**
      * Helper for {@link #invokeStatic} and {@link #invoke}.
      */
@@ -581,9 +661,12 @@ public class RT
     /**
      * A helper for {@link #newInstance}.
      */
-    protected static Constructor<?> findConstructor (Class<?> clazz, boolean needsOuterThis,
-                                                     boolean isMangled, Object... args)
+    protected static Constructor<?> findConstructor (
+        Class<?> clazz, boolean needsOuterThis, boolean isMangled, Object... args)
     {
+        Constructor<?> best = null;
+        boolean bestTypeMatch = false;
+
         Class<?>[] atypes = toArgTypes(args);
         for (Constructor<?> ctor : clazz.getDeclaredConstructors()) {
             List<Class<?>> ptypes = Arrays.asList(ctor.getParameterTypes());
@@ -591,26 +674,42 @@ public class RT
                 // ignore the outer this argument when testing for applicability
                 ptypes = ptypes.subList(1, ptypes.size());
             }
-            if (isApplicable(ptypes, isMangled, ctor.isVarArgs(), atypes)) {
-                return ctor; // TODO: enumerate and select best match like findMethod()
+
+            if (!argCountMatch(isMangled, ctor.isVarArgs(), ptypes.size(), atypes.length)) {
+                continue;
             }
+
+            boolean typeMatch = argTypeMatch(ptypes, isMangled, ctor.isVarArgs(), atypes);
+
+            if (best == null || (typeMatch && !bestTypeMatch)) {
+                best = ctor;
+
+            } else if (typeMatch && bestTypeMatch) {
+                throw new AmbiguousMethodError(
+                    Debug.format("Two ctors (or more) with matching types",
+                                 "clazz", clazz.getName(), "atypes", atypes,
+                                 "c1", best, "c2", ctor));
+
+            } // else: 'best' is a type match and the current method is not, so we skip it
         }
-        return null;
+
+        return best;
     }
 
-    /**
-     * Returns true if a method or constructor with the supplied arguments and variable arity can
-     * be called with the supplied arguments.
-     */
-    protected static boolean isApplicable (
+    protected static boolean argCountMatch (
+        boolean isMangled, boolean isVarArgs, int pcount, int acount)
+    {
+        if (isMangled) {
+            pcount /= 2;
+        }
+        return (pcount == acount) || (isVarArgs && (pcount-1) <= acount);
+    }
+
+    protected static boolean argTypeMatch (
         List<Class<?>> ptypes, boolean isMangled, boolean isVarArgs, Class<?>[] atypes)
     {
-        int pcount = isMangled ? ptypes.size()/2 : ptypes.size();
-        if (!(pcount == atypes.length || (isVarArgs && (pcount-1) <= atypes.length))) {
-            return false;
-        }
-
         // make sure all fixed arity arguments match
+        int pcount = isMangled ? ptypes.size()/2 : ptypes.size();
         int fpcount = isVarArgs ? pcount-1 : pcount, poff = isMangled ? pcount : 0;
         for (int ii = 0; ii < fpcount; ii++) {
             Class<?> ptype = /*boxType(*/ptypes.get(poff + ii)/*)*/;
@@ -676,9 +775,9 @@ public class RT
         return (other == Long.class) ? Double.class : Float.class;
     }
 
-    protected static boolean isMangled (Method method)
+    protected static boolean isMangled (String name)
     {
-        return method.getName().endsWith(MM_SUFFIX);
+        return name.endsWith(MM_SUFFIX);
     }
 
     protected static Class<?>[] toArgTypes (Object[] args)
