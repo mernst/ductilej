@@ -3,6 +3,7 @@
 
 package org.ductilej.detyper;
 
+import javax.lang.model.element.ElementVisitor;
 import javax.tools.JavaFileObject;
 
 import com.sun.tools.javac.code.BoundKind;
@@ -37,6 +38,9 @@ import org.ductilej.runtime.Debug;
  */
 public class Resolver
 {
+    /** Whether or not to allow javac to report resolve errors. */
+    public static boolean WARNINGS = Boolean.getBoolean("org.ductilej.warnings");
+
     /** Used to return data from {@link #resolveMethod}. */
     public static class MethInfo {
         public Type site;
@@ -77,9 +81,14 @@ public class Resolver
             if (name == _names._this) {
                 sym = env.enclClass.sym;
             } else {
-                // Debug.temp("Resoving ident", "name", name, "pkind", pkind);
-                sym = invoke(env, Backdoor.resolveIdent, _resolve,
-                             expr.pos(), Detype.toAttrEnv(env), name, pkind);
+                // Debug.temp("Resolving ident", "name", name, "pkind", pkind);
+                if (WARNINGS) {
+                    sym = invoke(env, Backdoor.resolveIdent, _resolve,
+                                 expr.pos(), Detype.toAttrEnv(env), name, pkind);
+                } else {
+                    sym = invoke(env, Backdoor.findIdent, _resolve,
+                                 Detype.toAttrEnv(env), name, pkind);
+                }
             }
             break;
         }
@@ -133,7 +142,7 @@ public class Resolver
                          aenv, mi.site, mi.atypes, mi.tatypes);
         mi.varArgs = Backdoor.varArgs.get(aenv.info);
         if (mi.msym.kind >= Kinds.ERR) {
-            Debug.warn("Unable to resolve ctor", "clazz", clazz, "args", args, "targrs", typeargs);
+            Debug.log("Unable to resolve ctor", "clazz", clazz, "args", args, "targrs", typeargs);
         }
         // Debug.temp("Asked javac to resolve ctor " + clazz + " got " + mi.msym);
         return mi;
@@ -172,15 +181,30 @@ public class Resolver
                 mi.msym = invoke(env, Backdoor.resolveConstructor, _resolve, mexpr.pos(),
                                  aenv, mi.site, mi.atypes, mi.tatypes);
                 mi.varArgs = Backdoor.varArgs.get(aenv.info);
+
             } else {
                 // Debug.temp("Resolving " + mname + "<" + mi.tatypes + ">(" + mi.atypes + ")");
-                mi.msym = invoke(env, Backdoor.resolveMethod, _resolve, mexpr.pos(),
-                                 aenv, mname, mi.atypes, mi.tatypes);
-                mi.varArgs = Backdoor.varArgs.get(aenv.info);
+                if (WARNINGS) {
+                    mi.msym = invoke(env, Backdoor.resolveMethod, _resolve, mexpr.pos(),
+                                     aenv, mname, mi.atypes, mi.tatypes);
+                    mi.varArgs = Backdoor.varArgs.get(aenv.info);
+                } else {
+                    mi.msym = ABSENT_MTH;
+                    List<MethodResolutionPhase> steps = RESOLVE_STEPS;
+                    while (!steps.isEmpty() &&
+                           steps.head.isApplicable(true /*boxing*/, true /*varargs*/) &&
+                           mi.msym.kind >= Kinds.ERRONEOUS) {
+                        mi.varArgs = steps.head.isVarargsRequired;
+                        mi.msym = invoke(env, Backdoor.findFun, _resolve,
+                                         aenv, mname, mi.atypes, mi.tatypes,
+                                         steps.head.isBoxingRequired, steps.head.isVarargsRequired);
+                        steps = steps.tail;
+                    }
+                }
             }
             if (mi.msym.kind >= Kinds.ERR) {
-                Debug.warn("Unable to resolve method", "expr", mexpr, "site", mi.site,
-                           "encl", env.enclClass.sym);
+                Debug.log("Unable to resolve method", "expr", mexpr, "site", mi.site,
+                          "encl", env.enclClass.sym);
             }
             // Debug.temp("Asked javac to resolve method " + mexpr + " got " + mi.msym);
             return mi;
@@ -220,11 +244,25 @@ public class Resolver
             }
 
             // Debug.temp("Resolving {"+mi.site+"}." + mname + "<"+mi.tatypes+">("+mi.atypes+")");
-            mi.msym = invoke(env, Backdoor.resolveQualifiedMethod, _resolve, mexpr.pos(),
-                             aenv, mi.site, mname, mi.atypes, mi.tatypes);
-            mi.varArgs = Backdoor.varArgs.get(aenv.info);
+            if (WARNINGS) {
+                mi.msym = invoke(env, Backdoor.resolveQualifiedMethod, _resolve, mexpr.pos(),
+                                 aenv, mi.site, mname, mi.atypes, mi.tatypes);
+                mi.varArgs = Backdoor.varArgs.get(aenv.info);
+            } else {
+                mi.msym = ABSENT_MTH;
+                List<MethodResolutionPhase> steps = RESOLVE_STEPS;
+                while (steps.nonEmpty() &&
+                       steps.head.isApplicable(true /*boxingEnabled*/, true /*varargsEnabled*/) &&
+                       mi.msym.kind >= Kinds.ERRONEOUS) {
+                    mi.varArgs = steps.head.isVarargsRequired;
+                    mi.msym = invoke(env, Backdoor.findMethod, _resolve, aenv, mi.site, mname,
+                                     mi.atypes, mi.tatypes, steps.head.isBoxingRequired,
+                                     steps.head.isVarargsRequired, false);
+                    steps = steps.tail;
+                }
+            }
             if (mi.msym.kind >= Kinds.ERR) {
-                Debug.warn("Unable to resolve method", "expr", mexpr, "site", mi.site);
+                Debug.log("Unable to resolve method", "expr", mexpr, "site", mi.site);
             }
             // Debug.temp("Asked javac to resolve method " + mexpr + " got " + mi.msym);
             return mi;
@@ -781,6 +819,25 @@ public class Resolver
         }
     }
 
+    protected static enum MethodResolutionPhase {
+        BASIC(false, false),
+        BOX(true, false),
+        VARARITY(true, true);
+
+        public final boolean isBoxingRequired;
+        public final boolean isVarargsRequired;
+
+        public boolean isApplicable (boolean boxingEnabled, boolean varargsEnabled) {
+            return (varargsEnabled || !isVarargsRequired) &&
+                   (boxingEnabled || !isBoxingRequired);
+        }
+
+        MethodResolutionPhase (boolean isBoxingRequired, boolean isVarargsRequired) {
+           this.isBoxingRequired = isBoxingRequired;
+           this.isVarargsRequired = isVarargsRequired;
+        }
+    }
+
     protected ClassReader _reader;
     protected Types _types;
     protected Symtab _syms;
@@ -791,4 +848,13 @@ public class Resolver
     protected Log _log;
 
     protected static final Context.Key<Resolver> RESOLVER_KEY = new Context.Key<Resolver>();
+
+    protected static final List<MethodResolutionPhase> RESOLVE_STEPS = List.of(
+        MethodResolutionPhase.BASIC, MethodResolutionPhase.BOX, MethodResolutionPhase.VARARITY);
+
+    protected static final Symbol ABSENT_MTH = new Symbol(Kinds.ABSENT_MTH, 0, null, null, null) {
+        @Override public <R, P> R accept(ElementVisitor<R, P> v, P p) {
+            throw new AssertionError();
+        }
+    };
 }

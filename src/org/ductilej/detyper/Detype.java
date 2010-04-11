@@ -732,16 +732,13 @@ public class Detype extends PathedTreeTranslator
                     String fqName = rsym.getQualifiedName().toString();
                     recv = classLiteral(mkFA(fqName, tree.pos), tree.pos);
                     invokeName = "invokeStatic";
-                    Debug.temp("Falling back to invokeStatic", "tree", tree);
                 } else {
                     recv = ((JCFieldAccess)tree.meth).selected;
                     invokeName = "invoke";
-                    Debug.temp("Falling back to invoke", "tree", tree);
                 }
             } else {
                 recv = _tmaker.at(tree.pos).Ident(_names._this);
                 invokeName = "invoke";
-                Debug.temp("Falling back to invoke this", "tree", tree);
             }
 
         } else if (Flags.isStatic(mi.msym)) {
