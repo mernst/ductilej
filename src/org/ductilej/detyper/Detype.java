@@ -685,7 +685,7 @@ public class Detype extends PathedTreeTranslator
         // we need to track whether we're processing the arguments of a this() or super()
         // constructor because that is a "static" context in that it is illegal to reference "this"
         // during that time; there's no nice way to represent that in path() so instead we track it
-        // explicitly and make use of it in inStatic()... elegance--.
+        // explicitly in our environment and reference it in inStatic()... elegance--.
         boolean isChainedCons = (mname == _names._super || mname == _names._this);
         boolean oldInChainedCons = _env.info.inChainedCons;
         _env.info.inChainedCons = _env.info.inChainedCons || isChainedCons;
@@ -696,14 +696,14 @@ public class Detype extends PathedTreeTranslator
         if (isChainedCons || isSuperMethodCall(tree)) {
             if (!tree.args.isEmpty()) {
                 assert mi.isValid(); // TODO: cope when we can't resolve this() or super()
+                // we need to convert any formal type parameters on this method (as defined in
+                // the super class) to the actuals provided by our class in the extends clause
                 List<Type> ptypes = _resolver.instantiateType(_env, mi).asMethodType().argtypes;
-                // if the method is defined in a library class, we need to cast the argument types
-                // back to the types it expects
+                // if the method is defined in a library class...
                 if (ASTUtil.isLibrary(mi.msym.owner) || // either the owner is a library
-                    // or we're overriding a "detyped" method that itself overrides a library
+                    // or we're overriding a detyped class that itself overrides the library
                     ASTUtil.isLibraryOverrider(_types, mi.msym)) {
-                    // we need to convert any formal type parameters on this method (as defined in
-                    // the super class) to the actuals provided by our class in the extends clause
+                    // ...we need to cast the argument types back to the types it expects
                     tree.args = castList(ptypes, tree.args);
                 } else {
                     // if the declarer is not a library class, we need to insert type carrying
@@ -711,8 +711,8 @@ public class Detype extends PathedTreeTranslator
                     // method is overloaded, this will disambiguate, and even if it's not
                     // overloaded, we need something legal in those argument positions
                     tree.args = addManglingArgs(mi.msym, ptypes, tree.args, mi.atypes);
-                    // we also need to append the "was mangled" tag to the method name; the below
-                    // type test should always return true since the method is super.something
+                    // we also need to append the "is mangled" tag to the method name if we're
+                    // looking at a super non-constructor call (e.g. super.foo())
                     if (tree.meth instanceof JCFieldAccess) {
                         ((JCFieldAccess)tree.meth).name = _names.fromString(mname + RT.MM_SUFFIX);
                     }
@@ -757,18 +757,17 @@ public class Detype extends PathedTreeTranslator
 
         } else {
             // if we're calling a method on an enclosing class, we need to supply "Enclosing.this"
-            // instead of simply "this", this is for two reasons: one, it's more efficient to do
-            // the runtime method lookup directly on its defining class, and two, we may be calling
-            // an enclosing class's method as an argument to super(), where it is illegal to
-            // reference "this"
+            // instead of simply "this" for two reasons: it's more efficient to do the runtime
+            // method lookup directly on its defining class, and we may be calling an enclosing
+            // class's method as an argument to super(), where it is illegal to reference "this"
             JCExpression thisex;
             Type etype = _types.erasure(_env.enclClass.sym.type);
             Type otype = _types.erasure(mi.msym.owner.type);
             if (_types.isSubtype(etype, otype)) {
                 recv = _tmaker.at(tree.pos).Ident(_names._this);
             } else {
-                // we can't just use the method owner's type, the method may be declared in a
-                // parent of our enclosing class, and we need the type of our enclosing class in
+                // we can't just use the method owner's type; the method may be declared in a
+                // parent of our enclosing class and we need the type of our enclosing class in
                 // our qualified this expression; for example:
                 // class A { void foo (); }
                 // class B extends A {
@@ -794,7 +793,7 @@ public class Detype extends PathedTreeTranslator
 
         JCExpression mtypes;
         if (mi.isValid()) {
-            // this hairy mess generates a Class<?> AST node which we use below to make Class<?>[]
+            // this hairy mess generates a Class<?> AST node which we then use to make Class<?>[]
             JCExpression clazza = _tmaker.TypeApply(
                 _tmaker.Ident(_names.fromString("Class")), List.<JCExpression>of(
                     _tmaker.Wildcard(_tmaker.TypeBoundKind(BoundKind.UNBOUND), null)));
@@ -802,7 +801,9 @@ public class Detype extends PathedTreeTranslator
                 clazza, List.<JCExpression>nil(),
                 classLiterals(mi.msym.type.getParameterTypes(), tree.meth.pos));
         } else {
-            // if we failed to resolve the method, just pass null for our types
+            // if we failed to resolve the method, supply null for the argument types; this lets
+            // the runtime know that it needs to do the more expensive (and potentially
+            // semantically non-equivalent) method resolution based on runtime argument types
             mtypes = _tmaker.Literal(TypeTags.BOT, null);
         }
         tree.args = tree.args.prepend(recv).
