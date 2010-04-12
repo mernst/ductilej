@@ -549,6 +549,10 @@ public class Detype extends PathedTreeTranslator
                 // generated our fully qualified class name above, so we use it here
                 tree.clazz = clazz;
 
+            // if we failed to resolve the class type, just do nothing for now (TODO)
+            } else if (ctype == null) {
+                thisex = _tmaker.at(tree.pos).Literal(TypeTags.BOT, null);
+
             // if we're in a static state or have a static inner class, pass null
             } else if (inStatic() || ctype.getEnclosingType() == Type.noType) {
                 thisex = _tmaker.at(tree.pos).Literal(TypeTags.BOT, null);
