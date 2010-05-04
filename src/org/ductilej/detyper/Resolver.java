@@ -136,13 +136,17 @@ public class Resolver
             return mi;
         }
 
-        // Debug.temp("Resolving ctor " + mi.site + "<" + mi.tatypes + ">(" + mi.atypes + ")");
+        // this is not strictly correct, but if we're resolving the constructor for an anonymous
+        // class created using an interface type, return the constructor for Object
+        Type site = isAnonInner && mi.site.tsym.isInterface() ? _syms.objectType : mi.site;
+
+        // Debug.temp("Resolving ctor " + site + "<" + mi.tatypes + ">(" + mi.atypes + ")");
         Env<AttrContext> aenv = Detype.toAttrEnv(env);
         // if we're instantiating an anonymous inner class, javac's Resolve uses the selectSuper
         // flag to denote that protected constructors are accessible in this context
         Backdoor.selectSuper.set(aenv.info, isAnonInner);
         mi.msym = invoke(env, Backdoor.resolveConstructor, _resolve, clazz.pos(),
-                         aenv, mi.site, mi.atypes, mi.tatypes);
+                         aenv, site, mi.atypes, mi.tatypes);
         mi.varArgs = Backdoor.varArgs.get(aenv.info);
         if (mi.msym.kind >= Kinds.ERR) {
             Debug.log("Unable to resolve ctor", "clazz", clazz, "args", args, "targrs", typeargs);
