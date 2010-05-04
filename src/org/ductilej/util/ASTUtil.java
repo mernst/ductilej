@@ -117,6 +117,14 @@ public class ASTUtil
     }
 
     /**
+     * Returns true if the supplied symbol represents a varargs method.
+     */
+    public static boolean isVarArgs (long flags)
+    {
+        return (flags & Flags.VARARGS) != 0;
+    }
+
+    /**
      * Returns true if the supplied AST node represents the 'null' literal.
      */
     public static boolean isNullLiteral (JCTree expr)
