@@ -791,6 +791,7 @@ public class Resolver
             arg = _types.unboxedType(arg);
         }
         switch (arg.tag) {
+        case TypeTags.BOOLEAN: return _syms.booleanType;
         case TypeTags.BYTE:
         case TypeTags.SHORT:
         case TypeTags.CHAR:
@@ -817,6 +818,7 @@ public class Resolver
             rhs = _types.unboxedType(rhs);
         }
         switch (Math.max(lhs.tag, rhs.tag)) {
+        case TypeTags.BOOLEAN: return _syms.booleanType;
         case TypeTags.BYTE:
         case TypeTags.SHORT:
         case TypeTags.CHAR:
