@@ -274,13 +274,15 @@ public class Detype extends PathedTreeTranslator
 
     @Override public void visitVarDef (JCVariableDecl tree)
     {
+        boolean isEnumDecl = (tree.sym != null) && Flags.isEnum(tree.sym);
+
         // var symbols for member-level variables are already entered, we just want to handle
         // formal parameters and local variable declarations
-        if (_env.tree.getTag() != JCTree.CLASSDEF) {
+        if (_env.tree.getTag() != JCTree.CLASSDEF && !isEnumDecl) {
             // create a placeholder VarSymbol for this variable so that we can use it later
             // during some simple name resolution
             Type vtype = _resolver.resolveType(_env, tree.vartype, Kinds.TYP);
-            // Debug.temp("Creating var symbol with type " + vtype + " (" + vtype.tsym + ")");
+            // Debug.temp("Creating var symbol", "name", tree.name, "type", vtype);
             _env.info.scope.enter(new VarSymbol(0, tree.name, vtype, _env.info.scope.owner));
         }
 
@@ -324,9 +326,7 @@ public class Detype extends PathedTreeTranslator
         _env = oenv;
 
         String path = path();
-        if (isConstDecl ||
-            // avoid detyping synthesized enum field declarations as that confuses javac
-            (tree.sym != null && Flags.isEnum(tree.sym)) ||
+        if (isConstDecl || isEnumDecl ||
             // don't detype the param(s) of a catch block
             path.endsWith(".Catch") ||
             // nor the arguments of a library
@@ -356,7 +356,10 @@ public class Detype extends PathedTreeTranslator
 
         // lastly, if this is just a plain old vardef with no initializer, we add a default
         // initializer to relax the requirement for definite assignment
-        } else if (RELAX_DEFASSIGN && !path.endsWith(".ClassDef") && tree.init == null &&
+        } else if (RELAX_DEFASSIGN && tree.init == null &&
+                   !path.endsWith(".ClassDef") &&
+                   !path.endsWith("MethodDef.params") &&
+                   !path.endsWith("Block.ForeachLoop") &&
                    !ASTUtil.isFinal(tree.mods)) {
             tree.init = _tmaker.Literal(
                 isPrimitive ? ((JCPrimitiveTypeTree)tree.vartype).typetag : TypeTags.BOT, 0);
@@ -364,7 +367,7 @@ public class Detype extends PathedTreeTranslator
 
         // Debug.log("Xforming vardef", "mods", tree.mods, "name", tree.name, "init", tree.init);
         tree.vartype = _tmaker.Ident(_names.fromString("Object"));
-        if ((tree.mods.flags & Flags.VARARGS) != 0) {
+        if (ASTUtil.isVarArgs(tree.mods.flags)) {
             tree.vartype = _tmaker.TypeArray(tree.vartype);
         }
     }
@@ -510,12 +513,10 @@ public class Detype extends PathedTreeTranslator
         if (!canReflect) {
             // if we can't reflectively call the constructor, we need to resolve the specific
             // constructor being called
-            if (!tree.args.isEmpty()) {
-                mi = _resolver.resolveConstructor(
-                    _env, clazz, tree.args, tree.typeargs, tree.def != null);
-                if (mi.isValid()) {
-                    ctype = mi.site;
-                }
+            mi = _resolver.resolveConstructor(
+                _env, clazz, tree.args, tree.typeargs, tree.def != null);
+            if (mi.isValid()) {
+                ctype = mi.site;
             }
             if (tree.def != null) {
                 _env.info.anonParent = ctype.tsym;
@@ -582,7 +583,13 @@ public class Detype extends PathedTreeTranslator
 
         // if we didn't rewrite the constructor call to newInstance(), we need to insert either
         // runtime casts to the the formal parameter types, or type carrying args
-        } else if (!tree.args.isEmpty()) {
+        } else if (!tree.args.isEmpty() ||
+                   // if we have a no-args call to a varargs constructor, we can't leave it as a
+                   // no-args call because the callee may have been detyped; in that case, we need
+                   // to insert an empty array in the varargs position and the type carrying
+                   // argument for the varargs array; if the callee is a library constructor, the
+                   // castList() call will noop
+                   ASTUtil.isVarArgs(mi.msym.flags())) {
             List<Type> ptypes = _resolver.instantiateType(_env, mi).asMethodType().argtypes;
             if (ASTUtil.isLibrary(_env.info.anonParent)) {
                 tree.args = castList(ptypes, tree.args);
@@ -1371,7 +1378,7 @@ public class Detype extends PathedTreeTranslator
         long flags = params.head.mods.flags | Flags.FINAL;
         // if we inherited the varargs flag, we need to turn the varargs flag off on our value
         // carrying parameter so that it can accept any argument (rather than Object[])
-        if ((flags & Flags.VARARGS) != 0) {
+        if (ASTUtil.isVarArgs(flags)) {
             params.head.mods.flags &= ~Flags.VARARGS;
         }
         return toTypeArgs(params.tail).prepend(
@@ -1385,7 +1392,7 @@ public class Detype extends PathedTreeTranslator
     {
         // if the method is varargs, we need to insert an array creation expression wrapping up the
         // variable arguments because they're no longer at the end (whee!)
-        if ((msym.flags() & Flags.VARARGS) != 0) {
+        if (ASTUtil.isVarArgs(msym.flags())) {
             args = groupVarArgs(ptypes, args, atypes);
         }
         // now we can append type carrying arguments to the grouped arglist
@@ -1402,7 +1409,10 @@ public class Detype extends PathedTreeTranslator
             if (!atypes.isEmpty() && atypes.tail.isEmpty() && atypes.head.equals(ptypes.head)) {
                 return args;
             } else {
-                return List.<JCExpression>of(_tmaker.NewArray(typeToTree(etype, 0),
+                // if the varargs argument is parameterized (naughty programmer), we have to erase
+                // it to avoid generating illegal code that attempts to create a parameterized
+                // array; annoyingly this will generate a rawtypes warning
+                return List.<JCExpression>of(_tmaker.NewArray(typeToTree(_types.erasure(etype), 0),
                                                               List.<JCExpression>nil(),
                                                               castList(etype, args)));
             }
