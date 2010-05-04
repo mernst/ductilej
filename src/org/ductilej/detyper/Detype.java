@@ -511,7 +511,8 @@ public class Detype extends PathedTreeTranslator
             // if we can't reflectively call the constructor, we need to resolve the specific
             // constructor being called
             if (!tree.args.isEmpty()) {
-                mi = _resolver.resolveConstructor(_env, clazz, tree.args, tree.typeargs);
+                mi = _resolver.resolveConstructor(
+                    _env, clazz, tree.args, tree.typeargs, tree.def != null);
                 if (mi.isValid()) {
                     ctype = mi.site;
                 }
