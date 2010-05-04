@@ -78,17 +78,13 @@ public class Resolver
         switch (expr.getTag()) {
         case JCTree.IDENT: {
             Name name = TreeInfo.name(expr);
-            if (name == _names._this) {
-                sym = env.enclClass.sym;
+            // Debug.temp("Resolving ident", "name", name, "pkind", pkind);
+            if (WARNINGS) {
+                sym = invoke(env, Backdoor.resolveIdent, _resolve,
+                             expr.pos(), Detype.toAttrEnv(env), name, pkind);
             } else {
-                // Debug.temp("Resolving ident", "name", name, "pkind", pkind);
-                if (WARNINGS) {
-                    sym = invoke(env, Backdoor.resolveIdent, _resolve,
-                                 expr.pos(), Detype.toAttrEnv(env), name, pkind);
-                } else {
-                    sym = invoke(env, Backdoor.findIdent, _resolve,
-                                 Detype.toAttrEnv(env), name, pkind);
-                }
+                sym = invoke(env, Backdoor.findIdent, _resolve,
+                             Detype.toAttrEnv(env), name, pkind);
             }
             break;
         }
@@ -424,7 +420,7 @@ public class Resolver
                                                         BoundKind.EXTENDS, _syms.boundClass)),
                     rtype.tsym);
             }
-            
+
             return rtype;
         }
 
