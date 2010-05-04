@@ -117,9 +117,13 @@ public class Resolver
      * Resolves a constructor for the specified class, given the supplied arguments and type
      * arguments, using information in the supplied context. Performs static resolution to choose
      * between overloaded candidates.
+     *
+     * @param isAnonInner true if the constructor represents the instantiation of an anonymous
+     * inner class.
      */
     public MethInfo resolveConstructor (Env<DetypeContext> env, JCExpression clazz,
-                                        List<JCExpression> args, List<JCExpression> typeargs)
+                                        List<JCExpression> args, List<JCExpression> typeargs,
+                                        boolean isAnonInner)
     {
         MethInfo mi = resolveArgs(env, args, typeargs);
         if (mi.tatypes.contains(null) || mi.atypes.contains(null)) {
@@ -134,6 +138,9 @@ public class Resolver
 
         // Debug.temp("Resolving ctor " + mi.site + "<" + mi.tatypes + ">(" + mi.atypes + ")");
         Env<AttrContext> aenv = Detype.toAttrEnv(env);
+        // if we're instantiating an anonymous inner class, javac's Resolve uses the selectSuper
+        // flag to denote that protected constructors are accessible in this context
+        Backdoor.selectSuper.set(aenv.info, isAnonInner);
         mi.msym = invoke(env, Backdoor.resolveConstructor, _resolve, clazz.pos(),
                          aenv, mi.site, mi.atypes, mi.tatypes);
         mi.varArgs = Backdoor.varArgs.get(aenv.info);
