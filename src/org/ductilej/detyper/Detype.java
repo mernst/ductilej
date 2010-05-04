@@ -187,6 +187,14 @@ public class Detype extends PathedTreeTranslator
             }
         }
 
+        // if this is an interface declaration, remove all method declarations; we don't need them
+        // since all application methods are called reflectively, and if we leave them here, they
+        // cause problems if classes don't implement the entire interface (or inherit
+        // implementations from library classes)
+        if ((ctree.sym.flags() & Flags.INTERFACE) != 0) {
+            tree.defs = removeMethodDefs(tree.defs);
+        }
+
         super.visitClassDef(ctree);
         result = tree; // finally restore our unmodified tree
         _env = oenv;
@@ -232,6 +240,10 @@ public class Detype extends PathedTreeTranslator
 
         // now we can call super and translate our children
         super.visitMethodDef(tree);
+
+        // remove @Override annotations because those may cause problems if they exist on an
+        // application interface method which has been removed from the interface
+        tree.mods.annotations = removeOverrideAnnotation(tree.mods.annotations);
 
         // transform the return type if we're not in a library overrider and it is not void
         if (tree.restype != null && !ASTUtil.isVoid(tree.restype) && !isLib) {
@@ -1450,6 +1462,28 @@ public class Detype extends PathedTreeTranslator
         default:
             return _tmaker.at(arg.pos).TypeCast(
                 typeToTree(type, arg.pos), _tmaker.Literal(TypeTags.BOT, null));
+        }
+    }
+
+    protected List<JCTree> removeMethodDefs (List<JCTree> defs)
+    {
+        if (defs.isEmpty()) {
+            return List.nil();
+        } else if (defs.head.getTag() == JCTree.METHODDEF) {
+            return removeMethodDefs(defs.tail);
+        } else {
+            return removeMethodDefs(defs.tail).prepend(defs.head);
+        }
+    }
+
+    protected List<JCAnnotation> removeOverrideAnnotation (List<JCAnnotation> anns)
+    {
+        if (anns.isEmpty()) {
+            return List.nil();
+        } else if (anns.head.annotationType.toString().equals("Override")) { // TODO: unhack
+            return removeOverrideAnnotation(anns.tail);
+        } else {
+            return removeOverrideAnnotation(anns.tail).prepend(anns.head);
         }
     }
 
