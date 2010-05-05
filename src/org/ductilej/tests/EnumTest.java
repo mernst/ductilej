@@ -14,7 +14,11 @@ public class EnumTest
     public enum StringEnum {
         A(get("A")),
         B(get("B")),
-        C(get("C"));
+        C(get("C")) {
+            // this constant declaration is legal, even though static declarations in general are
+            // not legal in inner classes (of which a "customized" enum value is one)
+            private static final String testConstant = "some value";
+        };
 
         StringEnum (String string) {
             _string = string;
