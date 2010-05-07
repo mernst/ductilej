@@ -1134,8 +1134,11 @@ public class Detype extends PathedTreeTranslator
 
     protected boolean isConstDecl (JCVariableDecl tree)
     {
-        return tree.vartype.getTag() == JCTree.TYPEIDENT & // must be a primitive type
-            ASTUtil.isFinal(tree.mods) && isConstantExpr(tree.init);
+        return (tree.vartype.getTag() == JCTree.TYPEIDENT) && // must be a primitive type
+            // if our enclosing class is an interface, all variable declarations are implicitly
+            // final; otherwise it must be explicitly final
+            ((_env.enclClass.sym.flags() & Flags.INTERFACE) != 0 || ASTUtil.isFinal(tree.mods)) &&
+            isConstantExpr(tree.init);
     }
 
     protected boolean isConstantExpr (JCTree expr)
