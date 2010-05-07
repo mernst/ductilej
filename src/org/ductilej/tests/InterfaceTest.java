@@ -18,6 +18,7 @@ public class InterfaceTest
         // fields declared in interfaces are implicitly "public static final"
         int ONE = 1;
         int TWO = ONE+1;
+        int MAX = Integer.MAX_VALUE;
     }
 
     public static class Tester
@@ -39,6 +40,7 @@ public class InterfaceTest
             switch (value) {
             case ONE: return -1;
             case TWO: return -2;
+            case MAX: return 0;
             default: return value;
             }
         }
