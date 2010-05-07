@@ -13,7 +13,11 @@ public class InterfaceTest
 {
     public static interface ITest
     {
-        public int testAdd (int value);
+        int testAdd (int value);
+
+        // fields declared in interfaces are implicitly "public static final"
+        int ONE = 1;
+        int TWO = ONE+1;
     }
 
     public static class Tester
@@ -28,6 +32,15 @@ public class InterfaceTest
 
         public int compute (int value) {
             return value * _multiplier + 5;
+        }
+
+        public int testSwitch (int value) {
+            // tests that the constants declared in ITest were properly preserved
+            switch (value) {
+            case ONE: return -1;
+            case TWO: return -2;
+            default: return value;
+            }
         }
 
         // from interface ITest
@@ -60,6 +73,7 @@ public class InterfaceTest
         Tester tester = new Tester("", 2);
         int age = tester.five;
         int value = tester.compute(age);
-        assertEquals(value, 15);
+        assertEquals(15, value);
+        assertEquals(-1, tester.testSwitch(1));
     }
 }
