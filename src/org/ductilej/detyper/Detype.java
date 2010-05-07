@@ -711,6 +711,17 @@ public class Detype extends PathedTreeTranslator
 
         // resolve the called method before we transform the leaves of this tree
         Resolver.MethInfo mi = _resolver.resolveMethod(_env, tree);
+        Symbol rsym = null;
+
+        // if we're not able to resolve the method, we need to obtain some other information before
+        // we call super.visitApply (as it transforms things we need to resolve)
+        if (!mi.isValid()) {
+            if (tree.meth instanceof JCFieldAccess) {
+                rsym = _resolver.resolveSymbol(
+                    _env, ((JCFieldAccess)tree.meth).selected, Kinds.VAL|Kinds.TYP);
+            }
+        }
+
         // Debug.temp("Method invocation", "tree", tree, "sym", mi.msym);
 
         // we need to track whether we're processing the arguments of a this() or super()
@@ -758,8 +769,6 @@ public class Detype extends PathedTreeTranslator
             // if we were unable to resolve the target method, try some fallback heuristics to
             // determine whether it has a static or non-static receiver
             if (tree.meth instanceof JCFieldAccess) {
-                Symbol rsym = _resolver.resolveSymbol(
-                    _env, ((JCFieldAccess)tree.meth).selected, Kinds.VAL|Kinds.TYP);
                 if (rsym.getKind() == ElementKind.CLASS) {
                     String fqName = rsym.getQualifiedName().toString();
                     recv = classLiteral(mkFA(fqName, tree.pos), tree.pos);
