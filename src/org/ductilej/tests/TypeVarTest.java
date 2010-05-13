@@ -60,6 +60,10 @@ public class TypeVarTest
         assertEquals(5, tup.left.intValue());
     }
 
+    @Test public void testQuantifiedPrimitive () {
+        assertEquals(5, noop(5));
+    }
+
     protected static <K,V> int countKeyLengths (Map<K, V> map)
     {
         int length = 0;
@@ -69,5 +73,12 @@ public class TypeVarTest
             length = length + key.toString().length();
         }
         return length;
+    }
+
+    // tests having a quantified primitive as a return type (Resolve has to handle such types
+    // specially)
+    protected static <T> int noop (int arg)
+    {
+        return arg;
     }
 }

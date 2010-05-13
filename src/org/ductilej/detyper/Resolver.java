@@ -406,9 +406,16 @@ public class Resolver
             // calls originating from Attr.checkReturn()
             Type rtype = mtype.getReturnType();
             if (rtype.tag == TypeTags.FORALL) {
-                // TODO: if we have an expected type (i.e. we're in an initializer expression),
-                // at some point we're going to need that here instead of Object; oh boy!
-                rtype = _infer.instantiateExpr((Type.ForAll)rtype, _syms.objectType, new Warner());
+                // if the quantified return type is a primitive, we can't try to find its maximal
+                // instantiation as a subtype of Object; we don't need to instantiate anything
+                if (((Type.ForAll)rtype).qtype.isPrimitive()) {
+                    rtype = ((Type.ForAll)rtype).qtype;
+                } else {
+                    // TODO: if we have an expected type (i.e. we're in an initializer expression),
+                    // at some point we're going to need that here instead of Object; oh boy!
+                    rtype = _infer.instantiateExpr(
+                        (Type.ForAll)rtype, _syms.objectType, new Warner());
+                }
             }
 
 // TODO
