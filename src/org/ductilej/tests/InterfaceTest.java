@@ -19,6 +19,9 @@ public class InterfaceTest
         int ONE = 1;
         int TWO = ONE+1;
         int MAX = Integer.MAX_VALUE;
+
+        // test constant expression detection's handling of a cast
+        byte BYTE_TEST = (byte) 80;
     }
 
     public static class Tester
@@ -41,6 +44,7 @@ public class InterfaceTest
             case ONE: return -1;
             case TWO: return -2;
             case MAX: return 0;
+            case BYTE_TEST: return 1;
             default: return value;
             }
         }

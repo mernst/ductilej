@@ -1166,6 +1166,8 @@ public class Detype extends PathedTreeTranslator
         } else if (expr instanceof JCBinary) {
             return isConstantExpr(((JCBinary)expr).lhs) &&
                 isConstantExpr(((JCBinary)expr).rhs);
+        } else if (expr instanceof JCTypeCast) {
+            return isConstantExpr(((JCTypeCast)expr).expr);
         } else {
             return false;
         }
