@@ -1161,6 +1161,8 @@ public class Detype extends PathedTreeTranslator
             Symbol sym = _resolver.resolveSymbol(_env, expr, Kinds.VAL);
             return (sym instanceof Symbol.VarSymbol) &&
                 ((Symbol.VarSymbol)sym).getConstantValue() != null;
+        } else if (expr instanceof JCParens) {
+            return isConstantExpr(((JCParens)expr).expr);
         } else if (expr instanceof JCUnary) {
             return isConstantExpr(((JCUnary)expr).arg);
         } else if (expr instanceof JCBinary) {
@@ -1169,6 +1171,7 @@ public class Detype extends PathedTreeTranslator
         } else if (expr instanceof JCTypeCast) {
             return isConstantExpr(((JCTypeCast)expr).expr);
         } else {
+            // Debug.temp("Not const? " + expr, "type", expr.getClass().getName());
             return false;
         }
     }

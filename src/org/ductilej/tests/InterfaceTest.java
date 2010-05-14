@@ -18,6 +18,7 @@ public class InterfaceTest
         // fields declared in interfaces are implicitly "public static final"
         int ONE = 1;
         int TWO = ONE+1;
+        int FOUR = (ONE+1)*2;
         int MAX = Integer.MAX_VALUE;
 
         // test constant expression detection's handling of a cast
@@ -43,6 +44,7 @@ public class InterfaceTest
             switch (value) {
             case ONE: return -1;
             case TWO: return -2;
+            case FOUR: return -4;
             case MAX: return 0;
             case BYTE_TEST: return 1;
             default: return value;
