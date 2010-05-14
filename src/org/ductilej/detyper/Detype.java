@@ -582,7 +582,13 @@ public class Detype extends PathedTreeTranslator
                 if (_types.isSubtype(_types.erasure(_env.enclClass.sym.type), otype)) {
                     thisex = _tmaker.at(tree.pos).Ident(_names._this);
                 } else {
-                    thisex = _tmaker.at(tree.pos).Select(typeToTree(otype, tree.pos), _names._this);
+                    // we can't just use the owner type as we may be an inner class inside a
+                    // subtype of the owner type and we cannot use Parent.this, we must use
+                    // Child.this if we're defined in Child; so we step outward through our
+                    // enclosing types looking for the type that is a subtype of the owner
+                    Type etype = getEnclosingSubtype(
+                        otype, _types.erasure(_env.enclClass.sym.type));
+                    thisex = _tmaker.at(tree.pos).Select(typeToTree(etype, tree.pos), _names._this);
                 }
             }
             args = args.prepend(thisex).prepend(classLiteral(tree.clazz, tree.clazz.pos));
@@ -814,9 +820,7 @@ public class Detype extends PathedTreeTranslator
                 //   class C { void bar () {
                 //     foo(); // --> RT.invoke("foo", B.this); not A.this
                 // }}}
-                do {
-                    etype = _types.erasure(etype.getEnclosingType());
-                } while (!_types.isSubtype(etype, otype));
+                etype = getEnclosingSubtype(otype, etype);
                 recv = _tmaker.at(tree.pos).Select(typeToTree(etype, tree.pos), _names._this);
             }
             // convert to RT.invoke("method", this, args)
@@ -1512,6 +1516,14 @@ public class Detype extends PathedTreeTranslator
         } else {
             return removeOverrideAnnotation(anns.tail).prepend(anns.head);
         }
+    }
+
+    protected Type getEnclosingSubtype (Type otype, Type etype)
+    {
+        do {
+            etype = _types.erasure(etype.getEnclosingType());
+        } while (!_types.isSubtype(etype, otype));
+        return etype;
     }
 
     protected boolean isVarImport (JCImport tree)

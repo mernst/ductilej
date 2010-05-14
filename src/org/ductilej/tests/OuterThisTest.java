@@ -39,6 +39,22 @@ public class OuterThisTest
         }
     }
 
+    public class ParentOuter {
+        public class Inner1 {
+        }
+    }
+
+    public class ChildOuter extends ParentOuter {
+        public class Inner2 {
+            public Inner1 newOne () {
+                // this needs to xform to: RT.newInstance(Inner1.class, ChildOuter.this) not
+                // RT.newInstance(Inner1.class, ParentOuter.this) which would naturally happen if
+                // we just used the owner of the to be instantiated inner class
+                return new Inner1();
+            }
+        }
+    }
+
     @Test public void testThisResolve ()
     {
         C c = new C();
@@ -55,6 +71,13 @@ public class OuterThisTest
     {
         InnerB b = new InnerB();
         assertEquals("Outer", b.arg);
+    }
+
+    @Test public void testParentInner1FromChildInner2 ()
+    {
+        ChildOuter outer = new ChildOuter();
+        ChildOuter.Inner2 inner = outer.new Inner2();
+        assertTrue(inner.newOne() != null);
     }
 
     protected String getOuterString ()
