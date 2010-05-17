@@ -27,5 +27,14 @@ public class QualifiedThisTest
         B b = new B();
         B.C c = b.new C();
         assertEquals("foo", c.bar());
+
+        // if we are creating an anonymous inner class, we need to be sure that we cast the
+        // enclosing class reference back to its static type
+        B.C c2 = b.new C() {
+            public String bar () {
+                return "overridden";
+            }
+        };
+        assertEquals("overridden", c2.bar());
     }
 }
