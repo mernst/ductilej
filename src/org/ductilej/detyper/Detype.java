@@ -507,8 +507,9 @@ public class Detype extends PathedTreeTranslator
         // qualifier expression, so that we can resolve it with standard techniques later. If
         // <expr> has type T, then <expr>.new C <...> (...) yields a clazz T.C.
         JCExpression clazz = tree.clazz;
+        Type enctype = null;
         if (tree.encl != null) {
-            Type enctype = _resolver.resolveType(_env, tree.encl, Kinds.VAL);
+            enctype = _resolver.resolveType(_env, tree.encl, Kinds.VAL);
             JCExpression clazzid = (clazz.getTag() == JCTree.TYPEAPPLY) ?
                 ((JCTypeApply) clazz).clazz : clazz;
             clazzid = _tmaker.at(clazz.pos).Select(
@@ -599,20 +600,30 @@ public class Detype extends PathedTreeTranslator
             invoke.varargsElement = tree.varargsElement;
             result = invoke;
 
-        // if we didn't rewrite the constructor call to newInstance(), we need to insert either
-        // runtime casts to the the formal parameter types, or type carrying args
-        } else if (!tree.args.isEmpty() ||
-                   // if we have a no-args call to a varargs constructor, we can't leave it as a
-                   // no-args call because the callee may have been detyped; in that case, we need
-                   // to insert an empty array in the varargs position and the type carrying
-                   // argument for the varargs array; if the callee is a library constructor, the
-                   // castList() call will noop
-                   ASTUtil.isVarArgs(mi.msym.flags())) {
-            List<Type> ptypes = _resolver.instantiateType(_env, mi).asMethodType().argtypes;
-            if (ASTUtil.isLibrary(_env.info.anonParent)) {
-                tree.args = castList(ptypes, tree.args);
-            } else {
-                tree.args = addManglingArgs(mi.msym, ptypes, tree.args, mi.atypes);
+        } else { /* !canReflect */
+            // if we didn't rewrite the constructor call to newInstance(), we need to insert either
+            // runtime casts to the the formal parameter types, or type carrying args
+            if (!tree.args.isEmpty() ||
+                // if we have a no-args call to a varargs constructor, we can't leave it as a
+                // no-args call because the callee may have been detyped; we need to insert an
+                // empty array in the varargs position and the type carrying arg for the varargs
+                // array; if the callee is a library constructor, the castList() call will noop
+                ASTUtil.isVarArgs(mi.msym.flags())) {
+                List<Type> ptypes = _resolver.instantiateType(_env, mi).asMethodType().argtypes;
+                if (ASTUtil.isLibrary(_env.info.anonParent)) {
+                    tree.args = castList(ptypes, tree.args);
+                } else {
+                    tree.args = addManglingArgs(mi.msym, ptypes, tree.args, mi.atypes);
+                }
+            }
+
+            // if we have an explicit enclosing instance, we need to insert a cast of that instance
+            // back to its static type as it will likely have been detyped
+            if (tree.encl != null) {
+                tree.encl = _tmaker.TypeCast(typeToTree(enctype, tree.encl.pos), tree.encl);
+                // NOTE: we'd like to use 'cast(enctype, tree.encl)' above, but that triggers a bug
+                // in javac, so we have to insert a static cast directly; this *could* result in an
+                // "unnecessary cast" warning, but c'est la vie
             }
         }
 
