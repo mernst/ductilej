@@ -64,6 +64,9 @@ public class OpsUtil
 
     protected static final Map<Class<?>, Map<Class<?>, BinOps>> BINOPS =
         ImmutableMap.<Class<?>, Map<Class<?>, BinOps>>builder().
+        put(Boolean.class, ImmutableMap.<Class<?>, BinOps>builder().
+            put(Boolean.class, new BooleanBooleanOps()).
+            build()).
         put(Byte.class, ImmutableMap.<Class<?>, BinOps>builder().
             put(Byte.class, new ByteByteOps()).
             put(Short.class, new ByteShortOps()).
