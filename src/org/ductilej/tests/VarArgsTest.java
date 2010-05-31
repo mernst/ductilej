@@ -60,10 +60,9 @@ public class VarArgsTest
     {
         assertEquals(-1, varargs((Object[])null));
         assertEquals(0, varargs());
-        // TODO: we can't handle this yet until we communicate the static type of the final null to
-        // the runtime somehow...
-        // assertEquals(1, varargs((Object)null));
         assertEquals(1, varargs(1));
+        // this should get wrapped into a one element array containing null
+        assertEquals(1, varargs((Object)null));
     }
 
     protected static String foo (String one, String... two)
