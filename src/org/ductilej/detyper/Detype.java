@@ -838,6 +838,23 @@ public class Detype extends PathedTreeTranslator
             invokeName = "invoke";
         }
 
+        // if we have a single null argument in varargs position, we may need to "box" it
+        if (mi.isValid() && (mi.msym.flags() & Flags.VARARGS) != 0) {
+            List<Type> atypes = mi.msym.type.getParameterTypes();
+            if (tree.args.size() == atypes.size()) {
+                int vargpos = atypes.size()-1;
+                JCExpression varg = tree.args.get(vargpos);
+                if (varg.getTag() == JCTree.TYPECAST &&
+                    ASTUtil.isNullLiteral(((JCTypeCast)varg).expr)) {
+                    Type atype = _resolver.resolveType(_env, varg, Kinds.VAL);
+                    if (atype != null && !_types.isSubtype(atype, atypes.get(vargpos))) {
+                        tree.args = tree.args.reverse().tail.
+                            prepend(mkRT("BOXED_NULL", varg.pos)).reverse();
+                    }
+                }
+            }
+        }
+
         // if the method is being invoked with a single null argument, we need to add a cast to
         // Object because that null will become the single argument to the varargs RT.invoke() or
         // RT.invokeStatic() method; if the argument is already casted, ASTUtil.isNullLiteral()

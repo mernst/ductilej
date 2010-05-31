@@ -32,6 +32,11 @@ public class RT
     /** A suffix appended to signature mangled method names. */
     public static final String MM_SUFFIX = "$M";
 
+    /** A placeholder reference passed in place of a single null argument to a varargs method where
+     * null is intended to mean "an array containing a single null argument" rather than "a null
+     * arguments array". */
+    public static final Object BOXED_NULL = new Object();
+
     /**
      * Invokes the constructor of the supplied class, with the specified arguments and returns the
      * newly created instance.
@@ -516,19 +521,21 @@ public class RT
         // if this method is varargs we need to extract the variable arguments, place them into an
         // Object[] and create a new args array that has the varargs array in the final position
         Object[] aargs = rargs;
-        // TODO: we need to differentiate between null being passed as a single argument, which
-        // should be wrapped in an array, versus null being passed as the varargs array, which
-        // should be passed along to the underlying method in the varargs position; this requires
-        // some communication from the compiler: we need the static type of the null; for now we
-        // assume they meant to pass a null array rather than a wrapped null
         if (method.isVarArgs() && aargs != null) {
             int fpcount = pcount-1, vacount = rargs.length-fpcount;
-            // TEMP: we heuristically assume that if there's only one argument in the varargs
-            // position and it's an array, then the caller did the wrapping already; the correct
-            // thing to do is to use the static type of the single varargs argument and only
-            // perform boxing if the static type is not an array type, but we don't yet reify
-            // static type information into our runtime boxes
-            if (vacount != 1 || (rargs[fpcount] != null && !rargs[fpcount].getClass().isArray())) {
+
+            // if we have BOXED_NULL in the varargs position, that means the caller intended for
+            // the variable arguments to be an array containing a single null; so make it so
+            if (vacount == 1 && aargs[vacount-1] == BOXED_NULL) {
+                // TODO: this array should be of the varargs element type as declared by the method
+                aargs[vacount-1] = new Object[] { BOXED_NULL };
+
+            // if we have more than one argument in varargs position or we have a non-array in
+            // varargs position, we need to wrap the varargs into an array (this is normally done
+            // by javac); we heuristically assume that if there's only one argument in the varargs
+            // position and it's an array, then the caller did the wrapping already
+            } else if (vacount != 1 ||
+                       (rargs[fpcount] != null && !rargs[fpcount].getClass().isArray())) {
                 // the final argument position indicates the type of the varargs array
                 Class<?> vatype = ptypes.get(ptypes.size()-1);
                 assert vatype.getComponentType() != null : "Varargs position not array type";
