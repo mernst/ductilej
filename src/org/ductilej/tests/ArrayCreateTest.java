@@ -35,4 +35,10 @@ public class ArrayCreateTest
         int[] data = { 1, 2, 3, 4 };
         assertTrue(data[0] == 1);
     }
+
+    @Test public void testByteArrayInit ()
+    {
+        byte[] b1 = { 0, 1, -128, 44, 12 };
+        assertEquals(-128, b1[2]);
+    }
 }

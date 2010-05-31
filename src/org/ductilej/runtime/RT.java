@@ -109,7 +109,12 @@ public class RT
             // try to put the values into an array of the requested type
             Object tarray = Array.newInstance(etype, elems.length);
             for (int ii = 0, ll = elems.length; ii < ll; ii++) {
-                Array.set(tarray, ii, elems[ii]);
+                // we explicitly coerce the element values to the array element type if we're
+                // dealing with an array of primitives; Java allows delcarations like "byte[] foo =
+                // { 1, 2, -128 }" where it automatically coerces the integers to bytes; TODO:
+                // there are probably limitations on the coercion that we should emulate
+                Object elem = etype.isPrimitive() ? coerce(etype, elems[ii]) : elems[ii];
+                Array.set(tarray, ii, elem);
             }
             return tarray;
         } catch (ArrayStoreException ase) {
