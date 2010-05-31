@@ -11,6 +11,17 @@ import static org.junit.Assert.*;
  */
 public class OpResolveTest
 {
+    @Test public void testBoolOps ()
+    {
+        boolean lhs = false, rhs = true;
+        consumeBoolean(lhs | rhs);
+        consumeBoolean(lhs ^ rhs);
+        consumeBoolean(lhs & rhs);
+
+        boolean arg = false;
+        consumeBoolean(!arg);
+    }
+
     @Test public void testIntOps ()
     {
         int lhs = 1, rhs = 1;
@@ -157,6 +168,10 @@ public class OpResolveTest
         Double arg = 1d;
         consumeDouble(+arg);
         consumeDouble(-arg);
+    }
+
+    protected void consumeBoolean (Boolean value) {
+        assertEquals(Boolean.class, value.getClass());
     }
 
     protected void consumeInt (Integer value) {
