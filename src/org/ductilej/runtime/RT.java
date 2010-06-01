@@ -988,6 +988,8 @@ public class RT
 
     protected static final Map<Tuple<? extends Class<?>,? extends Class<?>>,Coercer> COERCERS =
         ImmutableMap.<Tuple<? extends Class<?>,? extends Class<?>>,Coercer>builder().
+        // coercions from boolean to boolean
+        put(Tuple.create(Boolean.class, Boolean.TYPE), new IdentityCoercer()).
         // coercions from byte to X
         put(Tuple.create(Byte.class, Byte.TYPE), new IdentityCoercer()).
         put(Tuple.create(Byte.class, Short.TYPE), new NumberCoercer() {
