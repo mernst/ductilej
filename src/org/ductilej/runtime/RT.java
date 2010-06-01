@@ -560,9 +560,12 @@ public class RT
             throw new RuntimeException(iae);
         } catch (InvocationTargetException ite) {
             Throwable t = unwrap(ite.getCause());
-            if (t instanceof RuntimeException) {
+            if (t instanceof Error) {
+                throw (Error)t;
+            } else if (t instanceof RuntimeException) {
                 throw (RuntimeException)t;
             } else {
+                Debug.temp("Wrapping " + t);
                 throw new RuntimeException(t); // TODO: use WrappedException
             }
         }
