@@ -565,7 +565,6 @@ public class RT
             } else if (t instanceof RuntimeException) {
                 throw (RuntimeException)t;
             } else {
-                Debug.temp("Wrapping " + t);
                 throw new RuntimeException(t); // TODO: use WrappedException
             }
         }
