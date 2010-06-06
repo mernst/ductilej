@@ -21,6 +21,7 @@ import OtherPackage.StaticMethodResolutionTestPackageTest;
 public class StaticMethodResolutionTest {
 
     public static void main(String[] args) {
+        // Ductile generates erroneous "cannot find symbol" on the following line.
         someStaticMethod();
     }
 
