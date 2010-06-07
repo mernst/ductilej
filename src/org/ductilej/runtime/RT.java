@@ -94,13 +94,12 @@ public class RT
             @SuppressWarnings("unchecked") T inst = (T)ctor.newInstance(rargs);
             return inst;
         } catch (InstantiationException ie) {
-            throw new RuntimeException(ie);
+            throw new WrappedException(ie);
         } catch (IllegalAccessException iae) {
-            throw new RuntimeException(iae);
+            throw new WrappedException(iae);
         } catch (InvocationTargetException ite) {
-            throw new RuntimeException(unwrap(ite.getCause()));
-        } catch (RuntimeException re) {
-            throw re;
+            unwrap(ite.getCause());
+            return null; // unreached
         }
     }
 
@@ -218,9 +217,9 @@ public class RT
             field.setAccessible(true);
             return field.get(target);
         } catch (NoSuchFieldException nsfe) {
-            throw new RuntimeException(nsfe);
+            throw new WrappedException(nsfe);
         } catch (IllegalAccessException iae) {
-            throw new RuntimeException(iae);
+            throw new WrappedException(iae);
         }
     }
 
@@ -241,9 +240,9 @@ public class RT
                           // need to return field.get(fname)
 
         } catch (NoSuchFieldException nsfe) {
-            throw new RuntimeException(nsfe);
+            throw new WrappedException(nsfe);
         } catch (IllegalAccessException iae) {
-            throw new RuntimeException(iae);
+            throw new WrappedException(iae);
         }
     }
 
@@ -542,16 +541,10 @@ public class RT
             method.setAccessible(true); // TODO: cache which methods we've toggled if slow
             return method.invoke(receiver, aargs);
         } catch (IllegalAccessException iae) {
-            throw new RuntimeException(iae);
+            throw new WrappedException(iae);
         } catch (InvocationTargetException ite) {
-            Throwable t = unwrap(ite.getCause());
-            if (t instanceof Error) {
-                throw (Error)t;
-            } else if (t instanceof RuntimeException) {
-                throw (RuntimeException)t;
-            } else {
-                throw new RuntimeException(t); // TODO: use WrappedException
-            }
+            unwrap(ite.getCause());
+            return null; // unreached
         }
     }
 
@@ -870,9 +863,17 @@ public class RT
         return type.isPrimitive() ? WRAPPERS.get(type) : type;
     }
 
-    protected static Throwable unwrap (Throwable t)
+    protected static void unwrap (Throwable t)
     {
-        return (t instanceof RuntimeException && t.getCause() != null) ? unwrap(t.getCause()) : t;
+        if (t instanceof WrappedException) {
+            unwrap(t.getCause());
+        } else if (t instanceof Error) {
+            throw (Error)t;
+        } else if (t instanceof RuntimeException) {
+            throw (RuntimeException)t;
+        } else {
+            throw new WrappedException(t);
+        }
     }
 
     /** A very non-general-purpose tuple class for use as a hash key. */
