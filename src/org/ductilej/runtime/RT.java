@@ -56,17 +56,24 @@ public class RT
                                                      clazz.getSimpleName(), "args", args));
         }
 
+        List<Class<?>> ptypes = Arrays.asList(ctor.getParameterTypes());
+        int pcount = ptypes.size();
+        if (isMangled) {
+            pcount /= 2;
+        }
+
+        // if this ctor is varargs we need to extract the variable arguments, place them into an
+        // Object[] and create a new args array that has the varargs array in the final position
+        Object[] rargs = (args == null || !ctor.isVarArgs()) ?
+            args : collectVarArgs(ptypes, pcount, args);
+
         // if this method is mangled, we need to add dummy arguments in the type-carrying parameter
         // positions
-        Object[] rargs;
         if (isMangled) {
-            List<Class<?>> ptypes = Arrays.asList(ctor.getParameterTypes());
             if (needsOuterThis) {
                 ptypes = ptypes.subList(1, ptypes.size());
             }
-            rargs = addMangleArgs(ptypes, args);
-        } else {
-            rargs = args;
+            rargs = addMangleArgs(ptypes, rargs);
         }
 
         // if this is an inner class in a non-static context, we need to shift a reference to the
@@ -92,6 +99,8 @@ public class RT
             throw new RuntimeException(iae);
         } catch (InvocationTargetException ite) {
             throw new RuntimeException(unwrap(ite.getCause()));
+        } catch (RuntimeException re) {
+            throw re;
         }
     }
 
@@ -520,32 +529,8 @@ public class RT
 
         // if this method is varargs we need to extract the variable arguments, place them into an
         // Object[] and create a new args array that has the varargs array in the final position
-        Object[] aargs = rargs;
-        if (method.isVarArgs() && aargs != null) {
-            int fpcount = pcount-1, vacount = rargs.length-fpcount;
-
-            // if we have BOXED_NULL in the varargs position, that means the caller intended for
-            // the variable arguments to be an array containing a single null; so make it so
-            if (vacount == 1 && aargs[vacount-1] == BOXED_NULL) {
-                // TODO: this array should be of the varargs element type as declared by the method
-                aargs[vacount-1] = new Object[] { BOXED_NULL };
-
-            // if we have more than one argument in varargs position or we have a non-array in
-            // varargs position, we need to wrap the varargs into an array (this is normally done
-            // by javac); we heuristically assume that if there's only one argument in the varargs
-            // position and it's an array, then the caller did the wrapping already
-            } else if (vacount != 1 ||
-                       (rargs[fpcount] != null && !rargs[fpcount].getClass().isArray())) {
-                // the final argument position indicates the type of the varargs array
-                Class<?> vatype = ptypes.get(ptypes.size()-1);
-                assert vatype.getComponentType() != null : "Varargs position not array type";
-                Object vargs = Array.newInstance(vatype.getComponentType(), vacount);
-                System.arraycopy(rargs, fpcount, vargs, 0, rargs.length-fpcount);
-                aargs = new Object[fpcount+1];
-                System.arraycopy(rargs, 0, aargs, 0, fpcount);
-                aargs[fpcount] = vargs;
-            }
-        }
+        Object[] aargs = (rargs == null || !method.isVarArgs()) ?
+            rargs : collectVarArgs(ptypes, pcount, rargs);
 
         // if this method is mangled, we need to add dummy arguments in the type-carrying parameter
         // positions
@@ -802,6 +787,37 @@ public class RT
             atypes[ii] = (args[ii] == null) ? null : args[ii].getClass();
         }
         return atypes;
+    }
+
+    protected static Object[] collectVarArgs (List<Class<?>> ptypes, int pcount, Object[] rargs)
+    {
+        int fpcount = pcount-1, vacount = rargs.length-fpcount;
+
+        // if we have BOXED_NULL in the varargs position, that means the caller intended for
+        // the variable arguments to be an array containing a single null; so make it so
+        if (vacount == 1 && rargs[vacount-1] == BOXED_NULL) {
+            // TODO: this array should be of the varargs element type as declared by the method
+            rargs[vacount-1] = new Object[] { BOXED_NULL };
+            return rargs;
+        }
+
+        // if we have more than one argument in varargs position or we have a non-array in varargs
+        // position, we need to wrap the varargs into an array (this is normally done by javac); we
+        // heuristically assume that if there's only one argument in the varargs position and it's
+        // an array, then the caller did the wrapping already
+        if (vacount != 1 || (rargs[fpcount] != null && !rargs[fpcount].getClass().isArray())) {
+            // the final argument position indicates the type of the varargs array
+            Class<?> vatype = ptypes.get(ptypes.size()-1);
+            assert vatype.getComponentType() != null : "Varargs position not array type";
+            Object vargs = Array.newInstance(vatype.getComponentType(), vacount);
+            System.arraycopy(rargs, fpcount, vargs, 0, rargs.length-fpcount);
+            Object[] aargs = new Object[fpcount+1];
+            System.arraycopy(rargs, 0, aargs, 0, fpcount);
+            aargs[fpcount] = vargs;
+            return aargs;
+        }
+
+        return rargs;
     }
 
     protected static Object[] addMangleArgs (List<Class<?>> ptypes, Object[] args)
