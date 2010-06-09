@@ -128,24 +128,6 @@
       <include name="**/tests/helper/**"/>
     </javac>
 
-    <!--
-      compile test package classes, let them be treated like lib classes
-      TODO: we should devise a uniform strategy for including ancillary test
-      source files like this
-    -->
-    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
-           source="1.6" target="1.6" encoding="utf-8"
-           srcdir="${src.dir}" destdir="${dtclass.dir}">
-      <classpath>
-        <pathelement location="${dtclass.dir}"/>
-        <path refid="build.classpath"/>
-      </classpath>
-      <compilerarg value="-Xlint"/>
-      <compilerarg value="-Xlint:-serial"/>
-      <include name="**/tests/StaticMethodAmbiguousInterfaceTestPackage1/**"/>
-      <include name="**/tests/StaticMethodAmbiguousInterfaceTestPackage2/**"/>
-    </javac>
-
     <!-- allows passing -Dtest=NamePrefix to restrict to subset of tests -->
     <property name="test" value=""/>
     <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
@@ -166,6 +148,8 @@
       <compilerarg value="-Aorg.ductilej.showclass=${showclass}"/>
       <compilerarg value="-Aorg.ductilej.debug=${debug}"/>
       <include name="**/tests/${test}*Test.java"/>
+      <include name="**/tests/StaticMethodAmbiguousInterfaceTestPackage1/**"/>
+      <include name="**/tests/StaticMethodAmbiguousInterfaceTestPackage2/**"/>
     </javac>
 
     <taskdef name="unit" classpathref="build.classpath"
@@ -182,8 +166,13 @@
       <batchtest>
         <fileset dir="${src.dir}">
           <include name="**/tests/${test}*Test.java"/>
+          <exclude name="**/tests/StaticMethodAmbiguousInterfaceTest.java"/>
+          <exclude name="**/tests/StaticMethodResolutionTest.java"/>
+          <exclude name="**/tests/StaticMethodResolutionTestPackageTest.java"/>
         </fileset>
       </batchtest>
+      <test name="StaticMethodResolutionTestPackageTest.StaticMethodResolutionTest"/>
+      <test name="MyInterfaceTest.StaticMethodAmbiguousInterfaceTest"/>
     </unit>
   </target>
 
@@ -206,6 +195,8 @@
       <compilerarg value="-Xlint"/>
       <compilerarg value="-Xlint:-serial"/>
       <include name="**/tests/${test}*Test.java"/>
+      <include name="**/tests/StaticMethodAmbiguousInterfaceTestPackage1/**"/>
+      <include name="**/tests/StaticMethodAmbiguousInterfaceTestPackage2/**"/>
     </javac>
 
     <taskdef name="unit" classpathref="build.classpath"
@@ -221,8 +212,13 @@
       <batchtest>
         <fileset dir="${src.dir}">
           <include name="**/tests/${test}*Test.java"/>
+          <exclude name="**/tests/StaticMethodAmbiguousInterfaceTest.java"/>
+          <exclude name="**/tests/StaticMethodResolutionTest.java"/>
+          <exclude name="**/tests/StaticMethodResolutionTestPackageTest.java"/>
         </fileset>
       </batchtest>
+      <test name="StaticMethodResolutionTestPackageTest.StaticMethodResolutionTest"/>
+      <test name="MyInterfaceTest.StaticMethodAmbiguousInterfaceTest"/>
     </unit>
   </target>
 
@@ -246,7 +242,8 @@
       <!--<compilerarg value="-XprintProcessorInfo"/>-->
       <compilerarg value="-processor"/>
       <compilerarg value="org.ductilej.astviz.Processor"/>
-      <include name="org/ductilej/tests/${test}*"/>
+      <include name="org/ductilej/tests/${test}**"/>
     </javac>
   </target>
 </project>
+
