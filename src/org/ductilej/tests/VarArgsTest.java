@@ -3,7 +3,9 @@
 
 package org.ductilej.tests;
 
+import java.util.Arrays;
 import java.util.Date;
+import java.util.List;
 
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -63,6 +65,13 @@ public class VarArgsTest
         assertEquals(1, varargs(1));
         // this should get wrapped into a one element array containing null
         assertEquals(1, varargs((Object)null));
+    }
+
+    @Test public void testVarArgsArrayType ()
+    {
+        List<Integer> list = Arrays.asList((Integer) null);
+        Object[] array = list.toArray();
+        assertEquals(array.getClass(), Integer[].class);
     }
 
     protected static String foo (String one, String... two)
