@@ -1,0 +1,65 @@
+#!/usr/bin/perl -w
+#
+# $Id$
+#
+# Generates our myriad binary operator classes from a single template file.
+
+use Cwd 'realpath';
+
+my $root = `dirname $0`;
+chomp($root);
+$root = realpath("$root/..");
+my $opsdir = "$root/src/org/ductilej/runtime/ops";
+
+my %types = ( "byte" => "Byte",
+              "short" => "Short",
+              "char" => "Character",
+              "int" => "Integer",
+              "long" => "Long",
+              "float" => "Float",
+              "double" => "Double" );
+
+# First do the binops
+my $idata = `cat $opsdir/IntegralBinOps.tmpl`;
+my $fdata = `cat $opsdir/FloatingBinOps.tmpl`;
+
+foreach $left (keys %types) {
+    foreach $right (keys %types) {
+        my $lclass = $types{$left};
+        my $rclass = $types{$right};
+        my $xdata;
+        if ($left eq "float" || $right eq "float" || $left eq "double" || $right eq "double") {
+            $xdata = $fdata;
+        } else {
+            $xdata = $idata;
+        }
+        $xdata =~ s/\{left\}/$left/g;
+        $xdata =~ s/\{right\}/$right/g;
+        $xdata =~ s/\{LEFT\}/$lclass/g;
+        $xdata =~ s/\{RIGHT\}/$rclass/g;
+        my $xfile = "$opsdir/" . $lclass . $rclass . "Ops.java";
+        open(OUT, ">$xfile") or die "Can't write to $xfile: $!\n";
+        print OUT $xdata;
+        close(OUT);
+    }
+}
+
+# Then do the unops
+$idata = `cat $opsdir/IntegralUnOps.tmpl`;
+$fdata = `cat $opsdir/FloatingUnOps.tmpl`;
+
+foreach $arg (keys %types) {
+    my $aclass = $types{$arg};
+    my $xdata;
+    if ($arg eq "float" || $arg eq "double") {
+        $xdata = $fdata;
+    } else {
+        $xdata = $idata;
+    }
+    $xdata =~ s/\{arg\}/$arg/g;
+    $xdata =~ s/\{ARG\}/$aclass/g;
+    my $xfile = "$opsdir/" . $aclass . "Ops.java";
+    open(OUT, ">$xfile") or die "Can't write to $xfile: $!\n";
+    print OUT $xdata;
+    close(OUT);
+}

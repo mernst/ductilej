@@ -1,0 +1,5 @@
+syntax: glob
+build.properties
+dist
+docs/proposal
+docs/oopsla-2010

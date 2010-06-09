@@ -1,0 +1,78 @@
+Nov 5: PL students (pseudo-)presentation
+----------------------------------------
+
+* Basic idea is:
+- turn all variables into Object
+- turn all field access and method/constructor invocation into reflective calls
+- turn all operators into reflective calls
+
+Rectangle r1 = new Rectangle(0, 0, 2, 2);
+Rectangle r2 = new Rectangle(1, 1, 2, 2);
+int v = r1.width + r2.height;
+boolean b = r1.intersects(r2);
+
+becomes:
+
+Object r1 = RT.newClass(Rectangle.class, 0, 0, 2, 2);
+Object r2 = RT.newClass(Rectangle.class, 1, 1, 2, 2);
+Object v = RT.binop(ADD, RT.select("width", r1), RT.select("height", r2));
+Object b = RT.invoke("intersects", r1, r2);
+
+* Library methods:
+
+Typed interface implementations and overrides can't be detyped:
+
+public int compareTo (Foo other) { ... }
+@Override public int hashCode () { ... }
+
+but we detype the bodies, so we need to cast any return expressions back to the
+statically expected type.
+
+Similarly we might call a library method:
+
+void foo () {
+   int v = 15, r = 16;
+   System.out.println(Integer.toString(v, r);
+}
+
+* Switch is fiddly:
+
+int foo (Weekday w) {            int foo (Weekday w) {
+    switch (w) {                     int v = 1;
+    case MONDAY: return 1;           switch (w) {
+    case TUESDAY: return 2;          case MONDAY: v += 1;
+    case WEDNESDAY: return 3;        default:
+    default: return 0;               case TUESDAY: v += 2; break;
+    }                                case WEDNESDAY: return 3;
+}                                    }
+                                     v += 3;
+                                     return v;
+                                 }
+
+* Postfix increment and decrement are fiddly:
+
+++i -> (i = i + 1)
+i++ -> ???
+
+for (int ii = 0; ii < 10; ii++) { ... }
+for (int ii = 0, vv = ii; vv < 10; vv = ii++) { ... }
+
+* Array deref must be subsumed into assign:
+
+int a = vals[ii] + 5; -> Object a = RT.binop(ADD, RT.atIndex(vals, ii), 5);
+vals[ii] = 5; -> RT.assignAt(vals, ii, 5);
+(vals[ii]) = 5; is pesky, any other expressions allowed on LHs?
+(q ? a[ii] : b[ii]) = 5; not allowed
+
+* Exceptions
+
+void foo () throws IOException {
+    throw new IOException(...); -> throw RT.newClass(IOException.class, ...);
+}
+
+We handle this through generic types: <T> T RT.newClass(Class<T> clazz, ...);
+
+but what about:
+
+IOException error (String msg) { return new IOException(msg); }
+void foo () throws IOException { throw foo(); }
