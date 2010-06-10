@@ -157,7 +157,7 @@
 
     <!-- now run the tests (that match the 'test' property) -->
     <antcall target="runtests">
-      <param name="tclass.dir" value="${stclass.dir}"/>
+      <param name="tclass.dir" value="${dtclass.dir}"/>
     </antcall>
   </target>
 
