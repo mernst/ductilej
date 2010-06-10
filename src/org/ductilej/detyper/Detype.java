@@ -1470,31 +1470,33 @@ public class Detype extends PathedTreeTranslator
     protected List<JCExpression> groupVarArgs (List<Type> ptypes, List<JCExpression> args,
                                                List<Type> atypes, boolean castArgArray)
     {
-        if (ptypes.tail.isEmpty()) {
-            Type etype = ((Type.ArrayType)ptypes.head).elemtype;
-            // we may have an array argument of the correct type in the final position, which
-            // should not be wrapped, but rather passed straight through
-            if (!atypes.isEmpty() && atypes.tail.isEmpty() && atypes.head.equals(ptypes.head)) {
-                return args;
-            } else {
-                // if the varargs argument is parameterized (naughty programmer), we have to erase
-                // it to avoid generating illegal code that attempts to create a parameterized
-                // array; annoyingly this will generate a rawtypes warning
-                Type atype = _types.erasure(etype);
-                JCExpression varray = _tmaker.NewArray(
-                    typeToTree(atype, 0), List.<JCExpression>nil(), castList(etype, args));
-                // if requested, we need to cast this array to Object so that when it appears in
-                // RT.invoke() it is not assumed to be an arguments array but rather just a single
-                // argument (which it is, at this level of indirection)
-                if (castArgArray) {
-                    varray = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Object")), varray);
-                }
-                return List.of(varray);
-            }
-        } else {
+        // skip the non-varargs arguments
+        if (!ptypes.tail.isEmpty()) {
             return groupVarArgs(ptypes.tail, args.tail, atypes.tail, castArgArray).
                 prepend(args.head);
         }
+
+        // if we have an array argument of the correct type in the final position, it should not be
+        // wrapped, but rather passed straight through
+        if (!atypes.isEmpty() && atypes.tail.isEmpty() &&
+            _types.isSameType(atypes.head, ptypes.head)) {
+            return args;
+        }
+
+        // if the varargs argument is parameterized (naughty programmer), we have to erase it to
+        // avoid generating illegal code that attempts to create a parameterized array; annoyingly
+        // this will generate a rawtypes warning
+        Type etype = ((Type.ArrayType)ptypes.head).elemtype;
+        Type atype = _types.erasure(etype);
+        JCExpression varray = _tmaker.NewArray(
+            typeToTree(atype, 0), List.<JCExpression>nil(), castList(atype, args));
+        // if requested, we need to cast this array to Object so that when it appears in
+        // RT.invoke() it is not assumed to be an arguments array but rather just a single argument
+        // (which it is, at this level of indirection)
+        if (castArgArray) {
+            varray = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Object")), varray);
+        }
+        return List.of(varray);
     }
 
     protected List<JCExpression> toTypedNulls (List<Type> types, List<JCExpression> args)
