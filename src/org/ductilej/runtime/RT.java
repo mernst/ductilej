@@ -32,11 +32,6 @@ public class RT
     /** A suffix appended to signature mangled method names. */
     public static final String MM_SUFFIX = "$M";
 
-    /** A placeholder reference passed in place of a single null argument to a varargs method where
-     * null is intended to mean "an array containing a single null argument" rather than "a null
-     * arguments array". */
-    public static final Object BOXED_NULL = new Object();
-
     /**
      * Invokes the constructor of the supplied class, with the specified arguments and returns the
      * newly created instance.
@@ -785,14 +780,6 @@ public class RT
     protected static Object[] collectVarArgs (List<Class<?>> ptypes, int pcount, Object[] rargs)
     {
         int fpcount = pcount-1, vacount = rargs.length-fpcount;
-
-        // if we have BOXED_NULL in the varargs position, that means the caller intended for
-        // the variable arguments to be an array containing a single null; so make it so
-        if (vacount == 1 && rargs[vacount-1] == BOXED_NULL) {
-            // TODO: this array should be of the varargs element type as declared by the method
-            rargs[vacount-1] = new Object[] { BOXED_NULL };
-            return rargs;
-        }
 
         // if we have more than one argument in varargs position or we have a non-array in varargs
         // position, we need to wrap the varargs into an array (this is normally done by javac); we
