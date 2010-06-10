@@ -1,10 +1,9 @@
 //
 // $Id$
 
-// This package name "StaticMethodResolutionTestPackageTest" must be identical to the
-// simple name of the class defined in the source file
-// StaticMethodResolutionTestPackageTest.java.
-package StaticMethodResolutionTestPackageTest;
+// This package name "StaticMethodResolutionTestPackage" must be identical to the simple name of
+// the class defined in the source file StaticMethodResolutionTestPackage.java.
+package StaticMethodResolutionTestPackage;
 
 import org.junit.Test;
 
@@ -12,27 +11,20 @@ import org.junit.Test;
 // as the current package breaks static method resolution at compile time
 // presumably due to name ambiguities which Ductile attempts to resolve
 // differently from regular Java compilation.
-import OtherPackage.StaticMethodResolutionTestPackageTest;
+import org.ductilej.tests.helper.StaticMethodResolutionTestPackage;
 
 /**
  * Tests that static methods are correctly resolved when a class with the same
  * simple name as the current package is imported.
  */
-public class StaticMethodResolutionTest {
+public class StaticMethodResolutionTest
+{
+    public static void someStaticMethod () {
+        // noop
+    }
 
-    public static void main(String[] args) {
+    @Test public void testDummy () {
         // Ductile generates erroneous "cannot find symbol" on the following line.
         someStaticMethod();
     }
-
-    public static void someStaticMethod() {
-    }
-
-    public StaticMethodResolutionTest() {
-    }
-
-    @Test
-    public void testDummy() {
-    }
 }
-
