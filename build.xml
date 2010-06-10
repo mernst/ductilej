@@ -20,6 +20,11 @@
   <property name="javac.home"  value="${java.home}/.."/>
   <property name="javac.jar"  value="tools.jar"/>
 
+  <!-- we need this for <if> -->
+  <taskdef resource="net/sf/antcontrib/antlib.xml">
+    <classpath><pathelement location="lib/ant-contrib.jar"/></classpath>
+  </taskdef>
+
   <!-- defines our classpath -->
   <path id="base.classpath">
     <pathelement location="${classes.dir}"/>
@@ -148,32 +153,12 @@
       <compilerarg value="-Aorg.ductilej.showclass=${showclass}"/>
       <compilerarg value="-Aorg.ductilej.debug=${debug}"/>
       <include name="**/tests/${test}*Test.java"/>
-      <include name="**/tests/StaticMethodAmbiguousInterfaceTestPackage1/**"/>
-      <include name="**/tests/StaticMethodAmbiguousInterfaceTestPackage2/**"/>
     </javac>
 
-    <taskdef name="unit" classpathref="build.classpath"
-      classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask"/>
-    <unit printsummary="off" haltonfailure="no" fork="yes">
-      <classpath>
-        <pathelement location="${classes.dir}"/>
-        <pathelement location="${dtclass.dir}"/>
-        <path refid="build.classpath"/>
-      </classpath>
-      <jvmarg value="-Dorg.ductilej.debug=${debug}"/>
-      <assertions><enable/></assertions>
-      <formatter type="brief" usefile="false"/>
-      <batchtest>
-        <fileset dir="${src.dir}">
-          <include name="**/tests/${test}*Test.java"/>
-          <exclude name="**/tests/StaticMethodAmbiguousInterfaceTest.java"/>
-          <exclude name="**/tests/StaticMethodResolutionTest.java"/>
-          <exclude name="**/tests/StaticMethodResolutionTestPackageTest.java"/>
-        </fileset>
-      </batchtest>
-      <test name="StaticMethodResolutionTestPackageTest.StaticMethodResolutionTest"/>
-      <test name="MyInterfaceTest.StaticMethodAmbiguousInterfaceTest"/>
-    </unit>
+    <!-- now run the tests (that match the 'test' property) -->
+    <antcall target="runtests">
+      <param name="tclass.dir" value="${stclass.dir}"/>
+    </antcall>
   </target>
 
   <!-- compiles our unit tests with the stock compiler and runs them -->
@@ -195,31 +180,64 @@
       <compilerarg value="-Xlint"/>
       <compilerarg value="-Xlint:-serial"/>
       <include name="**/tests/${test}*Test.java"/>
-      <include name="**/tests/StaticMethodAmbiguousInterfaceTestPackage1/**"/>
-      <include name="**/tests/StaticMethodAmbiguousInterfaceTestPackage2/**"/>
     </javac>
 
+    <!-- now run the tests (that match the 'test' property) -->
+    <antcall target="runtests">
+      <param name="tclass.dir" value="${stclass.dir}"/>
+    </antcall>
+  </target>
+
+  <!-- a helper for the tests and stock-tests targets -->
+  <target name="runtests">
     <taskdef name="unit" classpathref="build.classpath"
       classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask"/>
     <unit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
       <classpath>
         <pathelement location="${classes.dir}"/>
-        <pathelement location="${stclass.dir}"/>
+        <pathelement location="${tclass.dir}"/>
         <path refid="build.classpath"/>
       </classpath>
       <assertions><enable/></assertions>
+      <jvmarg value="-Dorg.ductilej.debug=${debug}"/>
       <formatter type="brief" usefile="false"/>
       <batchtest>
         <fileset dir="${src.dir}">
           <include name="**/tests/${test}*Test.java"/>
-          <exclude name="**/tests/StaticMethodAmbiguousInterfaceTest.java"/>
-          <exclude name="**/tests/StaticMethodResolutionTest.java"/>
-          <exclude name="**/tests/StaticMethodResolutionTestPackageTest.java"/>
+          <exclude name="**/tests/StaticMethod*.java"/>
         </fileset>
       </batchtest>
-      <test name="StaticMethodResolutionTestPackageTest.StaticMethodResolutionTest"/>
-      <test name="MyInterfaceTest.StaticMethodAmbiguousInterfaceTest"/>
     </unit>
+    <!-- these tests require special package naming conventions and must
+         handled in separate <unit> blocks which can run (or not) depending
+         on the value of the "test" property -->
+    <antcall target="runspecial">
+      <param name="testpkg" value="StaticMethodResolutionTestPackage"/>
+      <param name="testname" value="StaticMethodResolution"/>
+    </antcall>
+    <antcall target="runspecial">
+      <param name="testpkg" value="MyInterfaceTest"/>
+      <param name="testname" value="StaticMethodAmbiguousInterface"/>
+    </antcall>
+  </target>
+
+  <!-- a helper for the runtests target -->
+  <target name="runspecial">
+    <if><or><equals arg1="${test}" arg2="${testname}"/>
+            <equals arg1="${test}" arg2=""/></or>
+      <then>
+        <unit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
+          <classpath>
+            <pathelement location="${classes.dir}"/>
+            <pathelement location="${tclass.dir}"/>
+            <path refid="build.classpath"/>
+          </classpath>
+          <assertions><enable/></assertions>
+          <formatter type="brief" usefile="false"/>
+          <test name="${testpkg}.${testname}Test"/>
+        </unit>
+      </then>
+    </if>
   </target>
 
   <!-- runs the compiler on a test class with the astviz processor active -->

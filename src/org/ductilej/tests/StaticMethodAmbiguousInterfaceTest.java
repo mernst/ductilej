@@ -1,33 +1,31 @@
 //
 // $Id$
 
-// Demonstrates similar compiler bug as StaticMethodResolutionTest.java: this
-// time the ambiguity results from the two identically named interfaces (from
-// different packages) being imported.
-
 package MyInterfaceTest;
 
 import org.junit.Test;
-import StaticMethodAmbiguousInterfaceTestPackage1.*;
-import StaticMethodAmbiguousInterfaceTestPackage2.*;
 
-public class StaticMethodAmbiguousInterfaceTest implements StaticMethodAmbiguousInterfaceTestPackage1.MyInterfaceTest {
+import org.ductilej.tests.helper.one.*;
+import org.ductilej.tests.helper.two.*;
 
-    public StaticMethodAmbiguousInterfaceTest() {
-    }
-
-    @Test
-    public void testInvokeFoo() {
+/**
+ * Demonstrates similar compiler bug as StaticMethodResolutionTest.java: this
+ * time the ambiguity results from the two identically named interfaces (from
+ * different packages) being imported.
+ */
+public class StaticMethodAmbiguousInterfaceTest
+    implements org.ductilej.tests.helper.one.MyInterfaceTest
+{
+    @Test public void testInvokeFoo () {
         // The following line results in the following compiler error:
         // "reference to MyInterfaceTest is ambiguous, both interface
-        // StaticMethodAmbiguousInterfaceTestPackage2.MyInterfaceTest in
-        // StaticMethodAmbiguousInterfaceTestPackage2 and interface
-        // StaticMethodAmbiguousInterfaceTestPackage1.MyInterfaceTest in
-        // StaticMethodAmbiguousInterfaceTestPackage1 match".
+        // org.ductilej.tests.helper.two.MyInterfaceTest in
+        // org.ductilej.tests.helper.two and interface
+        // org.ductilej.tests.helper.one.MyInterfaceTest in
+        // org.ductilej.tests.helper.one match".
         foo();
     }
 
-    private static void foo() {
+    private static void foo () {
     }
 }
-
