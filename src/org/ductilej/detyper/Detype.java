@@ -1482,8 +1482,9 @@ public class Detype extends PathedTreeTranslator
         // if we have an array argument of the correct type in the final position, it should not be
         // wrapped, but rather passed straight through
         if (!atypes.isEmpty() && atypes.tail.isEmpty() &&
-            // TODO: should this be P <: A?
-            _types.isSameType(atypes.head, ptypes.head)) {
+            // any checked or unchecked subtype of the varargs array type should be passed through
+            // directly as the varargs array rather than doubly wrapped
+            _types.isSubtypeUnchecked(atypes.head, ptypes.head)) {
             return args;
         }
 
