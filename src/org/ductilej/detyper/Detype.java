@@ -945,13 +945,13 @@ public class Detype extends PathedTreeTranslator
     {
         super.visitTry(tree);
 
-        // insert an inner try/catch that catches RuntimeException, dynamically checks whether its
+        // insert an inner try/catch that catches WrappedException, dynamically checks whether its
         // cause is the caught type and casts and rethrows the cause if so
         if (!tree.catchers.isEmpty()) {
             Name cvname = _names.fromString("_rt_" + tree.catchers.head.param.name);
             JCCatch catcher = _tmaker.Catch(
-                // TODO: use WrappedException, make RT throw said custom exception
-                _tmaker.VarDef(_tmaker.Modifiers(0L), cvname, mkFA("RuntimeException", 0), null),
+                _tmaker.VarDef(_tmaker.Modifiers(0L), cvname,
+                               mkFA("org.ductilej.runtime.WrappedException", 0), null),
                 _tmaker.Block(0L, List.of(unwrapExns(cvname, tree.catchers))));
             tree.body = _tmaker.Block(
                 0L, List.<JCStatement>of(_tmaker.Try(tree.body, List.of(catcher), null)));
