@@ -36,7 +36,7 @@
 
   <!-- defines our runtime library dependencies -->
   <fileset dir="${libs.dir}" id="runtime.libs">
-    <include name="google-collect.jar"/>
+    <include name="guava.jar"/>
   </fileset>
 
   <!-- defines our build-time library dependencies -->
@@ -109,7 +109,7 @@
       <service type="javax.annotation.processing.Processor"
                provider="org.ductilej.detyper.Processor"/>
       <exclude name="**/tests/**"/>
-      <zipfileset src="${deploy.dir}/lib/google-collect.jar"/>
+      <zipfileset src="${deploy.dir}/lib/guava.jar"/>
       <rule pattern="com.google.**" result="gc.@1"/>
     </jarjar>
   </target>
