@@ -28,6 +28,7 @@ public class ParamVarArgsTest
         };
     }
 
+    @SuppressWarnings("unchecked") // this use of parameterized varargs is safe
     @Test public void testParamVarArgs () {
         Predicate<Integer> test = or(FALSE);
         assertEquals(false, test.apply(1));
