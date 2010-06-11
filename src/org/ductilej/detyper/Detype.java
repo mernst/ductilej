@@ -613,7 +613,7 @@ public class Detype extends PathedTreeTranslator
                 if (ASTUtil.isLibrary(_env.info.anonParent)) {
                     tree.args = castList(ptypes, tree.args);
                 } else {
-                    tree.args = addManglingArgs(mi.msym, ptypes, tree.args, mi.atypes);
+                    tree.args = addManglingArgs(mi.msym, ptypes, tree.args, mi.atypes, tree.pos);
                 }
             }
 
@@ -769,7 +769,7 @@ public class Detype extends PathedTreeTranslator
                     // arguments that match the types of the method we resolved; if the resolved
                     // method is overloaded, this will disambiguate, and even if it's not
                     // overloaded, we need something legal in those argument positions
-                    tree.args = addManglingArgs(mi.msym, ptypes, tree.args, mi.atypes);
+                    tree.args = addManglingArgs(mi.msym, ptypes, tree.args, mi.atypes, tree.pos);
                     // we also need to append the "is mangled" tag to the method name if we're
                     // looking at a super non-constructor call (e.g. super.foo())
                     if (tree.meth instanceof JCFieldAccess) {
@@ -844,7 +844,7 @@ public class Detype extends PathedTreeTranslator
         // dynamic type of the array
         if (mi.isValid() && ASTUtil.isVarArgs(mi.msym.flags())) {
             List<Type> ptypes = _resolver.instantiateType(_env, mi).asMethodType().argtypes;
-            tree.args = groupVarArgs(ptypes, tree.args, mi.atypes, true);
+            tree.args = groupVarArgs(ptypes, tree.args, mi.atypes, tree.pos, true);
         }
 
         // if the method is being invoked with a single null argument, we need to add a cast to
@@ -1458,24 +1458,24 @@ public class Detype extends PathedTreeTranslator
                            params.head.vartype, null));
     }
 
-    protected List<JCExpression> addManglingArgs (Symbol msym, List<Type> ptypes,
-                                                  List<JCExpression> args, List<Type> atypes)
+    protected List<JCExpression> addManglingArgs (
+        Symbol msym, List<Type> ptypes, List<JCExpression> args, List<Type> atypes, int pos)
     {
         // if the method is varargs, we need to insert an array creation expression wrapping up the
         // variable arguments because they're no longer at the end (whee!)
         if (ASTUtil.isVarArgs(msym.flags())) {
-            args = groupVarArgs(ptypes, args, atypes, false);
+            args = groupVarArgs(ptypes, args, atypes, pos, false);
         }
         // now we can append type carrying arguments to the grouped arglist
         return args.appendList(toTypedNulls(ptypes, args));
     }
 
     protected List<JCExpression> groupVarArgs (List<Type> ptypes, List<JCExpression> args,
-                                               List<Type> atypes, boolean castArgArray)
+                                               List<Type> atypes, int pos, boolean castArgArray)
     {
         // skip the non-varargs arguments
         if (!ptypes.tail.isEmpty()) {
-            return groupVarArgs(ptypes.tail, args.tail, atypes.tail, castArgArray).
+            return groupVarArgs(ptypes.tail, args.tail, atypes.tail, pos, castArgArray).
                 prepend(args.head);
         }
 
@@ -1497,8 +1497,8 @@ public class Detype extends PathedTreeTranslator
         // JCExpression varray = _tmaker.Apply(
         //     List.of(typeToTree(atype, 0)), mkRT("box", 0), castList(atype, args));
         Type atype = _types.erasure(etype);
-        JCExpression varray = _tmaker.NewArray(
-            typeToTree(atype, 0), List.<JCExpression>nil(), castList(atype, args));
+        JCExpression varray = _tmaker.at(pos).NewArray(
+            typeToTree(atype, pos), List.<JCExpression>nil(), castList(atype, args));
         // if requested, we need to cast this array to Object so that when it appears in
         // RT.invoke() it is not assumed to be an arguments array but rather just a single argument
         // (which it is, at this level of indirection)
