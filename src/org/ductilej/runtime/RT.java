@@ -267,6 +267,10 @@ public class RT
      */
     public static Object unop (String opcode, Object arg)
     {
+        if (arg == null) {
+            throw new NullPointerException("Unary op (" + opcode + ") on null arg.");
+        }
+
         if ("UNARY_MINUS".equals(opcode)) {
             return OpsUtil.get(arg).minus(arg);
         } else if ("UNARY_PLUS".equals(opcode)) {
@@ -300,13 +304,23 @@ public class RT
      */
     public static Object binop (String opcode, Object lhs, Object rhs)
     {
+        // these are legal on null left and right hand sides
+        if ("EQUAL_TO".equals(opcode)) {
+            return OpsUtil.isEqualTo(lhs, rhs);
+        } else if ("NOT_EQUAL_TO".equals(opcode)) {
+            return !OpsUtil.isEqualTo(lhs, rhs);
+        } else if ("PLUS".equals(opcode) && (lhs instanceof String || rhs instanceof String)) {
+            return String.valueOf(lhs) + String.valueOf(rhs);
+        }
+
+        if (lhs == null || rhs == null) {
+            throw new NullPointerException(
+                "Binary op (" + opcode + ") on null arg (lhs=" + lhs + ", rhs=" + rhs + ")");
+        }
+
         // TODO: transform this into a hash lookup
         if ("PLUS".equals(opcode)) {
-            if (lhs instanceof String || rhs instanceof String) {
-                return String.valueOf(lhs) + String.valueOf(rhs);
-            }
             return OpsUtil.get(lhs, rhs).plus(lhs, rhs);
-
         } else if ("MINUS".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).minus(lhs, rhs);
         } else if ("MULTIPLY".equals(opcode)) {
@@ -324,11 +338,6 @@ public class RT
             return OpsUtil.get(lhs, rhs).lessThanEq(lhs, rhs);
         } else if ("GREATER_THAN_EQUAL".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).greaterThanEq(lhs, rhs);
-
-        } else if ("EQUAL_TO".equals(opcode)) {
-            return OpsUtil.isEqualTo(lhs, rhs);
-        } else if ("NOT_EQUAL_TO".equals(opcode)) {
-            return !OpsUtil.isEqualTo(lhs, rhs);
 
         } else if ("OR".equals(opcode)) {
             return OpsUtil.get(lhs, rhs).bitOr(lhs, rhs);
