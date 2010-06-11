@@ -21,6 +21,7 @@ import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
+import com.google.common.primitives.*;
 
 import org.ductilej.runtime.ops.OpsUtil;
 
@@ -378,13 +379,33 @@ public class RT
     /**
      * Casts an object to an iterable over objects. Used to massage foreach expressions.
      */
-    public static Iterable<Object> asIterable (Object arg)
+    public static Iterable<? extends Object> asIterable (Object arg)
     {
-        if (arg instanceof Object[]) {
+        if (arg == null) {
+            throw new IllegalArgumentException("Null iterable in foreach?");
+        } else if (arg instanceof Object[]) {
             return Arrays.asList((Object[])arg);
-        } else {
+        } else if (arg instanceof Iterable<?>) {
             @SuppressWarnings("unchecked") Iterable<Object> casted = (Iterable<Object>)arg;
             return casted;
+        } else if (arg instanceof boolean[]) {
+            return Booleans.asList((boolean[])arg);
+        } else if (arg instanceof byte[]) {
+            return Bytes.asList((byte[])arg);
+        } else if (arg instanceof char[]) {
+            return Chars.asList((char[])arg);
+        } else if (arg instanceof short[]) {
+            return Shorts.asList((short[])arg);
+        } else if (arg instanceof int[]) {
+            return Ints.asList((int[])arg);
+        } else if (arg instanceof long[]) {
+            return Longs.asList((long[])arg);
+        } else if (arg instanceof float[]) {
+            return Floats.asList((float[])arg);
+        } else if (arg instanceof double[]) {
+            return Doubles.asList((double[])arg);
+        } else {
+            throw new IllegalArgumentException("Unhandled iterable type " + arg.getClass());
         }
     }
 
