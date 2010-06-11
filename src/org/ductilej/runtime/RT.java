@@ -382,7 +382,7 @@ public class RT
     public static Iterable<? extends Object> asIterable (Object arg)
     {
         if (arg == null) {
-            throw new IllegalArgumentException("Null iterable in foreach?");
+            throw new NullPointerException("Null iterable in foreach?");
         } else if (arg instanceof Object[]) {
             return Arrays.asList((Object[])arg);
         } else if (arg instanceof Iterable<?>) {
