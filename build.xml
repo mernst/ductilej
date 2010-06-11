@@ -150,6 +150,7 @@
       <compilerarg value="-processor"/>
       <compilerarg value="org.ductilej.detyper.Processor"/>
       <compilerarg value="-Aorg.ductilej.warnings=true"/>
+      <compilerarg value="-Aorg.ductilej.keepifcs=true"/> <!-- TEMP -->
       <compilerarg value="-Aorg.ductilej.showclass=${showclass}"/>
       <compilerarg value="-Aorg.ductilej.debug=${debug}"/>
       <include name="**/tests/${test}*Test.java"/>
