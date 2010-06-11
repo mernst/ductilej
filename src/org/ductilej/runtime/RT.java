@@ -415,7 +415,14 @@ public class RT
      */
     public static Object assignAt (Object array, Object index, Object value)
     {
-        Array.set(array, asInt(index), value);
+        if (array.getClass().getComponentType().isPrimitive()) {
+            Array.set(array, asInt(index), value);
+        } else {
+            // Array.set throws IllegalArgumentException instead of ArrayStoreException when
+            // assigning a value of incorrect type to an element, so we don't use it for
+            // non-primitive arrays
+            ((Object[])array)[asInt(index)] = value;
+        }
         return value;
     }
 
