@@ -26,4 +26,25 @@ public class ArrayStoreTest
         assertEquals(test2[1], "1");
         assertEquals(test2[2], "2");
     }
+
+    @Test public void testPrimitiveArrayStore ()
+    {
+        int[] ints = new int[4];
+        ints[0] = 1;
+        ints[1] = 2;
+        for (int ii = 2; ii < ints.length; ii++) {
+            ints[ii] = ii;
+        }
+    }
+
+    @Test public void testIllegalArrayStore ()
+    {
+        try {
+            Object[] foo = new String[1];
+            foo[0] = 5;
+            fail("Should have failed with ASE");
+        } catch (ArrayStoreException ase) {
+            // expected
+        }
+    }
 }
