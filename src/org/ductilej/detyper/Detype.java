@@ -780,6 +780,15 @@ public class Detype extends PathedTreeTranslator
             return;
         }
 
+        // if the receiver is of type Class<?> and the method being called is newInstance(), we
+        // can't wrap the newInstance() call into a reflective call of our own because the default
+        // constructor of the class being created may be inaccessible to RT.invoke() and we have no
+        // opportunity to make it accessible, so calling it would be an illegal access
+        if (mi.isValid() && mname == _names.fromString("newInstance") &&
+            _types.isSameType(_types.erasure(mi.site), _types.erasure(_syms.classType))) {
+            return; // TODO: need to cast receiver to Class<?>
+        }
+
         String invokeName;
         JCExpression recv;
         if (!mi.isValid()) {
