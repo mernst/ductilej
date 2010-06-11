@@ -37,7 +37,7 @@ import org.ductilej.util.ASTUtil;
  */
 @SupportedAnnotationTypes("*")
 @SupportedOptions({Processor.SHOWCLASS_ARG, Processor.WRITECLASS_ARG, Processor.DEBUG_ARG,
-                   Processor.WARNINGS_ARG})
+                   Processor.WARNINGS_ARG, Processor.KEEPIFCS_ARG})
 @SupportedSourceVersion(SourceVersion.RELEASE_7)
 public class Processor extends AbstractProcessor
 {
@@ -61,6 +61,7 @@ public class Processor extends AbstractProcessor
         _writeclass = "true".equalsIgnoreCase(procenv.getOptions().get(WRITECLASS_ARG));
         Debug.DEBUG = "true".equalsIgnoreCase(procenv.getOptions().get(DEBUG_ARG));
         Resolver.WARNINGS = "true".equalsIgnoreCase(procenv.getOptions().get(WARNINGS_ARG));
+        Detype.KEEPIFCS = "true".equalsIgnoreCase(procenv.getOptions().get(KEEPIFCS_ARG));
 
         Debug.log("Detyper running", "vers", procenv.getSourceVersion());
     }
@@ -128,4 +129,6 @@ public class Processor extends AbstractProcessor
     protected static final String WRITECLASS_ARG = "org.ductilej.writeclass";
     // -Aorg.ductilej.warnings=true causes warnings to be printed for unresolvable symbols
     protected static final String WARNINGS_ARG = "org.ductilej.warnings";
+    // -Aorg.ductilej.keepifcs=true disables removal of interface method declarations (TEMP)
+    protected static final String KEEPIFCS_ARG = "org.ductilej.keepifcs";
 }

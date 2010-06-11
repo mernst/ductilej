@@ -46,6 +46,9 @@ import org.ductilej.util.PathedTreeTranslator;
  */
 public class Detype extends PathedTreeTranslator
 {
+    /** Whether or not to remove methods from interfaces (TEMP). */
+    public static boolean KEEPIFCS = Boolean.getBoolean("org.ductilej.keepifcs");
+
     /**
      * Returns the detyping tree translator.
      */
@@ -191,7 +194,7 @@ public class Detype extends PathedTreeTranslator
         // since all application methods are called reflectively, and if we leave them here, they
         // cause problems if classes don't implement the entire interface (or inherit
         // implementations from library classes)
-        if ((ctree.sym.flags() & Flags.INTERFACE) != 0) {
+        if (!KEEPIFCS /*temp*/ && (ctree.sym.flags() & Flags.INTERFACE) != 0) {
             tree.defs = removeMethodDefs(tree.defs);
         }
 
