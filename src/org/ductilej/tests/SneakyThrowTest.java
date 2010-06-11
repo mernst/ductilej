@@ -27,7 +27,9 @@ public class SneakyThrowTest
             try {
                 SneakyThrower.class.newInstance();
             } catch (IllegalAccessException e) {
+                fail("Illegal access: " + e);
             } catch (InstantiationException e) {
+                fail("Instantiation exception: " + e);
             }
         }
         SneakyThrower() throws SomeCheckedException {
