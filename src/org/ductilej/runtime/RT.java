@@ -40,11 +40,20 @@ public class RT
      * @param encl the enclosing instance to use in the case of a non-static inner class.
      * @param args the arguments to be supplied to the constructor, if any.
      */
-    public static <T> T newInstance (Class<T> clazz, Object encl, Object... args)
+    public static <T> T newInstance (Class<T> clazz, Class<?>[] atypes, Object encl, Object... args)
     {
         boolean needsOuterThis = isInnerInNonStaticContext(clazz);
         boolean isMangled = (clazz.getAnnotation(Transformed.class) != null);
-        Constructor<?> ctor = findConstructor(clazz, needsOuterThis, isMangled, args);
+
+        // if we were able to resolve the method at compile time, the exact argument types will be
+        // provided in atypes which we can use to precise and fast(er) method lookup
+        Constructor<?> ctor;
+        if (atypes != null) {
+            ctor = findConstructor(clazz, needsOuterThis, isMangled, atypes);
+        } else {
+            ctor = findConstructor(clazz, needsOuterThis, isMangled, args);
+        }
+
         if (ctor == null) {
             // TODO: if argument mismatch, clarify that
             throw new NoSuchMethodError(Debug.format("Can't find constructor for " +
@@ -96,6 +105,15 @@ public class RT
             unwrap(ite.getCause());
             return null; // unreached
         }
+    }
+
+    /**
+     * Boxes variable arguments into an array while preserving parameterized types in a way that's
+     * not possible by manually inserting an "new T[] { ... }" expression. Note: currently unused.
+     */
+    public static <T> T[] box (T... args)
+    {
+        return args;
     }
 
     /**
@@ -544,7 +562,34 @@ public class RT
     }
 
     /**
-     * A helper for {@link #invoke} and {@link #invokeStatic}.
+     * A helper for {@link #newInstance}.
+     */
+    protected static Constructor<?> findConstructor (
+        Class<?> clazz, boolean needsOuterThis, boolean isMangled, Class<?>[] atypes)
+    {
+      OUTER:
+        for (Constructor<?> ctor : clazz.getDeclaredConstructors()) {
+            Class<?>[] ptypes = ctor.getParameterTypes();
+            int poff = isMangled ? ptypes.length/2 : 0;
+            // ignore the outer this argument when testing for applicability
+            if (needsOuterThis) {
+                poff += 1;
+            }
+            if (ptypes.length - poff != atypes.length) {
+                continue;
+            }
+            for (int ii = 0; ii < atypes.length; ii++) {
+                if (ptypes[ii+poff] != atypes[ii]) {
+                    continue OUTER;
+                }
+            }
+            return ctor;
+        }
+        return null;
+    }
+
+    /**
+     * A helper for {@link #invoke(Method,Object,Object[])}.
      */
     protected static Method findMethod (Class<?> clazz, String mname, Class<?>[] atypes)
     {
@@ -687,7 +732,10 @@ public class RT
         boolean isMangled, boolean isVarArgs, int pcount, int acount)
     {
         if (isMangled) {
-            pcount /= 2;
+            // we use this in favor of pcount/=2 because sometimes the compiler inserts synthetic
+            // ctors which tack an argument onto a mangled method (giving it an odd number of
+            // arguments, which would otherwise cause confusion); TODO: find out why they're added
+            pcount -= pcount / 2;
         }
         return (pcount == acount) || (isVarArgs && (pcount-1) <= acount);
     }

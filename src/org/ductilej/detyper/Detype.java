@@ -521,28 +521,23 @@ public class Detype extends PathedTreeTranslator
             }
         }
 
-        Resolver.MethInfo mi = null;
-        Type ctype = _resolver.resolveType(_env, clazz, Kinds.TYP);
-        if (!canReflect) {
-            // if we can't reflectively call the constructor, we need to resolve the specific
-            // constructor being called
-            mi = _resolver.resolveConstructor(
-                _env, clazz, tree.args, tree.typeargs, tree.def != null);
-            if (mi.isValid()) {
-                ctype = mi.site;
-            }
-            if (tree.def != null) {
-                _env.info.anonParent = ctype.tsym;
-                // Attr does some massaging of anonymous JCClassDecls which we need to manually
-                // duplicate here because attribution won't happen for a while, but we want to
-                // sneakily (and correctly) enter our anonymous inner class
-                if (ctype.tsym.isInterface()) {
-                    tree.def.implementing = List.of(tree.clazz);
-                } else {
-                    tree.def.extending = tree.clazz;
-                }
+        Resolver.MethInfo mi = _resolver.resolveConstructor(
+            _env, clazz, tree.args, tree.typeargs, tree.def != null);
+        Type ctype = mi.isValid() ? mi.site : _resolver.resolveType(_env, clazz, Kinds.TYP);
+
+        // do some special processing for anonymous inner class instantiation expressions
+        if (tree.def != null) {
+            _env.info.anonParent = ctype.tsym;
+            // Attr does some massaging of anonymous JCClassDecls which we need to manually
+            // duplicate here because attribution won't happen for a while, but we want to
+            // sneakily (and correctly) enter our anonymous inner class
+            if (ctype.tsym.isInterface()) {
+                tree.def.implementing = List.of(tree.clazz);
+            } else {
+                tree.def.extending = tree.clazz;
             }
         }
+
         super.visitNewClass(tree);
 
         if (canReflect) {
@@ -592,7 +587,9 @@ public class Detype extends PathedTreeTranslator
                     thisex = _tmaker.at(tree.pos).Select(typeToTree(etype, tree.pos), _names._this);
                 }
             }
-            args = args.prepend(thisex).prepend(classLiteral(tree.clazz, tree.clazz.pos));
+
+            args = args.prepend(thisex).prepend(mkSigArgs(mi, tree.pos)).
+                prepend(classLiteral(tree.clazz, tree.clazz.pos));
 
             // TODO: we can't reflectively create anonymous inner classes so maybe we should not
             // detype any constructor invocation...
@@ -855,23 +852,8 @@ public class Detype extends PathedTreeTranslator
             tree.args.head = toTypedNull(_syms.objectType, tree.args.head);
         }
 
-        JCExpression mtypes;
-        if (mi.isValid()) {
-            // this hairy mess generates a Class<?> AST node which we then use to make Class<?>[]
-            JCExpression clazza = _tmaker.TypeApply(
-                _tmaker.Ident(_names.fromString("Class")), List.<JCExpression>of(
-                    _tmaker.Wildcard(_tmaker.TypeBoundKind(BoundKind.UNBOUND), null)));
-            mtypes = _tmaker.NewArray(
-                clazza, List.<JCExpression>nil(),
-                classLiterals(mi.msym.type.getParameterTypes(), tree.meth.pos));
-        } else {
-            // if we failed to resolve the method, supply null for the argument types; this lets
-            // the runtime know that it needs to do the more expensive (and potentially
-            // semantically non-equivalent) method resolution based on runtime argument types
-            mtypes = _tmaker.Literal(TypeTags.BOT, null);
-        }
         tree.args = tree.args.prepend(recv).
-            prepend(mtypes).
+            prepend(mkSigArgs(mi, tree.meth.pos)).
             prepend(_tmaker.Literal(TreeInfo.name(tree.meth).toString()));
         tree.meth = mkRT(invokeName, tree.meth.pos);
         // Debug.log("APPLY " + mi.msym + " -> " + tree);
@@ -1335,6 +1317,24 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
+    protected JCExpression mkSigArgs (Resolver.MethInfo mi, int pos)
+    {
+        if (mi.isValid()) {
+            // this hairy mess generates a Class<?> AST node which we then use to make Class<?>[]
+            JCExpression clazza = _tmaker.TypeApply(
+                _tmaker.Ident(_names.fromString("Class")), List.<JCExpression>of(
+                    _tmaker.Wildcard(_tmaker.TypeBoundKind(BoundKind.UNBOUND), null)));
+            // create our 'new Class<?>[] { Arg.class, ... }' array
+            return _tmaker.NewArray(clazza, List.<JCExpression>nil(),
+                                    classLiterals(mi.msym.type.getParameterTypes(), pos));
+        } else {
+            // if we failed to resolve the method, supply null for the argument types; this lets
+            // the runtime know that it needs to do the more expensive (and potentially
+            // semantically non-equivalent) method resolution based on runtime argument types
+            return _tmaker.Literal(TypeTags.BOT, null);
+        }
+    }
+
     protected JCExpression maybeCastRHS (JCExpression lhs, JCExpression rhs)
     {
         Symbol sym = _resolver.resolveSymbol(_env, lhs, Kinds.VAR);
@@ -1479,6 +1479,7 @@ public class Detype extends PathedTreeTranslator
         // if we have an array argument of the correct type in the final position, it should not be
         // wrapped, but rather passed straight through
         if (!atypes.isEmpty() && atypes.tail.isEmpty() &&
+            // TODO: should this be P <: A?
             _types.isSameType(atypes.head, ptypes.head)) {
             return args;
         }
@@ -1487,6 +1488,11 @@ public class Detype extends PathedTreeTranslator
         // avoid generating illegal code that attempts to create a parameterized array; annoyingly
         // this will generate a rawtypes warning
         Type etype = ((Type.ArrayType)ptypes.head).elemtype;
+        // TODO: this may work better if we can work around the weird universally quantified method
+        // weirdness in Infer.instantiateMethod
+        // Type atype = _types.upperBound(etype);
+        // JCExpression varray = _tmaker.Apply(
+        //     List.of(typeToTree(atype, 0)), mkRT("box", 0), castList(atype, args));
         Type atype = _types.erasure(etype);
         JCExpression varray = _tmaker.NewArray(
             typeToTree(atype, 0), List.<JCExpression>nil(), castList(atype, args));
