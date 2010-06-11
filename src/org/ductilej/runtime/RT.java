@@ -429,7 +429,7 @@ public class RT
             }
         } catch (ClassCastException cce) {
             String vclass = (value == null) ? "<none>" : value.getClass().getName();
-            Debug.log("Runtime cast failure", "target", clazz, "value", value, "vclass", vclass);
+            Debug.warn("Runtime cast failure", "target", clazz, "value", value, "vclass", vclass);
             // TODO: trigger context dump, terminate program?
             throw cce;
         }
@@ -454,7 +454,7 @@ public class RT
             return cvalue;
         } catch (ClassCastException cce) {
             String vclass = (value == null) ? "<none>" : value.getClass().getName();
-            Debug.log("Runtime cast failure", "target", clazz, "value", value, "vclass", vclass);
+            Debug.warn("Runtime cast failure", "target", clazz, "value", value, "vclass", vclass);
             // TODO: trigger context dump, terminate program?
             throw cce;
         }
