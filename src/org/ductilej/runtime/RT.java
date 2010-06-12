@@ -105,6 +105,9 @@ public class RT
         } catch (InvocationTargetException ite) {
             unwrap(ite.getCause());
             return null; // unreached
+        } catch (IllegalArgumentException iae) {
+            decode(iae);
+            return null; // unreached
         }
     }
 
@@ -595,6 +598,9 @@ public class RT
         } catch (InvocationTargetException ite) {
             unwrap(ite.getCause());
             return null; // unreached
+        } catch (IllegalArgumentException iae) {
+            decode(iae);
+            return null; // unreached
         }
     }
 
@@ -951,6 +957,18 @@ public class RT
             throw (RuntimeException)t;
         } else {
             throw new WrappedException(t);
+        }
+    }
+
+    protected static void decode (IllegalArgumentException iae)
+    {
+        // annoyingly, Method.invoke and Constructor.newInstance report argument type mismatch with
+        // an IllegalArgumentException with no cause, but whose message contains the results of
+        // calling toString() on the underlying ClassCastException; wacky
+        if (iae.getMessage().startsWith("java.lang.ClassCastException")) {
+            throw (ClassCastException)new ClassCastException().initCause(iae);
+        } else {
+            throw iae;
         }
     }
 
