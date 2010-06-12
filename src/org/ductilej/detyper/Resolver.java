@@ -383,7 +383,7 @@ public class Resolver
 
             Symbol sym = invoke(env, Backdoor.selectSym, _attr, facc, site, Detype.toAttrEnv(env),
                                 Type.noType, pkind);
-            return _types.memberType(site, sym);
+            return typeFromSym(facc, site, sym);
         }
 
         case JCTree.APPLY: {
