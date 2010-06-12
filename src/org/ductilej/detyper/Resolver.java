@@ -418,18 +418,16 @@ public class Resolver
                 }
             }
 
-// TODO
-//             // (from Attr) as a special case, array.clone() has a result that is the same as
-//             // static type of the array being cloned
-//             if (tree.meth.getTag() == JCTree.SELECT &&
-//                 allowCovariantReturns &&
-//                 methName == names.clone &&
-//                 types.isArray(((JCFieldAccess) tree.meth).selected.type)) {
-//                 rtype = ((JCFieldAccess) tree.meth).selected.type;
-//             }
+            // (from Attr) as a special case, array.clone() has a result that is the same as
+            // static type of the array being cloned
+            Name methName = TreeInfo.name(app.meth);
+            if (app.meth.getTag() == JCTree.SELECT && methName == _names.clone &&
+                /* allowCovariantReturns && */ _types.isArray(mi.site)) {
+                rtype = mi.site;
+            }
 
             // (from Attr) as a special case, x.getClass() has type Class<? extends |X|>
-            if (TreeInfo.name(app.meth) == _names.getClass && app.args.isEmpty()) {
+            if (methName == _names.getClass && app.args.isEmpty()) {
                 Type qualifier = (app.meth.getTag() == JCTree.SELECT) ? mi.site :
                     env.enclClass.sym.type;
                 rtype = new Type.ClassType(
