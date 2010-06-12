@@ -700,6 +700,12 @@ public class RT
                 mdata.typeMatch = typeMatch;
 
             } else if (typeMatch && mdata.typeMatch) {
+                // if the argument types are exactly the same and the declaring class differs,
+                // we're just seeing a parent method that has been overridden by our best match
+                if (!mdata.best.getDeclaringClass().equals(clazz) &&
+                    Arrays.equals(mdata.best.getParameterTypes(), ptypes)) {
+                    continue;
+                }
                 throw new AmbiguousMethodError(
                     Debug.format("Two methods (or more) with matching types", "mname", mname,
                                  "atypes", atypes, "m1", mdata.best, "m2", method));
