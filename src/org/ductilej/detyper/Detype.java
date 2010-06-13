@@ -786,7 +786,16 @@ public class Detype extends PathedTreeTranslator
         // opportunity to make it accessible, so calling it would be an illegal access
         if (mi.isValid() && mname == _names.fromString("newInstance") &&
             _types.isSameType(_types.erasure(mi.site), _types.erasure(_syms.classType))) {
-            return; // TODO: need to cast receiver to Class<?>
+            // insert a cast to Class<?> if we have a non-implicit receiver and it's not a C.class
+            // expression (which needs no cast)
+            if (tree.meth.getTag() == JCTree.SELECT) {
+                JCFieldAccess meth = (JCFieldAccess)tree.meth;
+                if (!(meth.selected.getTag() == JCTree.SELECT &&
+                      TreeInfo.name(meth.selected) == _names._class)) {
+                    meth.selected = cast(_wildcardClass, meth.selected);
+                }
+            }
+            return;
         }
 
         String invokeName;
@@ -1110,6 +1119,9 @@ public class Detype extends PathedTreeTranslator
             _rootmaker.Modifiers(Flags.PUBLIC),
             _syms.predefClass.name, null, null, null, null);
         _predefClassDef.sym = _syms.predefClass;
+
+        // a wildcard class type for use in various places
+        _wildcardClass = toArrayElementType(_syms.classType);
     }
 
     protected boolean inLibraryOverrider ()
@@ -1332,12 +1344,8 @@ public class Detype extends PathedTreeTranslator
     protected JCExpression mkSigArgs (Resolver.MethInfo mi, int pos)
     {
         if (mi.isValid()) {
-            // this hairy mess generates a Class<?> AST node which we then use to make Class<?>[]
-            JCExpression clazza = _tmaker.TypeApply(
-                _tmaker.Ident(_names.fromString("Class")), List.<JCExpression>of(
-                    _tmaker.Wildcard(_tmaker.TypeBoundKind(BoundKind.UNBOUND), null)));
             // create our 'new Class<?>[] { Arg.class, ... }' array
-            return _tmaker.NewArray(clazza, List.<JCExpression>nil(),
+            return _tmaker.NewArray(typeToTree(_wildcardClass, pos), List.<JCExpression>nil(),
                                     classLiterals(mi.msym.type.getParameterTypes(), pos));
         } else {
             // if we failed to resolve the method, supply null for the argument types; this lets
@@ -1633,6 +1641,7 @@ public class Detype extends PathedTreeTranslator
 
     protected JCTree.JCClassDecl _predefClassDef;
     protected Name _mainName, _readObjectName, _writeObjectName;
+    protected Type _wildcardClass;
 
     protected Resolver _resolver;
     protected Types _types;
