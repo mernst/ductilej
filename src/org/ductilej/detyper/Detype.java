@@ -1498,23 +1498,19 @@ public class Detype extends PathedTreeTranslator
         }
 
         // if the varargs argument is parameterized (naughty programmer), we have to erase it to
-        // avoid generating illegal code that attempts to create a parameterized array; annoyingly
-        // this will generate a rawtypes warning
-        Type etype = ((Type.ArrayType)ptypes.head).elemtype;
-        // TODO: this may work better if we can work around the weird universally quantified method
-        // weirdness in Infer.instantiateMethod
-        // Type atype = _types.upperBound(etype);
-        // JCExpression varray = _tmaker.Apply(
-        //     List.of(typeToTree(atype, 0)), mkRT("box", 0), castList(atype, args));
-        Type atype = _types.erasure(etype);
+        // its upper bound and fill any type parameters with unbounded wildcards (?) to convert it
+        // to a legal array element type
+        Type atype = toArrayElementType(((Type.ArrayType)ptypes.head).elemtype);
         JCExpression varray = _tmaker.at(pos).NewArray(
             typeToTree(atype, pos), List.<JCExpression>nil(), castList(atype, args));
+
         // if requested, we need to cast this array to Object so that when it appears in
         // RT.invoke() it is not assumed to be an arguments array but rather just a single argument
         // (which it is, at this level of indirection)
         if (castArgArray) {
             varray = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Object")), varray);
         }
+
         return List.of(varray);
     }
 
@@ -1548,6 +1544,31 @@ public class Detype extends PathedTreeTranslator
             return _tmaker.at(arg.pos).TypeCast(
                 typeToTree(type, arg.pos), _tmaker.Literal(TypeTags.BOT, null));
         }
+    }
+
+    protected Type toArrayElementType (Type type)
+    {
+        return (type.tag != TypeTags.CLASS) ? _types.erasure(type) :
+            new Type.ClassType(toArrayElementType(type.getEnclosingType()),
+                               wildcardify(type.getTypeArguments()), type.tsym);
+    }
+
+    protected Type wildcardify (Type type)
+    {
+        switch (type.tag) {
+        case TypeTags.TYPEVAR:
+        case TypeTags.WILDCARD:
+        case TypeTags.CLASS:
+            return new Type.WildcardType(_syms.objectType, BoundKind.UNBOUND, _syms.boundClass);
+        default:
+            return type;
+        }
+    }
+
+    protected List<Type> wildcardify (List<Type> types)
+    {
+        return types.isEmpty() ? List.<Type>nil() :
+            wildcardify(types.tail).prepend(wildcardify(types.head));
     }
 
     protected List<JCTree> removeMethodDefs (List<JCTree> defs)
