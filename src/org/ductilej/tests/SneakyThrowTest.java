@@ -22,6 +22,12 @@ public class SneakyThrowTest
         }
     }
 
+    @Test public void testClassForName () throws Exception {
+        // tests that we properly insert a cast to Class<?> around this Class.forName expr
+        Object o = Class.forName("java.lang.Thread").newInstance();
+        assertEquals(Thread.class, o.getClass());
+    }
+
     protected static class SneakyThrower {
         public static void sneakyThrow() {
             try {
