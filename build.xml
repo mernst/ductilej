@@ -10,6 +10,7 @@
   <property name="deploy.dir"  value="dist"/>
   <property name="classes.dir" value="${deploy.dir}/classes"/>
   <property name="dtclass.dir" value="${deploy.dir}/dtclass"/>
+  <property name="dtdistclass.dir" value="${deploy.dir}/dtdistclass"/>
   <property name="stclass.dir" value="${deploy.dir}/stclass"/>
   <property name="javadoc.dir" value="${deploy.dir}/docs"/>
   <property name="libs.dir"    value="lib"/>
@@ -32,6 +33,11 @@
   </path>
   <path id="build.classpath">
     <path refid="base.classpath"/>
+  </path>
+  <path id="dist.classpath">
+    <pathelement location="${deploy.dir}/detyper.jar"/>
+    <pathelement location="${dtclass.dir}"/>
+    <path refid="build.classpath"/>
   </path>
 
   <!-- defines our runtime library dependencies -->
@@ -100,6 +106,13 @@
   <target name="all" depends="clean,prepare,compile,javadoc,dist"
           description="Cleans and rebuilds everything including documentation."/>
 
+  <!-- runs all test -->
+  <target name="all-tests" description="Runs all tests.">
+    <antcall target="stock-tests"/>
+    <antcall target="dist-tests"/>
+    <antcall target="tests"/>
+  </target>
+
   <!-- builds our distribution jar file -->
   <target name="dist" depends="prepare,compile"
           description="Compiles the code and builds our jar file.">
@@ -162,6 +175,20 @@
     </antcall>
   </target>
 
+  <!-- compiles our dist unit tests with the detyper and runs them -->
+  <target name="dist-tests" depends="dist">
+    <delete dir="${dtdistclass.dir}"/>
+    <mkdir dir="${dtdistclass.dir}"/>
+    <javac sourcepath="" srcdir="${src.dir}" destdir="${dtdistclass.dir}">
+      <classpath refid="dist.classpath"/>
+      <include name="**/ConstructorPackageTest*.java"/>
+    </javac>
+    <javac sourcepath="" srcdir="${src.dir}" destdir="${dtdistclass.dir}">
+      <classpath refid="dist.classpath"/>
+      <include name="**/ConstructorPackageTest*.java"/>
+    </javac>
+  </target>
+
   <!-- compiles our unit tests with the stock compiler and runs them -->
   <target name="stock-tests" depends="prepare,compile"
           description="Compiles and runs the unit tests (without detyper).">
@@ -205,6 +232,7 @@
       <batchtest>
         <fileset dir="${src.dir}">
           <include name="**/tests/${test}*Test.java"/>
+          <exclude name="**/ConstructorPackageTest*.java"/>
           <exclude name="**/tests/StaticMethod*.java"/>
         </fileset>
       </batchtest>
@@ -212,6 +240,10 @@
     <!-- these tests require special package naming conventions and must
          handled in separate <unit> blocks which can run (or not) depending
          on the value of the "test" property -->
+    <antcall target="runspecial">
+      <param name="testpkg" value="OtherPackage"/>
+      <param name="testname" value="ConstructorPackage"/>
+    </antcall>
     <antcall target="runspecial">
       <param name="testpkg" value="StaticMethodResolutionTestPackage"/>
       <param name="testname" value="StaticMethodResolution"/>
