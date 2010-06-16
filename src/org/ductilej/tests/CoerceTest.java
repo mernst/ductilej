@@ -3,6 +3,8 @@
 
 package org.ductilej.tests;
 
+import java.util.Date;
+
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -45,4 +47,16 @@ public class CoerceTest
         assertTrue(100 > svalue);
         assertTrue(0 >= svalue);
     }
+
+    @Test public void testCoerceReturnValue ()
+    {
+        assertEquals(0L, new MyDate().getTime());
+    }
+
+    protected static class MyDate extends Date {
+        // since this overrides a library method, its signature will not be detyped
+        @Override public long getTime () {
+            return 0; // javac will normally coerce this int to a long, we must do so as well
+        }
+    };
 }
