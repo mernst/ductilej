@@ -12,6 +12,7 @@ import java.lang.reflect.Modifier;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -382,7 +383,7 @@ public class RT
     /**
      * Casts an object to an iterable over objects. Used to massage foreach expressions.
      */
-    public static Iterable<? extends Object> asIterable (Object arg)
+    public static Iterable<? extends Object> asIterable (final Object arg)
     {
         if (arg == null) {
             throw new NullPointerException("Null iterable in foreach?");
@@ -407,9 +408,31 @@ public class RT
             return Floats.asList((float[])arg);
         } else if (arg instanceof double[]) {
             return Doubles.asList((double[])arg);
-        } else {
-            throw new IllegalArgumentException("Unhandled iterable type " + arg.getClass());
         }
+
+        // if none of those things matched, let's see if the object has a iterator method, and if
+        // so, let's just try calling it!
+        try {
+            final Method imeth = arg.getClass().getMethod("iterator");
+            return new Iterable<Object>() {
+                public Iterator<Object> iterator () {
+                    Object iter = invoke(imeth, arg);
+                    if (iter instanceof Iterator<?>) {
+                        @SuppressWarnings("unchecked") Iterator<Object> ci = (Iterator<Object>)iter;
+                        return ci;
+                    } else {
+                        throw new IllegalArgumentException(
+                            arg.getClass() + ".iterator() must return Iterator to be " +
+                            "used in a foreach loop.");
+                    }
+                }
+            };
+        } catch (NoSuchMethodException nsme) {
+            // no iterator method, no problem, just fall through
+        }
+
+        // otherwise we're out of luck, abandon ship
+        throw new IllegalArgumentException("Unhandled iterable type " + arg.getClass());
     }
 
     /**
