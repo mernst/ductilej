@@ -6,9 +6,11 @@ package org.ductilej.runtime;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Proxy;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -17,10 +19,12 @@ import java.util.List;
 import java.util.Map;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.primitives.*;
 
@@ -383,7 +387,7 @@ public class RT
     /**
      * Casts an object to an iterable over objects. Used to massage foreach expressions.
      */
-    public static Iterable<? extends Object> asIterable (final Object arg)
+    public static Iterable<?> asIterable (final Object arg)
     {
         if (arg == null) {
             throw new NullPointerException("Null iterable in foreach?");
@@ -408,31 +412,11 @@ public class RT
             return Floats.asList((float[])arg);
         } else if (arg instanceof double[]) {
             return Doubles.asList((double[])arg);
+        } else {
+            // if none of those things matched, just try wrapping the object in a proxy that treats
+            // it as an Iterable
+            return (Iterable<?>)asInterface(Iterable.class, arg);
         }
-
-        // if none of those things matched, let's see if the object has a iterator method, and if
-        // so, let's just try calling it!
-        try {
-            final Method imeth = arg.getClass().getMethod("iterator");
-            return new Iterable<Object>() {
-                public Iterator<Object> iterator () {
-                    Object iter = invoke(imeth, arg);
-                    if (iter instanceof Iterator<?>) {
-                        @SuppressWarnings("unchecked") Iterator<Object> ci = (Iterator<Object>)iter;
-                        return ci;
-                    } else {
-                        throw new IllegalArgumentException(
-                            arg.getClass() + ".iterator() must return Iterator to be " +
-                            "used in a foreach loop.");
-                    }
-                }
-            };
-        } catch (NoSuchMethodException nsme) {
-            // no iterator method, no problem, just fall through
-        }
-
-        // otherwise we're out of luck, abandon ship
-        throw new IllegalArgumentException("Unhandled iterable type " + arg.getClass());
     }
 
     /**
@@ -566,6 +550,45 @@ public class RT
             String type = (value == null) ? null : value.getClass().getSimpleName();
             throw new ClassCastException("Needed numeric type, got " + type);
         }
+    }
+
+    /**
+     * Creates a proxy that implements the supplied interface by calling through to methods with
+     * the same name and parameter types in the supplied underlying object.
+     */
+    public static <T> T asInterface (Class<T> iface, final Object inst)
+    {
+        Preconditions.checkNotNull(iface);
+        Preconditions.checkNotNull(inst);
+
+        Object pinst = Proxy.newProxyInstance(
+            iface.getClassLoader(), new Class<?>[] { iface }, new InvocationHandler() {
+            public Object invoke (Object proxy, Method method, Object[] args) {
+                Method target = _meths.get(method);
+                if (target == null) {
+                    target = findMethod(
+                        inst.getClass(), method.getName(), method.getParameterTypes());
+                    target.setAccessible(true);
+                    checkMethod(target, method.getName(), inst.getClass(), args);
+                    _meths.put(method, target);
+                }
+                try {
+                    return target.invoke(inst, args);
+                } catch (IllegalAccessException iae) {
+                    throw new WrappedException(iae);
+                } catch (InvocationTargetException ite) {
+                    unwrap(ite.getCause());
+                    return null; // unreached
+                } catch (IllegalArgumentException iae) {
+                    decode(iae);
+                    return null; // unreached
+                }
+            }
+            protected Map<Method, Method> _meths = Maps.newHashMap();
+        });
+
+        @SuppressWarnings("unchecked") T proxy = (T)pinst;
+        return proxy;
     }
 
     /**
