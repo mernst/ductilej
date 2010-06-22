@@ -84,6 +84,7 @@
            srcdir="${src.dir}" destdir="${classes.dir}">
       <classpath refid="build.classpath"/>
       <exclude name="org/ductilej/tests/**"/>
+      <exclude name="org/ductilej/dtests/**"/>
       <compilerarg value="-Xlint"/>
       <compilerarg value="-Xlint:-serial"/>
     </javac>
@@ -111,6 +112,7 @@
     <antcall target="stock-tests"/>
     <antcall target="dist-tests"/>
     <antcall target="tests"/>
+    <antcall target="dtests"/>
   </target>
 
   <!-- builds our distribution jar file -->
@@ -216,11 +218,56 @@
     </antcall>
   </target>
 
+  <!-- compiles our Ductile-only unit tests with the detyper and runs them -->
+  <target name="dtests" depends="prepare,compile"
+          description="Compiles and runs the Ductile-only unit tests.">
+    <delete dir="${dtclass.dir}"/>
+    <mkdir dir="${dtclass.dir}"/>
+
+    <!-- allows passing -Dtest=NamePrefix to restrict to subset of tests -->
+    <property name="test" value=""/>
+    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
+           source="1.6" target="1.6" encoding="utf-8"
+           srcdir="${src.dir}" destdir="${dtclass.dir}">
+      <classpath>
+        <pathelement location="${dtclass.dir}"/>
+        <path refid="build.classpath"/>
+      </classpath>
+      <compilerarg value="-J-ea"/>
+      <compilerarg value="-Xlint"/>
+      <compilerarg value="-Xlint:-serial"/>
+      <!--<compilerarg value="-XprintProcessorInfo"/>-->
+      <compilerarg value="-implicit:class"/>
+      <compilerarg value="-processor"/>
+      <compilerarg value="org.ductilej.detyper.Processor"/>
+      <compilerarg value="-Aorg.ductilej.warnings=true"/>
+      <compilerarg value="-Aorg.ductilej.keepifcs=true"/> <!-- TEMP -->
+      <compilerarg value="-Aorg.ductilej.showclass=${showclass}"/>
+      <compilerarg value="-Aorg.ductilej.debug=${debug}"/>
+      <include name="**/dtests/${test}*Test.java"/>
+    </javac>
+
+    <!-- now run the tests (that match the 'test' property) -->
+    <junit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
+      <classpath>
+        <pathelement location="${classes.dir}"/>
+        <pathelement location="${dtclass.dir}"/>
+        <path refid="build.classpath"/>
+      </classpath>
+      <assertions><enable/></assertions>
+      <jvmarg value="-Dorg.ductilej.debug=${debug}"/>
+      <formatter type="brief" usefile="false"/>
+      <batchtest>
+        <fileset dir="${src.dir}">
+          <include name="**/dtests/${test}*Test.java"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
   <!-- a helper for the tests and stock-tests targets -->
   <target name="runtests">
-    <taskdef name="unit" classpathref="build.classpath"
-      classname="org.apache.tools.ant.taskdefs.optional.junit.JUnitTask"/>
-    <unit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
+    <junit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
       <classpath>
         <pathelement location="${classes.dir}"/>
         <pathelement location="${tclass.dir}"/>
@@ -236,7 +283,7 @@
           <exclude name="**/tests/StaticMethod*.java"/>
         </fileset>
       </batchtest>
-    </unit>
+    </junit>
     <!-- these tests require special package naming conventions and must
          handled in separate <unit> blocks which can run (or not) depending
          on the value of the "test" property -->
@@ -259,7 +306,7 @@
     <if><or><equals arg1="${test}" arg2="${testname}"/>
             <equals arg1="${test}" arg2=""/></or>
       <then>
-        <unit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
+        <junit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
           <classpath>
             <pathelement location="${classes.dir}"/>
             <pathelement location="${tclass.dir}"/>
@@ -268,7 +315,7 @@
           <assertions><enable/></assertions>
           <formatter type="brief" usefile="false"/>
           <test name="${testpkg}.${testname}Test"/>
-        </unit>
+        </junit>
       </then>
     </if>
   </target>
