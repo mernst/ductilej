@@ -24,6 +24,7 @@ import com.google.common.collect.BiMap;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.primitives.*;
@@ -564,25 +565,24 @@ public class RT
         Object pinst = Proxy.newProxyInstance(
             iface.getClassLoader(), new Class<?>[] { iface }, new InvocationHandler() {
             public Object invoke (Object proxy, Method method, Object[] args) {
+                // find the method to which this interface method maps (using a cache)
                 Method target = _meths.get(method);
                 if (target == null) {
-                    target = findMethod(
-                        inst.getClass(), method.getName(), method.getParameterTypes());
+                    target = findProxyMethod(inst.getClass(), method.getName(),
+                                             method.getParameterTypes(),
+                                             Lists.<Method>newArrayList());
                     target.setAccessible(true);
-                    checkMethod(target, method.getName(), inst.getClass(), args);
                     _meths.put(method, target);
                 }
-                try {
-                    return target.invoke(inst, args);
-                } catch (IllegalAccessException iae) {
-                    throw new WrappedException(iae);
-                } catch (InvocationTargetException ite) {
-                    unwrap(ite.getCause());
-                    return null; // unreached
-                } catch (IllegalArgumentException iae) {
-                    decode(iae);
-                    return null; // unreached
+
+                // if this method is mangled, we need to add dummy arguments in the type-carrying
+                // parameter positions
+                if (isMangled(target.getName())) {
+                    args = addMangleArgs(Arrays.asList(target.getParameterTypes()), args);
                 }
+
+                // finally invoke the method
+                return checkedInvoke(target, inst, args);
             }
             protected Map<Method, Method> _meths = Maps.newHashMap();
         });
@@ -636,18 +636,18 @@ public class RT
             aargs = addMangleArgs(ptypes, (aargs == null) ? new Object[1] : aargs);
         }
 
-        try {
-            method.setAccessible(true); // TODO: cache which methods we've toggled if slow
-            return method.invoke(receiver, aargs);
-        } catch (IllegalAccessException iae) {
-            throw new WrappedException(iae);
-        } catch (InvocationTargetException ite) {
-            unwrap(ite.getCause());
-            return null; // unreached
-        } catch (IllegalArgumentException iae) {
-            decode(iae);
-            return null; // unreached
+        // for any argument position that does not match, but which takes an interface, create a
+        // proxy to that interface using the actual argument
+        if (!isMangled) {
+            for (int ii = 0; ii < pcount; ii++) {
+                if (ptypes.get(ii).isInterface() && !ptypes.get(ii).isInstance(aargs[ii])) {
+                    aargs[ii] = asInterface(ptypes.get(ii), aargs[ii]);
+                }
+            }
         }
+
+        method.setAccessible(true); // TODO: cache which methods we've toggled if slow
+        return checkedInvoke(method, receiver, aargs);
     }
 
     /**
@@ -772,6 +772,54 @@ public class RT
     }
 
     /**
+     * A helper for {@link #asInterface}.
+     */
+    protected static Method findProxyMethod (
+        Class<?> clazz, String mname, Class<?>[] atypes, List<Method> candidates)
+    {
+      OUTER:
+        for (Method method : clazz.getDeclaredMethods()) {
+            String cmname = method.getName();
+            boolean isMangled = isMangled(cmname);
+            if (isMangled) {
+                cmname = cmname.substring(0, cmname.length()-MM_SUFFIX.length());
+            }
+            if (!cmname.equals(mname)) {
+                continue;
+            }
+            Class<?>[] ptypes = method.getParameterTypes();
+            int poff = isMangled ? ptypes.length/2 : 0;
+            if (ptypes.length - poff != atypes.length) {
+                continue;
+            }
+            for (int ii = 0; ii < atypes.length; ii++) {
+                if (ptypes[ii+poff] != atypes[ii]) {
+                    candidates.add(method);
+                    continue OUTER;
+                }
+            }
+            return method;
+        }
+
+        // if we have a superclass, check it for an exact match (or additional candidates)
+        Class<?> parent = clazz.getSuperclass();
+        if (parent != null) {
+            return findProxyMethod(parent, mname, atypes, candidates);
+        }
+
+        switch (candidates.size()) {
+        case 1:
+            return candidates.get(0);
+        case 0:
+            throw new NoSuchMethodError(Debug.format(clazz + "." + mname, "atypes", atypes));
+        default:
+            throw new AmbiguousMethodError(
+                Debug.format("No exact match and multiple inexact matches for method",
+                             "mname", mname, "atypes", atypes));
+        }
+    }
+
+    /**
      * Helper for {@link #invokeStatic} and {@link #invoke}.
      */
     protected static Method checkMethod (Method m, String mname, Class<?> clazz, Object... args)
@@ -782,6 +830,24 @@ public class RT
                 Debug.format(clazz + "." + mname, "atypes", toArgTypes(args)));
         } else {
             return m;
+        }
+    }
+
+    /**
+     * Helper for {@link #invoke} and {@link #asInterface}.
+     */
+    protected static Object checkedInvoke (Method method, Object receiver, Object... args)
+    {
+        try {
+            return method.invoke(receiver, args);
+        } catch (IllegalAccessException iae) {
+            throw new WrappedException(iae);
+        } catch (InvocationTargetException ite) {
+            unwrap(ite.getCause());
+            return null; // unreached
+        } catch (IllegalArgumentException iae) {
+            decode(iae);
+            return null; // unreached
         }
     }
 
