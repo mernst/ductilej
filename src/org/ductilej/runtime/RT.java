@@ -603,18 +603,10 @@ public class RT
      * abstract methods called by a parent class constructor, because our primitive initialization
      * code runs (of necessity) after the superclass constructor.
      */
-    public static Object initPrimitive (Object target, String fieldName)
+    public static Object initPrimitive (Object target, String fieldName, Class<?> fieldType)
     {
-        try {
-            Field field = findField(target.getClass(), fieldName);
-            field.setAccessible(true);
-            Object curVal = field.get(target);
-            return (curVal != null) ? curVal : DEFAULT_VALUES.get(field.getType());
-        } catch (NoSuchFieldException nsfe) {
-            throw new WrappedException(nsfe);
-        } catch (IllegalAccessException iae) {
-            throw new WrappedException(iae);
-        }
+        Object curVal = select(fieldName, target);
+        return (curVal != null) ? curVal : DEFAULT_VALUES.get(fieldType);
     }
 
     /**

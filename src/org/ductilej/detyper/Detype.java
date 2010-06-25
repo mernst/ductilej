@@ -361,7 +361,8 @@ public class Detype extends PathedTreeTranslator
             if ((tree.mods.flags & Flags.STATIC) == 0) {
                 tree.init = callRT("initPrimitive", tree.pos,
                                    _tmaker.Ident(_names._this),
-                                   _tmaker.Literal(tree.name.toString()));
+                                   _tmaker.Literal(tree.name.toString()),
+                                   classLiteral(tree.vartype, tree.pos));
             } else {
                 // all primitive literals use (integer) 0 as their value (even boolean)
                 tree.init = _tmaker.Literal(((JCPrimitiveTypeTree)tree.vartype).typetag, 0);
