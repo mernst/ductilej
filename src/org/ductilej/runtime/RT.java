@@ -592,6 +592,32 @@ public class RT
     }
 
     /**
+     * A helper method for initializing primitive values.
+     *
+     * It is supplied the default value
+     * appropriate to the type of the primitive field and the field's current value. If the
+     * (detyped) field has not yet been initialized, curVal will be null and the appropriate
+     * initial value will be returned. Otherwise the current value will be returned.
+     *
+     * <p> This preserves correct behavior in situations where primitive fields are initialized by
+     * abstract methods called by a parent class constructor, because our primitive initialization
+     * code runs (of necessity) after the superclass constructor.
+     */
+    public static Object initPrimitive (Object target, String fieldName)
+    {
+        try {
+            Field field = findField(target.getClass(), fieldName);
+            field.setAccessible(true);
+            Object curVal = field.get(target);
+            return (curVal != null) ? curVal : DEFAULT_VALUES.get(field.getType());
+        } catch (NoSuchFieldException nsfe) {
+            throw new WrappedException(nsfe);
+        } catch (IllegalAccessException iae) {
+            throw new WrappedException(iae);
+        }
+    }
+
+    /**
      * A helper for {@link #select} and {@link #assign}.
      *
      * @throws NoSuchFieldException if the field could not be found.
@@ -1014,10 +1040,10 @@ public class RT
         Object[] margs = new Object[args.length*2];
         System.arraycopy(args, 0, margs, 0, args.length);
         for (int ii = args.length; ii < ptypes.size(); ii++) {
-            // if the argument is a primitive type, DUMMIES will contain a dummy value for that
-            // type, otherwise it will return null which is the desired dummy value for all
-            // non-primitive types
-            margs[ii] = DUMMIES.get(ptypes.get(ii));
+            // if the argument is a primitive type, DEFAULT_VALUES will contain a suitable dummy
+            // value for that type, otherwise it will return null which is the desired dummy value
+            // for all non-primitive types
+            margs[ii] = DEFAULT_VALUES.get(ptypes.get(ii));
         }
         return margs;
     }
@@ -1144,7 +1170,7 @@ public class RT
         put(Double.TYPE, Double.class).
         build();
 
-    protected static final Map<Class<?>, Object> DUMMIES =
+    protected static final Map<Class<?>, Object> DEFAULT_VALUES =
         ImmutableMap.<Class<?>, Object>builder().
         put(Boolean.TYPE, false).
         put(Byte.TYPE, (byte)0).
