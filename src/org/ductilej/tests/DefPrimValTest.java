@@ -25,11 +25,35 @@ public class DefPrimValTest
         protected void initField () {
             _field = 10;
         }
+        // our previous naive approach to ensuring that this field, once detyped, received an
+        // appropriate initialization to zero resulted in overwriting the initialization that takes
+        // place via the call to initField() by the superclass constructor; our new approach avoids
+        // such overwriting
         private int _field;
     }
 
-    @Test public void testInitField () {
+    public static class StaticField {
+        public static boolean falseBoolean;
+        public static byte zeroByte;
+        public static short zeroShort;
+        public static int zeroInt;
+        public static long zeroLong;
+        public static float zeroFloat;
+        public static double zeroDouble;
+    }
+
+    @Test public void testAvoidOverwrite () {
         Child c = new Child();
         assertEquals(10, c.getField());
+    }
+
+    @Test public void testStaticInit () {
+        assertEquals(false, StaticField.falseBoolean);
+        assertEquals((byte)0, StaticField.zeroByte);
+        assertEquals((short)0, StaticField.zeroShort);
+        assertEquals(0, StaticField.zeroInt);
+        assertEquals(0l, StaticField.zeroLong);
+        assertEquals(0f, StaticField.zeroFloat, 0f);
+        assertEquals(0d, StaticField.zeroDouble, 0d);
     }
 }
