@@ -32,6 +32,16 @@ public class DefPrimValTest
         private int _field;
     }
 
+    public static class InstanceField {
+        public boolean falseBoolean;
+        public byte zeroByte;
+        public short zeroShort;
+        public int zeroInt;
+        public long zeroLong;
+        public float zeroFloat;
+        public double zeroDouble;
+    }
+
     public static class StaticField {
         public static boolean falseBoolean;
         public static byte zeroByte;
@@ -45,6 +55,17 @@ public class DefPrimValTest
     @Test public void testAvoidOverwrite () {
         Child c = new Child();
         assertEquals(10, c.getField());
+    }
+
+    @Test public void testInstanceInit () {
+        InstanceField inst = new InstanceField();
+        assertEquals(false, inst.falseBoolean);
+        assertEquals((byte)0, inst.zeroByte);
+        assertEquals((short)0, inst.zeroShort);
+        assertEquals(0, inst.zeroInt);
+        assertEquals(0l, inst.zeroLong);
+        assertEquals(0f, inst.zeroFloat, 0f);
+        assertEquals(0d, inst.zeroDouble, 0d);
     }
 
     @Test public void testStaticInit () {
