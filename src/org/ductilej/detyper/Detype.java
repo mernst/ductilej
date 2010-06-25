@@ -355,8 +355,17 @@ public class Detype extends PathedTreeTranslator
             // if the field is final, they must assign it a non-default value in the constructor,
             // so we need not (and indeed cannot) supply a synthesized initializer
             !ASTUtil.isFinal(tree.mods)) {
-            // all primitive literals use (integer) 0 as their value (even boolean)
-            tree.init = _tmaker.Literal(((JCPrimitiveTypeTree)tree.vartype).typetag, 0);
+            // if this is an instance field, we have to do some reflection finagling to obtain our
+            // default value because the field *may* have already been initialized by an overridden
+            // method called from the superclass constructor; static fields pose no such risk
+            if ((tree.mods.flags & Flags.STATIC) == 0) {
+                tree.init = callRT("initPrimitive", tree.pos,
+                                   _tmaker.Ident(_names._this),
+                                   _tmaker.Literal(tree.name.toString()));
+            } else {
+                // all primitive literals use (integer) 0 as their value (even boolean)
+                tree.init = _tmaker.Literal(((JCPrimitiveTypeTree)tree.vartype).typetag, 0);
+            }
 
         // if the vardef is a primitive and has an initializer, we may need to emulate an implicit
         // narrowing or widening conversion if the rvalue differs from the type of the lvalue
