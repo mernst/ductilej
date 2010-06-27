@@ -75,8 +75,7 @@ public class RT
 
         // if this ctor is varargs we need to extract the variable arguments, place them into an
         // Object[] and create a new args array that has the varargs array in the final position
-        Object[] rargs = (args == null || !ctor.isVarArgs()) ?
-            args : collectVarArgs(ptypes, pcount, args);
+        Object[] rargs = ctor.isVarArgs() ? collectVarArgs(ptypes, pcount, args) : args;
 
         // if this method is mangled, we need to add dummy arguments in the type-carrying parameter
         // positions
@@ -635,8 +634,6 @@ public class RT
      */
     protected static Object invoke (Method method, Object receiver, Object... rargs)
     {
-        // Debug.temp("Invoking " + method, "recv", receiver, "args", rargs);
-
         boolean isMangled = isMangled(method.getName());
         List<Class<?>> ptypes = Arrays.asList(method.getParameterTypes());
         int pcount = ptypes.size();
@@ -646,8 +643,7 @@ public class RT
 
         // if this method is varargs we need to extract the variable arguments, place them into an
         // Object[] and create a new args array that has the varargs array in the final position
-        Object[] aargs = (rargs == null || !method.isVarArgs()) ?
-            rargs : collectVarArgs(ptypes, pcount, rargs);
+        Object[] aargs = method.isVarArgs() ? collectVarArgs(ptypes, pcount, rargs) : rargs;
 
         // if this method is mangled, we need to add dummy arguments in the type-carrying parameter
         // positions
@@ -665,6 +661,7 @@ public class RT
             }
         }
 
+        // Debug.temp("Invoking " + method, "recv", receiver, "args", aargs);
         method.setAccessible(true); // TODO: cache which methods we've toggled if slow
         return checkedInvoke(method, receiver, aargs);
     }
@@ -1007,12 +1004,18 @@ public class RT
 
     protected static Object[] collectVarArgs (List<Class<?>> ptypes, int pcount, Object[] rargs)
     {
-        int fpcount = pcount-1, vacount = rargs.length-fpcount;
+        // if the caller is passing null in the varargs position, we need to wrap that in an object
+        // array so that when we pass it to Method.invoke, the null is properly passed on to the
+        // underlying varargs method
+        if (rargs == null) {
+            return new Object[] { null };
+        }
 
         // if we have more than one argument in varargs position or we have a non-array in varargs
         // position, we need to wrap the varargs into an array (this is normally done by javac); we
         // heuristically assume that if there's only one argument in the varargs position and it's
         // an array, then the caller did the wrapping already
+        int fpcount = pcount-1, vacount = rargs.length-fpcount;
         if (vacount != 1 || (rargs[fpcount] != null && !rargs[fpcount].getClass().isArray())) {
             // the final argument position indicates the type of the varargs array
             Class<?> vatype = ptypes.get(ptypes.size()-1);
