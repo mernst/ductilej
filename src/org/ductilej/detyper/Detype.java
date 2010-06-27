@@ -3,7 +3,6 @@
 
 package org.ductilej.detyper;
 
-import javax.lang.model.element.ElementKind;
 import javax.tools.JavaFileObject;
 
 import com.sun.source.tree.Tree;
@@ -738,14 +737,13 @@ public class Detype extends PathedTreeTranslator
 
         // resolve the called method before we transform the leaves of this tree
         Resolver.MethInfo mi = _resolver.resolveMethod(_env, tree);
-        Symbol rsym = null;
+        Symbol statsym = null;
 
         // if we're not able to resolve the method, we need to obtain some other information before
         // we call super.visitApply (as it transforms things we need to resolve)
         if (!mi.isValid()) {
             if (tree.meth instanceof JCFieldAccess) {
-                rsym = _resolver.resolveSymbol(
-                    _env, ((JCFieldAccess)tree.meth).selected, Kinds.VAL|Kinds.TYP);
+                statsym = _resolver.inferStaticReceiver(_env, ((JCFieldAccess)tree.meth).selected);
             }
         }
 
@@ -814,8 +812,8 @@ public class Detype extends PathedTreeTranslator
             // if we were unable to resolve the target method, try some fallback heuristics to
             // determine whether it has a static or non-static receiver
             if (tree.meth instanceof JCFieldAccess) {
-                if (rsym.getKind() == ElementKind.CLASS) {
-                    String fqName = rsym.getQualifiedName().toString();
+                if (statsym != null) {
+                    String fqName = statsym.getQualifiedName().toString();
                     recv = classLiteral(mkFA(fqName, tree.pos), tree.pos);
                     invokeName = "invokeStatic";
                 } else {
