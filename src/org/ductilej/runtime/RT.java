@@ -171,18 +171,18 @@ public class RT
         Method m;
 
         // if we were able to resolve the method at compile time, the exact argument types will be
-        // provided in atypes which we can use to precise and fast(er) method lookup
+        // provided in atypes which we can use to do precise and fast(er) method lookup
         if (atypes != null) {
             Class<?> cclass = rclass;
             do {
                 m = findMethod(cclass, mname, atypes);
                 if (m == null) {
-                    cclass = cclass.getEnclosingClass();
-                    if (cclass != null) {
+                    if (!isInnerInNonStaticContext(cclass)) {
+                        cclass = cclass.getEnclosingClass();
                         receiver = getEnclosingReference(cclass, receiver);
                     }
                 }
-            } while (m == null && cclass != null);
+            } while (m == null);
 
         } else {
             // otherwise we've got to do an expensive search using the runtime argument types
@@ -191,12 +191,13 @@ public class RT
             do {
                 m = resolveMethod(cclass, mname, atypes);
                 if (m == null) {
-                    cclass = cclass.getEnclosingClass();
-                    if (cclass != null) {
-                        receiver = getEnclosingReference(cclass, receiver);
+                    if (!isInnerInNonStaticContext(cclass)) {
+                        break;
                     }
+                    cclass = cclass.getEnclosingClass();
+                    receiver = getEnclosingReference(cclass, receiver);
                 }
-            } while (m == null && cclass != null);
+            } while (m == null);
         }
 
         return invoke(checkMethod(m, mname, rclass, args), receiver, args);
