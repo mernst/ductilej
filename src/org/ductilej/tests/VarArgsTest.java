@@ -3,6 +3,7 @@
 
 package org.ductilej.tests;
 
+import java.lang.reflect.Constructor;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -39,9 +40,8 @@ public class VarArgsTest
 
     @Test public void testRuntimeSelect ()
     {
-// TEMP: broken until runtime overload resolution improves
-//         assertEquals(foo("one", "two", "three"), "foo(String,String...)");
-//         assertEquals(foo("one", 2, 3), "foo(String,Integer...)");
+        assertEquals(foo("one", "two", "three"), "foo(String,String...)");
+        assertEquals(foo("one", 2, 3), "foo(String,Integer...)");
     }
 
     @Test public void testVarArgs ()
@@ -72,6 +72,13 @@ public class VarArgsTest
         List<Integer> list = Arrays.asList((Integer) null);
         Object[] array = list.toArray();
         assertEquals(array.getClass(), Integer[].class);
+    }
+
+    @Test public void testLibraryNullVarArray ()
+        throws NoSuchMethodException
+    {
+        Constructor<?> ctor = VarArgsTest.class.getDeclaredConstructor((Class<?>[]) null);
+        assertTrue(ctor != null);
     }
 
     protected static String foo (String one, String... two)
