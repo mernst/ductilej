@@ -1510,6 +1510,16 @@ public class Detype extends PathedTreeTranslator
             // any checked or unchecked subtype of the varargs array type should be passed through
             // directly as the varargs array rather than doubly wrapped
             _types.isSubtypeUnchecked(atypes.head, ptypes.head)) {
+            // if we're grouping args for a call to RT.invoke(), we need to cast this array to
+            // Object[] so that it is correctly passed straight through
+            if (castArgArray) {
+                // if the argument is already casted, replace the cast with our new cast rather
+                // than tacking another cast onto the front of the expression
+                JCExpression expr = (args.head.getTag() != JCTree.TYPECAST) ?
+                    args.head : ((JCTypeCast)args.head).expr;
+                args.head = _tmaker.TypeCast(
+                    _tmaker.TypeArray(_tmaker.Ident(_names.fromString("Object"))), expr);
+            }
             return args;
         }
 
