@@ -1036,6 +1036,13 @@ public class RT
             // value for that type, otherwise it will return null which is the desired dummy value
             // for all non-primitive types
             margs[ii] = DEFAULT_VALUES.get(ptypes.get(ii));
+            // if the argument type is primitive, insert a coercion from the argument type to the
+            // parameter type (JLS 5.3 requires widening; TODO: we're also doing narrowing here
+            // which is probably not desirable in the long term)
+            int aii = ii-args.length;
+            if (margs[aii] != null && margs[ii] != null) {
+                margs[aii] = coerce(ptypes.get(ii), margs[aii]);
+            }
         }
         return margs;
     }
