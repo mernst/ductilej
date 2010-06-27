@@ -3,6 +3,7 @@
 
 package org.ductilej.detyper;
 
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ElementVisitor;
 import javax.tools.JavaFileObject;
 
@@ -620,6 +621,22 @@ public class Resolver
 
         default:
             return false;
+        }
+    }
+
+    public Symbol inferStaticReceiver (Env<DetypeContext> env, JCExpression expr)
+    {
+        switch (expr.getTag()) {
+        case JCTree.IDENT:
+        case JCTree.SELECT:
+            Symbol rsym = resolveSymbol(env, expr, Kinds.VAL|Kinds.TYP);
+            return (rsym.getKind() == ElementKind.CLASS) ? rsym : null;
+        case JCTree.APPLY:
+            return null;
+        default:
+            Debug.warn("Unable to infer static receivership", "expr", expr,
+                       "etype", expr.getClass().getName());
+            return null;
         }
     }
 
