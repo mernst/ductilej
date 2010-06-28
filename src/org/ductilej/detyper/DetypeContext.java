@@ -3,6 +3,7 @@
 
 package org.ductilej.detyper;
 
+import com.sun.tools.javac.code.Lint;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
@@ -23,6 +24,9 @@ public class DetypeContext
 
     /** True if we're in the middle of processing a call to this() or super(). */
     public boolean inChainedCons;
+
+    /** A record of the lint/SuppressWarnings currently in effect. */
+    public Lint lint;
 
     /**
      * Duplicates this context with the specified new scope.

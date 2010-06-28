@@ -9,6 +9,7 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Kinds;
+import com.sun.tools.javac.code.Lint;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.code.Symbol;
@@ -83,6 +84,7 @@ public class Detype extends PathedTreeTranslator
 
         // copy over detype context parts that are useful to attr context
         Backdoor.scope.set(aenv.info, env.info.scope);
+        Backdoor.lint.set(aenv.info, env.info.lint);
 
         return aenv;
     }
@@ -98,6 +100,7 @@ public class Detype extends PathedTreeTranslator
             _env.toplevel = tree;
             _env.enclClass = _predefClassDef;
             _env.info.scope = tree.namedImportScope;
+            _env.info.lint = _lint;
             tree.accept(this);
         } catch (RuntimeException rte) {
             Debug.warn("Fatal error", "file", tree.sourcefile);
@@ -1115,6 +1118,7 @@ public class Detype extends PathedTreeTranslator
         _names = Names.instance(ctx);
         _syms = Symtab.instance(ctx);
         _annotate = Annotate.instance(ctx);
+        _lint = Lint.instance(ctx);
         _rootmaker = TreeMaker.instance(ctx);
         _log = Log.instance(ctx);
 
@@ -1670,6 +1674,7 @@ public class Detype extends PathedTreeTranslator
     protected Attr _attr;
     protected Symtab _syms;
     protected Annotate _annotate;
+    protected Lint _lint;
     protected TreeMaker _rootmaker;
     protected Log _log;
 
