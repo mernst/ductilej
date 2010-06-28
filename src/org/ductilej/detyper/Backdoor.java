@@ -7,6 +7,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Lint;
 import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -62,6 +63,8 @@ public class Backdoor<T>
 
     public static final FieldRef<AttrContext, Scope> scope =
         newFieldRef(AttrContext.class, "scope");
+    public static final FieldRef<AttrContext, Lint> lint =
+        newFieldRef(AttrContext.class, "lint");
     public static final FieldRef<AttrContext, Boolean> selectSuper =
         newFieldRef(AttrContext.class, "selectSuper");
     public static final FieldRef<AttrContext, Boolean> varArgs =
