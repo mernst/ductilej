@@ -603,8 +603,8 @@ public class Detype extends PathedTreeTranslator
                 }
             }
 
-            args = args.prepend(thisex).prepend(mkSigArgs(mi, tree.pos)).
-                prepend(classLiteral(tree.clazz, tree.clazz.pos));
+            args = List.of(classLiteral(tree.clazz, tree.clazz.pos), mkSigArgs(mi, tree.pos),
+                           thisex, mkArray(_tmaker.Ident(_names.fromString("Object")), args));
 
             // TODO: we can't reflectively create anonymous inner classes so maybe we should not
             // detype any constructor invocation...
@@ -873,20 +873,12 @@ public class Detype extends PathedTreeTranslator
         // dynamic type of the array
         if (mi.isValid() && ASTUtil.isVarArgs(mi.msym.flags())) {
             List<Type> ptypes = _resolver.instantiateType(_env, mi).asMethodType().argtypes;
-            tree.args = groupVarArgs(ptypes, tree.args, mi.atypes, tree.pos, true);
+            tree.args = groupVarArgs(ptypes, tree.args, mi.atypes, tree.pos);
         }
 
-        // if the method is being invoked with a single null argument, we need to add a cast to
-        // Object because that null will become the single argument to the varargs RT.invoke() or
-        // RT.invokeStatic() method; if the argument is already casted, ASTUtil.isNullLiteral()
-        // will not identify it as a null literal and we won't add an extraneous cast
-        if (tree.args.size() == 1 && ASTUtil.isNullLiteral(tree.args.head)) {
-            tree.args.head = toTypedNull(_syms.objectType, tree.args.head);
-        }
-
-        tree.args = tree.args.prepend(recv).
-            prepend(mkSigArgs(mi, tree.meth.pos)).
-            prepend(_tmaker.Literal(TreeInfo.name(tree.meth).toString()));
+        tree.args = List.of(_tmaker.Literal(TreeInfo.name(tree.meth).toString()),
+                            mkSigArgs(mi, tree.meth.pos), recv,
+                            mkArray(_tmaker.Ident(_names.fromString("Object")), tree.args));
         tree.meth = mkRT(invokeName, tree.meth.pos);
         // Debug.log("APPLY " + mi.msym + " -> " + tree);
     }
@@ -1353,12 +1345,17 @@ public class Detype extends PathedTreeTranslator
         }
     }
 
+    protected JCExpression mkArray (JCExpression type, List<JCExpression> elems)
+    {
+        return _tmaker.NewArray(type, List.<JCExpression>nil(), elems);
+    }
+
     protected JCExpression mkSigArgs (Resolver.MethInfo mi, int pos)
     {
         if (mi.isValid()) {
             // create our 'new Class<?>[] { Arg.class, ... }' array
-            return _tmaker.NewArray(typeToTree(_wildcardClass, pos), List.<JCExpression>nil(),
-                                    classLiterals(mi.msym.type.getParameterTypes(), pos));
+            return mkArray(typeToTree(_wildcardClass, pos),
+                           classLiterals(mi.msym.type.getParameterTypes(), pos));
         } else {
             // if we failed to resolve the method, supply null for the argument types; this lets
             // the runtime know that it needs to do the more expensive (and potentially
@@ -1493,19 +1490,18 @@ public class Detype extends PathedTreeTranslator
         // if the method is varargs, we need to insert an array creation expression wrapping up the
         // variable arguments because they're no longer at the end (whee!)
         if (ASTUtil.isVarArgs(msym.flags())) {
-            args = groupVarArgs(ptypes, args, atypes, pos, false);
+            args = groupVarArgs(ptypes, args, atypes, pos);
         }
         // now we can append type carrying arguments to the grouped arglist
         return args.appendList(toTypedNulls(ptypes, args));
     }
 
     protected List<JCExpression> groupVarArgs (List<Type> ptypes, List<JCExpression> args,
-                                               List<Type> atypes, int pos, boolean castArgArray)
+                                               List<Type> atypes, int pos)
     {
         // skip the non-varargs arguments
         if (!ptypes.tail.isEmpty()) {
-            return groupVarArgs(ptypes.tail, args.tail, atypes.tail, pos, castArgArray).
-                prepend(args.head);
+            return groupVarArgs(ptypes.tail, args.tail, atypes.tail, pos).prepend(args.head);
         }
 
         // if we have an array argument of the correct type in the final position, it should not be
@@ -1514,16 +1510,6 @@ public class Detype extends PathedTreeTranslator
             // any checked or unchecked subtype of the varargs array type should be passed through
             // directly as the varargs array rather than doubly wrapped
             _types.isSubtypeUnchecked(atypes.head, ptypes.head)) {
-            // if we're grouping args for a call to RT.invoke(), we need to cast this array to
-            // Object[] so that it is correctly passed straight through
-            if (castArgArray) {
-                // if the argument is already casted, replace the cast with our new cast rather
-                // than tacking another cast onto the front of the expression
-                JCExpression expr = (args.head.getTag() != JCTree.TYPECAST) ?
-                    args.head : ((JCTypeCast)args.head).expr;
-                args.head = _tmaker.TypeCast(
-                    _tmaker.TypeArray(_tmaker.Ident(_names.fromString("Object"))), expr);
-            }
             return args;
         }
 
@@ -1531,17 +1517,7 @@ public class Detype extends PathedTreeTranslator
         // its upper bound and fill any type parameters with unbounded wildcards (?) to convert it
         // to a legal array element type
         Type atype = toArrayElementType(((Type.ArrayType)ptypes.head).elemtype);
-        JCExpression varray = _tmaker.at(pos).NewArray(
-            typeToTree(atype, pos), List.<JCExpression>nil(), castList(atype, args));
-
-        // if requested, we need to cast this array to Object so that when it appears in
-        // RT.invoke() it is not assumed to be an arguments array but rather just a single argument
-        // (which it is, at this level of indirection)
-        if (castArgArray) {
-            varray = _tmaker.TypeCast(_tmaker.Ident(_names.fromString("Object")), varray);
-        }
-
-        return List.of(varray);
+        return List.<JCExpression>of(mkArray(typeToTree(atype, pos), castList(atype, args)));
     }
 
     protected List<JCExpression> toTypedNulls (List<Type> types, List<JCExpression> args)

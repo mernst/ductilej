@@ -47,7 +47,7 @@ public class RT
      * @param encl the enclosing instance to use in the case of a non-static inner class.
      * @param args the arguments to be supplied to the constructor, if any.
      */
-    public static <T> T newInstance (Class<T> clazz, Class<?>[] atypes, Object encl, Object... args)
+    public static <T> T newInstance (Class<T> clazz, Class<?>[] atypes, Object encl, Object[] args)
     {
         boolean needsOuterThis = isInnerInNonStaticContext(clazz);
         boolean isMangled = (clazz.getAnnotation(Transformed.class) != null);
@@ -117,15 +117,6 @@ public class RT
     }
 
     /**
-     * Boxes variable arguments into an array while preserving parameterized types in a way that's
-     * not possible by manually inserting an "new T[] { ... }" expression. Note: currently unused.
-     */
-    public static <T> T[] box (T... args)
-    {
-        return args;
-    }
-
-    /**
      * Creates a new empty array with the specified dimensions. TODO: we may need to box the array
      * and preserve the original type information.
      */
@@ -160,7 +151,7 @@ public class RT
     /**
      * Invokes the specified method via reflection, handling the necessary signature de-mangling.
      */
-    public static Object invoke (String mname, Class<?>[] atypes, Object receiver, Object... args)
+    public static Object invoke (String mname, Class<?>[] atypes, Object receiver, Object[] args)
     {
         if (receiver == null) {
             throw new NullPointerException(
@@ -207,7 +198,7 @@ public class RT
      * de-mangling.
      */
     public static Object invokeStatic (String mname, Class<?>[] atypes, Class<?> clazz,
-                                       Object... args)
+                                       Object[] args)
     {
         // if we were able to resolve the method at compile time, the exact argument types will be
         // provided in atypes which we can use to precise and fast(er) method lookup
@@ -632,7 +623,7 @@ public class RT
     /**
      * Invokes the specified method with the supplied arguments.
      */
-    protected static Object invoke (Method method, Object receiver, Object... rargs)
+    protected static Object invoke (Method method, Object receiver, Object[] rargs)
     {
         boolean isMangled = isMangled(method.getName());
         List<Class<?>> ptypes = Arrays.asList(method.getParameterTypes());
@@ -838,7 +829,7 @@ public class RT
     /**
      * Helper for {@link #invokeStatic} and {@link #invoke}.
      */
-    protected static Method checkMethod (Method m, String mname, Class<?> clazz, Object... args)
+    protected static Method checkMethod (Method m, String mname, Class<?> clazz, Object[] args)
     {
         if (m == null) {
             // TODO: if argument mismatch, clarify that, if total method lacking, clarify that
@@ -852,7 +843,7 @@ public class RT
     /**
      * Helper for {@link #invoke} and {@link #asInterface}.
      */
-    protected static Object checkedInvoke (Method method, Object receiver, Object... args)
+    protected static Object checkedInvoke (Method method, Object receiver, Object[] args)
     {
         try {
             return method.invoke(receiver, args);
@@ -871,7 +862,7 @@ public class RT
      * A helper for {@link #newInstance}.
      */
     protected static Constructor<?> findConstructor (
-        Class<?> clazz, boolean needsOuterThis, boolean isMangled, Object... args)
+        Class<?> clazz, boolean needsOuterThis, boolean isMangled, Object[] args)
     {
         Constructor<?> best = null;
         boolean bestTypeMatch = false;
