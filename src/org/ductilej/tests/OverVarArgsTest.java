@@ -3,18 +3,15 @@
 
 package org.ductilej.tests;
 
-import java.lang.reflect.Constructor;
-import java.util.Arrays;
 import java.util.Date;
-import java.util.List;
 
 import org.junit.Test;
 import static org.junit.Assert.*;
 
 /**
- * Tests varargs method selection.
+ * Tests method selection of overloaded varargs methods.
  */
-public class VarArgsTest
+public class OverVarArgsTest
 {
     public class Varrgh {
         public final String name;
@@ -58,29 +55,6 @@ public class VarArgsTest
         assertEquals("true", v.name);
     }
 
-    @Test public void testNullDisambig ()
-    {
-        assertEquals(-1, varargs((Object[])null));
-        assertEquals(0, varargs());
-        assertEquals(1, varargs(1));
-        // this should get wrapped into a one element array containing null
-        assertEquals(1, varargs((Object)null));
-    }
-
-    @Test public void testVarArgsArrayType ()
-    {
-        List<Integer> list = Arrays.asList((Integer) null);
-        Object[] array = list.toArray();
-        assertEquals(array.getClass(), Integer[].class);
-    }
-
-    @Test public void testLibraryNullVarArray ()
-        throws NoSuchMethodException
-    {
-        Constructor<?> ctor = VarArgsTest.class.getDeclaredConstructor((Class<?>[]) null);
-        assertTrue(ctor != null);
-    }
-
     protected static String foo (String one, String... two)
     {
         return "foo(String,String...)";
@@ -94,10 +68,5 @@ public class VarArgsTest
     protected static void log (String message, Object... args)
     {
         // System.out.println(message + " " + args);
-    }
-
-    protected static int varargs (Object... args)
-    {
-        return (args == null) ? -1 : args.length;
     }
 }
