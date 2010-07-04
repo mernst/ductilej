@@ -595,13 +595,12 @@ public class Detype extends PathedTreeTranslator
                 }
             }
 
-            List<JCExpression> args = List.of(
-                classLiteral(tree.clazz, tree.clazz.pos), mkSigArgs(mi, tree.pos), thisex,
-                mkArray(_tmaker.Ident(_names.fromString("Object")), tree.args));
-
             // TODO: we can't reflectively create anonymous inner classes so maybe we should not
             // detype any constructor invocation...
-            JCMethodInvocation invoke = callRT("newInstance", tree.pos, args);
+            JCMethodInvocation invoke = callRT(
+                "newInstance", tree.pos, classLiteral(tree.clazz, tree.clazz.pos),
+                mkSigArgs(mi, tree.pos), thisex,
+                mkArray(_tmaker.Ident(_names.fromString("Object")), tree.args));
             invoke.varargsElement = tree.varargsElement;
             result = invoke;
 
