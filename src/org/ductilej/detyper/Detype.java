@@ -334,7 +334,7 @@ public class Detype extends PathedTreeTranslator
 
         // we don't want to detype the initializer of a const field, it would break the const-ness
         // of switch case expressions, and it would prevent the constant from being inlined (the
-        // latter in theory shouldn't change semantics but I don't ask me to provide a proof)
+        // latter in theory shouldn't change semantics but don't ask me to provide a proof)
         if (!isConstDecl) {
             super.visitVarDef(tree);
         } else {
@@ -424,7 +424,7 @@ public class Detype extends PathedTreeTranslator
         JCExpression expr = unop(tree.pos, tree.getKind(), translate(tree.arg));
         switch (tree.getKind()) {
         case PREFIX_INCREMENT:  // ++i -> (i = unop("++", i))
-        case POSTFIX_INCREMENT: // i++ -> (i = unop("++", i) - 1)
+        case POSTFIX_INCREMENT: // i++ -> unop("--", i = unop("++", i))
             expr = mkAssign(tree.arg, expr, tree.pos);
             if (tree.getKind() == Tree.Kind.POSTFIX_INCREMENT) {
                 // we use unop("--", e) here instead of binop("-", e, 1) because unop-- avoids
@@ -434,7 +434,7 @@ public class Detype extends PathedTreeTranslator
             break;
 
         case PREFIX_DECREMENT:  // --i -> (i = unop("--", i))
-        case POSTFIX_DECREMENT: // i-- -> (i = unop("--", i) + 1)
+        case POSTFIX_DECREMENT: // i-- -> unop("++", i = unop("--", i))
             expr = mkAssign(tree.arg, expr, tree.pos);
             if (tree.getKind() == Tree.Kind.POSTFIX_DECREMENT) {
                 // we use unop("++", e) here instead of binop("+", e, 1) because unop++ avoids
@@ -489,8 +489,8 @@ public class Detype extends PathedTreeTranslator
             bop = callRT("coerce", bop.pos, classLiteral(ltype, bop.pos), bop);
         }
 
-        // TODO: this a problem wrt evaluating the LHS more than once, we probably need to do
-        // something painfully complicated
+        // TODO: this a problem wrt evaluating the LHS more than once, we need emit special code
+        // depending on the LHS (i.e. assignOpAt("+", array, val, idx), etc.)
         result = mkAssign(tree.lhs, bop, tree.pos);
         // Debug.log("Rewrote assignop", "kind", tree.getKind(), "into", result);
     }
@@ -556,14 +556,6 @@ public class Detype extends PathedTreeTranslator
         super.visitNewClass(tree);
 
         if (canReflect) {
-            // if the constructor is being invoked with a single null argument, we need to add a
-            // cast to Object because that null will become the single argument to the varargs
-            // RT.newInstance() method
-            List<JCExpression> args = tree.args;
-            if (args.size() == 1 && ASTUtil.isNullLiteral(args.head)) {
-                args.head = toTypedNull(_syms.objectType, args.head);
-            }
-
             // if there is a specific enclosing instance provided, pass it to newInstance()
             JCExpression thisex;
             if (tree.encl != null) {
@@ -603,8 +595,9 @@ public class Detype extends PathedTreeTranslator
                 }
             }
 
-            args = List.of(classLiteral(tree.clazz, tree.clazz.pos), mkSigArgs(mi, tree.pos),
-                           thisex, mkArray(_tmaker.Ident(_names.fromString("Object")), args));
+            List<JCExpression> args = List.of(
+                classLiteral(tree.clazz, tree.clazz.pos), mkSigArgs(mi, tree.pos), thisex,
+                mkArray(_tmaker.Ident(_names.fromString("Object")), tree.args));
 
             // TODO: we can't reflectively create anonymous inner classes so maybe we should not
             // detype any constructor invocation...
