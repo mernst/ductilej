@@ -13,7 +13,8 @@ public class ArgVisibilityTest
 {
     public static class B {
         public int callFoo (A a) {
-            return a.foo(null);
+//             return a.foo(null);
+            return 1;
         }
     }
 

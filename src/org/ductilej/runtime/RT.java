@@ -663,6 +663,12 @@ public class RT
     protected static Constructor<?> findConstructor (
         Class<?> clazz, boolean needsOuterThis, boolean isMangled, Class<?>[] atypes)
     {
+        MethodKey key = new MethodKey(clazz, "<init>", atypes);
+        Constructor<?> cached = _ctorCache.get(key);
+        if (cached != null) {
+            return cached;
+        }
+
       OUTER:
         for (Constructor<?> ctor : clazz.getDeclaredConstructors()) {
             Class<?>[] ptypes = ctor.getParameterTypes();
@@ -679,6 +685,7 @@ public class RT
                     continue OUTER;
                 }
             }
+            _ctorCache.put(key, ctor);
             return ctor;
         }
         return null;
@@ -689,6 +696,16 @@ public class RT
      */
     protected static Method findMethod (Class<?> clazz, String mname, Class<?>[] atypes)
     {
+        return findMethod(clazz, new MethodKey(clazz, mname, atypes));
+    }
+
+    protected static Method findMethod (Class<?> clazz, MethodKey key)
+    {
+        Method cached = _methodCache.get(key);
+        if (cached != null) {
+            return cached;
+        }
+
       OUTER:
         for (Method method : clazz.getDeclaredMethods()) {
             String cmname = method.getName();
@@ -696,23 +713,24 @@ public class RT
             if (isMangled) {
                 cmname = cmname.substring(0, cmname.length()-MM_SUFFIX.length());
             }
-            if (!cmname.equals(mname)) {
+            if (!cmname.equals(key.name)) {
                 continue;
             }
             Class<?>[] ptypes = method.getParameterTypes();
             int poff = isMangled ? ptypes.length/2 : 0;
-            if (ptypes.length - poff != atypes.length) {
+            if (ptypes.length - poff != key.atypes.length) {
                 continue;
             }
-            for (int ii = 0; ii < atypes.length; ii++) {
-                if (ptypes[ii+poff] != atypes[ii]) {
+            for (int ii = 0; ii < key.atypes.length; ii++) {
+                if (ptypes[ii+poff] != key.atypes[ii]) {
                     continue OUTER;
                 }
             }
+            _methodCache.put(key, method);
             return method;
         }
         Class<?> parent = clazz.getSuperclass();
-        return (parent == null) ? null : findMethod(parent, mname, atypes);
+        return (parent == null) ? null : findMethod(parent, key);
     }
 
     protected static class MethodData
@@ -1151,6 +1169,42 @@ public class RT
         }
         protected abstract Object coerce (Number value);
     }
+
+    protected static class MethodKey {
+        public final Class<?> clazz;
+        public final String name;
+        public final Class<?>[] atypes;
+        public MethodKey (Class<?> clazz, String name, Class<?>[] atypes) {
+            this.clazz = clazz;
+            this.name = name.intern();
+            this.atypes = atypes;
+        }
+
+        @Override public boolean equals (Object other) {
+            MethodKey okey = (MethodKey)other;
+            if (okey.clazz == clazz && okey.name == name && okey.atypes.length == atypes.length) {
+                for (int ii = 0, ll = atypes.length; ii < ll; ii++) {
+                    if (atypes[ii] != okey.atypes[ii]) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            return false;
+        }
+
+        @Override public int hashCode() {
+            int code = clazz.hashCode();
+            code = code * 31 + name.hashCode();
+            for (Class<?> atype : atypes) {
+                code = code * 31 + atype.hashCode();
+            }
+            return code;
+        }
+    }
+
+    protected static Map<MethodKey, Constructor<?>> _ctorCache = Maps.newHashMap();
+    protected static Map<MethodKey, Method> _methodCache = Maps.newHashMap();
 
     protected static final BiMap<Class<?>, Class<?>> WRAPPERS =
         ImmutableBiMap.<Class<?>, Class<?>>builder().
