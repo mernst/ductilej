@@ -20,6 +20,10 @@ public class OpsUtil
      */
     public static UnOps get (Object arg)
     {
+        // TODO: we probably want this check here, though it will hurt performance
+        // if (arg == null) {
+        //     throw new NullPointerException("Unary op (" + opcode + ") on null arg.");
+        // }
         return UNOPS.get(arg.getClass());
     }
 
@@ -29,6 +33,11 @@ public class OpsUtil
      */
     public static BinOps get (Object lhs, Object rhs)
     {
+        // TODO: we probably want this check here, though it will hurt performance
+        // if (lhs == null || rhs == null) {
+        //     throw new NullPointerException(
+        //         "Binary op (" + opcode + ") on null arg (lhs=" + lhs + ", rhs=" + rhs + ")");
+        // }
         return BINOPS.get(lhs.getClass()).get(rhs.getClass());
     }
 
