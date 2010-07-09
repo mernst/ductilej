@@ -45,7 +45,7 @@ public class InterfaceTest
             case ONE: return -1;
             case TWO: return -2;
             case FOUR: return -4;
-//             case MAX: return 0;
+            case MAX: return 0;
             case BYTE_TEST: return 1;
             default: return value;
             }
