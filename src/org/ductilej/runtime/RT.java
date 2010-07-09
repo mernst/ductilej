@@ -165,7 +165,7 @@ public class RT
         if (atypes != null) {
             Class<?> cclass = rclass;
             do {
-                m = findMethod(cclass, mname, atypes);
+                m = getMethod(cclass, mname, atypes);
                 if (m == null) {
                     if (!isInnerInNonStaticContext(cclass)) {
                         cclass = cclass.getEnclosingClass();
@@ -202,7 +202,7 @@ public class RT
     {
         // if we were able to resolve the method at compile time, the exact argument types will be
         // provided in atypes which we can use to precise and fast(er) method lookup
-        Method m = (atypes != null) ? findMethod(clazz, mname, atypes) :
+        Method m = (atypes != null) ? getMethod(clazz, mname, atypes) :
             // otherwise we've got to do an expensive search using the runtime argument types
             resolveMethod(clazz, mname, toArgTypes(args));
         return invoke(checkMethod(m, mname, clazz, args), null, args);
@@ -227,7 +227,7 @@ public class RT
         }
 
         try {
-            Field field = findField(clazz, fname);
+            Field field = getField(clazz, fname);
             field.setAccessible(true);
             return field.get(target);
         } catch (NoSuchFieldException nsfe) {
@@ -247,7 +247,7 @@ public class RT
         }
 
         try {
-            Field field = findField(target.getClass(), fname);
+            Field field = getField(target.getClass(), fname);
             field.setAccessible(true);
             field.set(target, value);
             return value; // TODO: is the result of assignment the coerced type? in that case we
@@ -605,6 +605,20 @@ public class RT
      *
      * @throws NoSuchFieldException if the field could not be found.
      */
+    protected static Field getField (Class<?> clazz, String fname)
+        throws NoSuchFieldException
+    {
+        FieldKey key = new FieldKey(clazz, fname);
+        Field field = _fieldCache.get(key);
+        if (field == null) {
+            _fieldCache.put(key, field = findField(clazz, fname));
+        }
+        return field;
+    }
+
+    /**
+     * A helper for {@link #getField}.
+     */
     protected static Field findField (Class<?> clazz, String fname)
         throws NoSuchFieldException
     {
@@ -694,18 +708,23 @@ public class RT
     /**
      * A helper for {@link #invoke(Method,Object,Object[])}.
      */
-    protected static Method findMethod (Class<?> clazz, String mname, Class<?>[] atypes)
+    protected static Method getMethod (Class<?> clazz, String mname, Class<?>[] atypes)
     {
-        return findMethod(clazz, new MethodKey(clazz, mname, atypes));
+        MethodKey key = new MethodKey(clazz, mname, atypes);
+        Method method = _methodCache.get(key);
+        if (method == null) {
+            // find method may return null, in which case we'll cache that this method was
+            // unresolvable and immediately return so on future invocations
+            _methodCache.put(key, method = findMethod(clazz, mname, atypes));
+        }
+        return method;
     }
 
-    protected static Method findMethod (Class<?> clazz, MethodKey key)
+    /**
+     * A helper for {@link #getMethod}.
+     */
+    protected static Method findMethod (Class<?> clazz, String mname, Class<?>[] atypes)
     {
-        Method cached = _methodCache.get(key);
-        if (cached != null) {
-            return cached;
-        }
-
       OUTER:
         for (Method method : clazz.getDeclaredMethods()) {
             String cmname = method.getName();
@@ -713,24 +732,23 @@ public class RT
             if (isMangled) {
                 cmname = cmname.substring(0, cmname.length()-MM_SUFFIX.length());
             }
-            if (!cmname.equals(key.name)) {
+            if (!cmname.equals(mname)) {
                 continue;
             }
             Class<?>[] ptypes = method.getParameterTypes();
             int poff = isMangled ? ptypes.length/2 : 0;
-            if (ptypes.length - poff != key.atypes.length) {
+            if (ptypes.length - poff != atypes.length) {
                 continue;
             }
-            for (int ii = 0; ii < key.atypes.length; ii++) {
-                if (ptypes[ii+poff] != key.atypes[ii]) {
+            for (int ii = 0; ii < atypes.length; ii++) {
+                if (ptypes[ii+poff] != atypes[ii]) {
                     continue OUTER;
                 }
             }
-            _methodCache.put(key, method);
             return method;
         }
         Class<?> parent = clazz.getSuperclass();
-        return (parent == null) ? null : findMethod(parent, key);
+        return (parent == null) ? null : findMethod(parent, mname, atypes);
     }
 
     protected static class MethodData
@@ -1174,10 +1192,19 @@ public class RT
         public final Class<?> clazz;
         public final String name;
         public final Class<?>[] atypes;
+
         public MethodKey (Class<?> clazz, String name, Class<?>[] atypes) {
             this.clazz = clazz;
             this.name = name.intern();
             this.atypes = atypes;
+
+            // precompute our hashcode as it is non-trivial to compute
+            int code = clazz.hashCode();
+            code = code * 31 + name.hashCode();
+            for (Class<?> atype : atypes) {
+                code = code * 31 + atype.hashCode();
+            }
+            _hashCode = code;
         }
 
         @Override public boolean equals (Object other) {
@@ -1194,17 +1221,34 @@ public class RT
         }
 
         @Override public int hashCode() {
-            int code = clazz.hashCode();
-            code = code * 31 + name.hashCode();
-            for (Class<?> atype : atypes) {
-                code = code * 31 + atype.hashCode();
-            }
-            return code;
+            return _hashCode;
+        }
+
+        protected final int _hashCode;
+    }
+
+    protected static class FieldKey {
+        public final Class<?> clazz;
+        public final String name;
+
+        public FieldKey (Class<?> clazz, String name) {
+            this.clazz = clazz;
+            this.name = name.intern();
+        }
+
+        @Override public boolean equals (Object other) {
+            FieldKey okey = (FieldKey)other;
+            return (okey.clazz == clazz && okey.name == name);
+        }
+
+        @Override public int hashCode() {
+            return clazz.hashCode() * 31 + name.hashCode();
         }
     }
 
     protected static Map<MethodKey, Constructor<?>> _ctorCache = Maps.newHashMap();
     protected static Map<MethodKey, Method> _methodCache = Maps.newHashMap();
+    protected static Map<FieldKey, Field> _fieldCache = Maps.newHashMap();
 
     protected static final BiMap<Class<?>, Class<?>> WRAPPERS =
         ImmutableBiMap.<Class<?>, Class<?>>builder().
