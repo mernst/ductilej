@@ -464,8 +464,7 @@ public class Detype extends PathedTreeTranslator
             break;
 
         default:
-            JCLiteral opcode = _tmaker.Literal(tree.getKind().toString());
-            result = callRT("binop", tree.pos, opcode, tree.lhs, tree.rhs);
+            result = binop(tree.pos, tree.getKind(), tree.lhs, tree.rhs);
             // Debug.log("Rewrote binop", "kind", tree.getKind(), "tp", tree.pos);
             break;
         }
@@ -1204,14 +1203,14 @@ public class Detype extends PathedTreeTranslator
 
     protected JCMethodInvocation unop (int pos, Tree.Kind op, JCExpression arg)
     {
-        JCLiteral opcode = _tmaker.at(pos).Literal(op.toString());
-        return callRT("unop", opcode.pos, opcode, arg);
+        return _tmaker.at(pos).Apply(
+            null, mkFA(RT.class.getName() + ".Unop." + op + ".invoke", pos), List.of(arg));
     }
 
     protected JCMethodInvocation binop (int pos, Tree.Kind op, JCExpression lhs, JCExpression rhs)
     {
-        JCLiteral opcode = _tmaker.at(pos).Literal(op.toString());
-        return callRT("binop", opcode.pos, opcode, lhs, rhs);
+        return _tmaker.at(pos).Apply(
+            null, mkFA(RT.class.getName() + ".Binop." + op + ".invoke", pos), List.of(lhs, rhs));
     }
 
     /**
