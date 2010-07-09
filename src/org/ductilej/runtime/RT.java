@@ -39,6 +39,187 @@ public class RT
     /** A suffix appended to signature mangled method names. */
     public static final String MM_SUFFIX = "$M";
 
+    /** Used to dispatch unary operations at runtime. */
+    public enum Unop {
+        UNARY_MINUS {
+            public Object invoke (Object arg) {
+                return OpsUtil.get(arg).minus(arg);
+            }
+        },
+        UNARY_PLUS {
+            public Object invoke (Object arg) {
+                return OpsUtil.get(arg).plus(arg);
+            }
+        },
+
+        BITWISE_COMPLEMENT {
+            public Object invoke (Object arg) {
+                return OpsUtil.get(arg).bitComp(arg);
+            }
+        },
+        LOGICAL_COMPLEMENT {
+            public Object invoke (Object arg) {
+                return OpsUtil.get(arg).logicalComp(arg);
+            }
+        },
+
+        // the side effects for these operations are handled by rewriting the AST, so they simply
+        // need to return an incremented or decremented value
+        PREFIX_INCREMENT {
+            public Object invoke (Object arg) {
+                return OpsUtil.get(arg).increment(arg);
+            }
+        },
+        POSTFIX_INCREMENT {
+            public Object invoke (Object arg) {
+                return OpsUtil.get(arg).increment(arg);
+            }
+        },
+        PREFIX_DECREMENT {
+            public Object invoke (Object arg) {
+                return OpsUtil.get(arg).decrement(arg);
+            }
+        },
+        POSTFIX_DECREMENT {
+            public Object invoke (Object arg) {
+                return OpsUtil.get(arg).decrement(arg);
+            }
+        };
+
+        public Object invoke (Object arg) {
+            throw new IllegalArgumentException(this + " not supported.");
+        }
+    }
+
+    /** Used to dispatch binary operations at runtime. */
+    public enum Binop {
+        EQUAL_TO {
+            public Object invoke (Object lhs, Object rhs) {
+                return OpsUtil.isEqualTo(lhs, rhs);
+            }
+        },
+        NOT_EQUAL_TO {
+            public Object invoke (Object lhs, Object rhs) {
+                return !OpsUtil.isEqualTo(lhs, rhs);
+            }
+        },
+
+        PLUS {
+            public Object invoke (Object lhs, Object rhs) {
+                if (lhs instanceof String || rhs instanceof String) {
+                    return String.valueOf(lhs) + String.valueOf(rhs);
+                } else {
+                    return OpsUtil.get(lhs, rhs).plus(lhs, rhs);
+                }
+            }
+        },
+        MINUS {
+            public Object invoke (Object lhs, Object rhs) {
+                return OpsUtil.get(lhs, rhs).minus(lhs, rhs);
+            }
+        },
+        MULTIPLY {
+            public Object invoke (Object lhs, Object rhs) {
+                return OpsUtil.get(lhs, rhs).multiply(lhs, rhs);
+            }
+        },
+        DIVIDE {
+            public Object invoke (Object lhs, Object rhs) {
+                return OpsUtil.get(lhs, rhs).divide(lhs, rhs);
+            }
+        },
+        REMAINDER {
+            public Object invoke (Object lhs, Object rhs) {
+                return OpsUtil.get(lhs, rhs).remainder(lhs, rhs);
+            }
+        },
+
+        LESS_THAN {
+            public Object invoke (Object lhs, Object rhs) {
+                return OpsUtil.get(lhs, rhs).lessThan(lhs, rhs);
+            }
+        },
+        GREATER_THAN {
+            public Object invoke (Object lhs, Object rhs) {
+                return OpsUtil.get(lhs, rhs).greaterThan(lhs, rhs);
+            }
+        },
+        LESS_THAN_EQUAL {
+            public Object invoke (Object lhs, Object rhs) {
+                return OpsUtil.get(lhs, rhs).lessThanEq(lhs, rhs);
+            }
+        },
+        GREATER_THAN_EQUAL {
+            public Object invoke (Object lhs, Object rhs) {
+                return OpsUtil.get(lhs, rhs).greaterThanEq(lhs, rhs);
+            }
+        },
+            
+        OR {
+            public Object invoke (Object lhs, Object rhs) {
+                return OpsUtil.get(lhs, rhs).bitOr(lhs, rhs);
+            }
+        },
+        AND {
+            public Object invoke (Object lhs, Object rhs) {
+                return OpsUtil.get(lhs, rhs).bitAnd(lhs, rhs);
+            }
+        },
+        XOR {
+            public Object invoke (Object lhs, Object rhs) {
+                return OpsUtil.get(lhs, rhs).bitXor(lhs, rhs);
+            }
+        },
+
+        LEFT_SHIFT {
+            public Object invoke (Object lhs, Object rhs) {
+                return OpsUtil.get(lhs, rhs).leftShift(lhs, rhs);
+            }
+        },
+        RIGHT_SHIFT {
+            public Object invoke (Object lhs, Object rhs) {
+                return OpsUtil.get(lhs, rhs).rightShift(lhs, rhs);
+            }
+        },
+        UNSIGNED_RIGHT_SHIFT {
+            public Object invoke (Object lhs, Object rhs) {
+                return OpsUtil.get(lhs, rhs).unsignedRightShift(lhs, rhs);
+            }
+        },
+
+        CONDITIONAL_AND {
+            public Object invoke (Object lhs, Object rhs) {
+                throw new IllegalArgumentException("&& should not be lifted");
+            }
+        },
+        CONDITIONAL_OR {
+            public Object invoke (Object lhs, Object rhs) {
+                throw new IllegalArgumentException("|| should not be lifted");
+            }
+        };
+
+        // conditional and and or are not detyped
+        // CONDITIONAL_AND
+        // CONDITIONAL_OR
+
+        // the assignment operators are transformed into non-assignment versions by the detyper
+        // MULTIPLY_ASSIGNMENT
+        // DIVIDE_ASSIGNMENT
+        // REMAINDER_ASSIGNMENT
+        // PLUS_ASSIGNMENT
+        // MINUS_ASSIGNMENT
+        // LEFT_SHIFT_ASSIGNMENT
+        // RIGHT_SHIFT_ASSIGNMENT
+        // UNSIGNED_RIGHT_SHIFT_ASSIGNMENT
+        // AND_ASSIGNMENT
+        // XOR_ASSIGNMENT
+        // OR_ASSIGNMENT
+
+        public Object invoke (Object lhs, Object rhs) {
+            throw new IllegalArgumentException(this + " not supported.");
+        }
+    }
+
     /**
      * Invokes the constructor of the supplied class, with the specified arguments and returns the
      * newly created instance.
@@ -258,122 +439,6 @@ public class RT
         } catch (IllegalAccessException iae) {
             throw new WrappedException(iae);
         }
-    }
-
-    /**
-     * Executes the specified operation on the supplied argument.
-     *
-     * @param opcode the string value of com.sun.source.tree.Tree.Kind for the operator in
-     * question.
-     */
-    public static Object unop (String opcode, Object arg)
-    {
-        if (arg == null) {
-            throw new NullPointerException("Unary op (" + opcode + ") on null arg.");
-        }
-
-        if ("UNARY_MINUS".equals(opcode)) {
-            return OpsUtil.get(arg).minus(arg);
-        } else if ("UNARY_PLUS".equals(opcode)) {
-            return OpsUtil.get(arg).plus(arg);
-
-        } else if ("BITWISE_COMPLEMENT".equals(opcode)) {
-            return OpsUtil.get(arg).bitComp(arg);
-        } else if ("LOGICAL_COMPLEMENT".equals(opcode)) {
-            return OpsUtil.get(arg).logicalComp(arg);
-
-        // the side effects for these operations are handled by rewriting the AST, so they simply
-        // need to return an incremented or decremented value
-        } else if ("PREFIX_INCREMENT".equals(opcode)) {
-            return OpsUtil.get(arg).increment(arg);
-        } else if ("POSTFIX_INCREMENT".equals(opcode)) {
-            return OpsUtil.get(arg).increment(arg);
-        } else if ("PREFIX_DECREMENT".equals(opcode)) {
-            return OpsUtil.get(arg).decrement(arg);
-        } else if ("POSTFIX_DECREMENT".equals(opcode)) {
-            return OpsUtil.get(arg).decrement(arg);
-        }
-
-        throw new IllegalArgumentException("Unsupported unary operator: " + opcode);
-    }
-
-    /**
-     * Executes the specified operation on the supplied left- and right-hand-sides.
-     *
-     * @param opcode the string value of com.sun.source.tree.Tree.Kind for the operator in
-     * question.
-     */
-    public static Object binop (String opcode, Object lhs, Object rhs)
-    {
-        // these are legal on null left and right hand sides
-        if ("EQUAL_TO".equals(opcode)) {
-            return OpsUtil.isEqualTo(lhs, rhs);
-        } else if ("NOT_EQUAL_TO".equals(opcode)) {
-            return !OpsUtil.isEqualTo(lhs, rhs);
-        } else if ("PLUS".equals(opcode) && (lhs instanceof String || rhs instanceof String)) {
-            return String.valueOf(lhs) + String.valueOf(rhs);
-        }
-
-        if (lhs == null || rhs == null) {
-            throw new NullPointerException(
-                "Binary op (" + opcode + ") on null arg (lhs=" + lhs + ", rhs=" + rhs + ")");
-        }
-
-        // TODO: transform this into a hash lookup
-        if ("PLUS".equals(opcode)) {
-            return OpsUtil.get(lhs, rhs).plus(lhs, rhs);
-        } else if ("MINUS".equals(opcode)) {
-            return OpsUtil.get(lhs, rhs).minus(lhs, rhs);
-        } else if ("MULTIPLY".equals(opcode)) {
-            return OpsUtil.get(lhs, rhs).multiply(lhs, rhs);
-        } else if ("DIVIDE".equals(opcode)) {
-            return OpsUtil.get(lhs, rhs).divide(lhs, rhs);
-        } else if ("REMAINDER".equals(opcode)) {
-            return OpsUtil.get(lhs, rhs).remainder(lhs, rhs);
-
-        } else if ("LESS_THAN".equals(opcode)) {
-            return OpsUtil.get(lhs, rhs).lessThan(lhs, rhs);
-        } else if ("GREATER_THAN".equals(opcode)) {
-            return OpsUtil.get(lhs, rhs).greaterThan(lhs, rhs);
-        } else if ("LESS_THAN_EQUAL".equals(opcode)) {
-            return OpsUtil.get(lhs, rhs).lessThanEq(lhs, rhs);
-        } else if ("GREATER_THAN_EQUAL".equals(opcode)) {
-            return OpsUtil.get(lhs, rhs).greaterThanEq(lhs, rhs);
-
-        } else if ("OR".equals(opcode)) {
-            return OpsUtil.get(lhs, rhs).bitOr(lhs, rhs);
-        } else if ("AND".equals(opcode)) {
-            return OpsUtil.get(lhs, rhs).bitAnd(lhs, rhs);
-        } else if ("XOR".equals(opcode)) {
-            return OpsUtil.get(lhs, rhs).bitXor(lhs, rhs);
-
-        } else if ("LEFT_SHIFT".equals(opcode)) {
-            return OpsUtil.get(lhs, rhs).leftShift(lhs, rhs);
-        } else if ("RIGHT_SHIFT".equals(opcode)) {
-            return OpsUtil.get(lhs, rhs).rightShift(lhs, rhs);
-        } else if ("UNSIGNED_RIGHT_SHIFT".equals(opcode)) {
-            return OpsUtil.get(lhs, rhs).unsignedRightShift(lhs, rhs);
-
-        } else if ("CONDITIONAL_AND".equals(opcode)) {
-            throw new IllegalArgumentException("&& should not be lifted");
-        } else if ("CONDITIONAL_OR".equals(opcode)) {
-            throw new IllegalArgumentException("|| should not be lifted");
-        }
-
-// the assignment operators are transformed into non-assignment versions by the detyper
-//         MULTIPLY_ASSIGNMENT(CompoundAssignmentTree.class),
-//         DIVIDE_ASSIGNMENT(CompoundAssignmentTree.class),
-//         REMAINDER_ASSIGNMENT(CompoundAssignmentTree.class),
-//         PLUS_ASSIGNMENT(CompoundAssignmentTree.class),
-//         MINUS_ASSIGNMENT(CompoundAssignmentTree.class),
-//         LEFT_SHIFT_ASSIGNMENT(CompoundAssignmentTree.class),
-//         RIGHT_SHIFT_ASSIGNMENT(CompoundAssignmentTree.class),
-//         UNSIGNED_RIGHT_SHIFT_ASSIGNMENT(CompoundAssignmentTree.class),
-//         AND_ASSIGNMENT(CompoundAssignmentTree.class),
-//         XOR_ASSIGNMENT(CompoundAssignmentTree.class),
-//         OR_ASSIGNMENT(CompoundAssignmentTree.class),
-
-        throw new IllegalArgumentException("Unsupported binary op: " + opcode);
     }
 
     /**
