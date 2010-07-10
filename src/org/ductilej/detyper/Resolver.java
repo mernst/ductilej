@@ -632,7 +632,8 @@ public class Resolver
             Symbol rsym = resolveSymbol(env, expr, Kinds.VAL|Kinds.TYP);
             return (rsym.getKind() == ElementKind.CLASS) ? rsym : null;
         case JCTree.APPLY:
-            return null;
+        case JCTree.INDEXED:
+            return null; // these are necessarily non-static receivers
         default:
             Debug.warn("Unable to infer static receivership", "expr", expr,
                        "etype", expr.getClass().getName());
