@@ -846,12 +846,12 @@ public class RT
                 continue;
             }
 
-            int match = argTypeMatch(
+            Match match = argTypeMatch(
                 Arrays.asList(ptypes), isMangled, method.isVarArgs(), atypes);
-            if (match == 0) {
+            if (match == Match.NONE) {
                 // no match, keep looking
 
-            } else if (match > mdata.match) {
+            } else if (match.isCloser(mdata.match)) {
                 mdata.best = method;
                 mdata.match = match;
 
@@ -961,7 +961,7 @@ public class RT
         Class<?> clazz, boolean needsOuterThis, boolean isMangled, Object[] args)
     {
         Constructor<?> best = null;
-        int bestMatch = 0;
+        Match bestMatch = Match.NONE;
 
         Class<?>[] atypes = toArgTypes(args);
         for (Constructor<?> ctor : clazz.getDeclaredConstructors()) {
@@ -975,11 +975,11 @@ public class RT
                 continue;
             }
 
-            int match = argTypeMatch(ptypes, isMangled, ctor.isVarArgs(), atypes);
-            if (match == 0) {
+            Match match = argTypeMatch(ptypes, isMangled, ctor.isVarArgs(), atypes);
+            if (match == Match.NONE) {
                 // no match, keep looking
 
-            } else if (match > bestMatch) {
+            } else if (match.isCloser(bestMatch)) {
                 best = ctor;
                 bestMatch = match;
 
@@ -1005,13 +1005,13 @@ public class RT
         return (pcount == acount) || (isVarArgs && (pcount-1) <= acount);
     }
 
-    protected static int argTypeMatch (
+    protected static Match argTypeMatch (
         List<Class<?>> ptypes, boolean isMangled, boolean isVarArgs, Class<?>[] atypes)
     {
         // determine whether all fixed arity arguments match
         int pcount = isMangled ? ptypes.size()/2 : ptypes.size();
         int fpcount = isVarArgs ? pcount-1 : pcount, poff = isMangled ? pcount : 0;
-        int match = 3; // assume exact match
+        Match match = Match.EXACT; // assume exact match
         for (int ii = 0; ii < fpcount; ii++) {
             Class<?> atype = atypes[ii];
             if (atype == null) {
@@ -1022,15 +1022,19 @@ public class RT
                 continue; // exact match, no conversion demotion
             }
             if (ptype.isAssignableFrom(atype)) {
-                match = Math.min(2, match); // reduce to subtype conversion
+                match = match.lesser(Match.SUBTYPE); // reduce to subtype conversion
                 continue;
             }
             if (boxType(ptype).equals(atype) ||
                 (ptype.isPrimitive() && COERCIONS.containsEntry(atype, ptype))) {
-                match = Math.min(1, match); // reduce to boxing conversion
+                match = match.lesser(Match.CONVERT); // reduce to boxing/widening conversion
                 continue;
             }
-            return 0; // argument mismatch
+            if (ptype.isInterface()) {
+                match = match.lesser(Match.PROXIED); // we'll proxy this interface
+                continue;
+            }
+            return Match.NONE; // argument mismatch
         }
 
 // TODO: should we leave this out, or is there some better check we can do given that detyped
@@ -1237,10 +1241,24 @@ public class RT
     }
 
     /** Used to resolve the closest matching method or ctor. */
+    protected enum Match {
+        // these must be in order of precedence from lowest to highest
+        NONE, PROXIED, CONVERT, SUBTYPE, EXACT;
+
+        public boolean isCloser (Match other) {
+            return ordinal() > other.ordinal();
+        }
+
+        public Match lesser (Match other) {
+            return ordinal() < other.ordinal() ? this : other;
+        }
+    };
+
+    /** Used to resolve the closest matching method or ctor. */
     protected static class MethodData
     {
         public Method best;
-        public int match;
+        public Match match = Match.NONE;
     }
 
     /** Used to coerce primitive types. */
