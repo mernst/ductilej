@@ -816,12 +816,6 @@ public class RT
         return (parent == null) ? null : findMethod(parent, mname, atypes);
     }
 
-    protected static class MethodData
-    {
-        public Method best;
-        public boolean typeMatch;
-    }
-
     /**
      * Resolves the best matching method given the supplied runtime argument types. This is used
      * for methods that could not be resolved at compile time and thus for which we do not have to
@@ -852,14 +846,16 @@ public class RT
                 continue;
             }
 
-            boolean typeMatch = argTypeMatch(
+            int match = argTypeMatch(
                 Arrays.asList(ptypes), isMangled, method.isVarArgs(), atypes);
+            if (match == 0) {
+                // no match, keep looking
 
-            if ((mdata.best == null) || (typeMatch && !mdata.typeMatch)) {
+            } else if (match > mdata.match) {
                 mdata.best = method;
-                mdata.typeMatch = typeMatch;
+                mdata.match = match;
 
-            } else if (typeMatch && mdata.typeMatch) {
+            } else if (match == mdata.match) {
                 // if the argument types are exactly the same and the declaring class differs,
                 // we're just seeing a parent method that has been overridden by our best match
                 if (!mdata.best.getDeclaringClass().equals(clazz) &&
@@ -869,8 +865,7 @@ public class RT
                 throw new AmbiguousMethodError(
                     Debug.format("Two methods (or more) with matching types", "mname", mname,
                                  "atypes", atypes, "m1", mdata.best, "m2", method));
-
-            } // else: 'best' is a type match and the current method is not, so we skip it
+            } // else: keep our existing match, it's closer
         }
 
         Class<?> parent = clazz.getSuperclass();
@@ -966,7 +961,7 @@ public class RT
         Class<?> clazz, boolean needsOuterThis, boolean isMangled, Object[] args)
     {
         Constructor<?> best = null;
-        boolean bestTypeMatch = false;
+        int bestMatch = 0;
 
         Class<?>[] atypes = toArgTypes(args);
         for (Constructor<?> ctor : clazz.getDeclaredConstructors()) {
@@ -980,18 +975,19 @@ public class RT
                 continue;
             }
 
-            boolean typeMatch = argTypeMatch(ptypes, isMangled, ctor.isVarArgs(), atypes);
+            int match = argTypeMatch(ptypes, isMangled, ctor.isVarArgs(), atypes);
+            if (match == 0) {
+                // no match, keep looking
 
-            if (best == null || (typeMatch && !bestTypeMatch)) {
+            } else if (match > bestMatch) {
                 best = ctor;
+                bestMatch = match;
 
-            } else if (typeMatch && bestTypeMatch) {
+            } else if (match == bestMatch) {
                 throw new AmbiguousMethodError(
-                    Debug.format("Two ctors (or more) with matching types",
-                                 "clazz", clazz.getName(), "atypes", atypes,
-                                 "c1", best, "c2", ctor));
-
-            } // else: 'best' is a type match and the current method is not, so we skip it
+                    Debug.format("Two (or more) matching ctors", "clazz", clazz.getName(),
+                                 "atypes", atypes, "c1", best, "c2", ctor));
+            } // else: existing match is better, move it along
         }
 
         return best;
@@ -1009,17 +1005,32 @@ public class RT
         return (pcount == acount) || (isVarArgs && (pcount-1) <= acount);
     }
 
-    protected static boolean argTypeMatch (
+    protected static int argTypeMatch (
         List<Class<?>> ptypes, boolean isMangled, boolean isVarArgs, Class<?>[] atypes)
     {
-        // make sure all fixed arity arguments match
+        // determine whether all fixed arity arguments match
         int pcount = isMangled ? ptypes.size()/2 : ptypes.size();
         int fpcount = isVarArgs ? pcount-1 : pcount, poff = isMangled ? pcount : 0;
+        int match = 3; // assume exact match
         for (int ii = 0; ii < fpcount; ii++) {
-            Class<?> ptype = /*boxType(*/ptypes.get(poff + ii)/*)*/;
-            if (atypes[ii] != null && !isAssignableFrom(ptype, atypes[ii])) {
-                return false;
+            Class<?> atype = atypes[ii];
+            if (atype == null) {
+                continue;
             }
+            Class<?> ptype = ptypes.get(poff + ii);
+            if (atype == ptype) {
+                continue; // exact match, no conversion demotion
+            }
+            if (ptype.isAssignableFrom(atype)) {
+                match = Math.min(2, match); // reduce to subtype conversion
+                continue;
+            }
+            if (boxType(ptype).equals(atype) ||
+                (ptype.isPrimitive() && COERCIONS.containsEntry(atype, ptype))) {
+                match = Math.min(1, match); // reduce to boxing conversion
+                continue;
+            }
+            return 0; // argument mismatch
         }
 
 // TODO: should we leave this out, or is there some better check we can do given that detyped
@@ -1035,15 +1046,7 @@ public class RT
 //                 }
 //             }
 //         }
-        return true;
-    }
-
-    protected static boolean isAssignableFrom (Class<?> ptype, Class<?> atype)
-    {
-        return ptype.isAssignableFrom(atype) || // widening reference conversion
-            boxType(ptype).equals(atype) ||     // boxing conversion
-            (ptype.isPrimitive() &&             // widening primitve conversion
-             COERCIONS.containsEntry(atype, ptype));
+        return match;
     }
 
     /**
@@ -1231,6 +1234,13 @@ public class RT
         @Override public String toString () {
             return "(" + left + "," + right + ")";
         }
+    }
+
+    /** Used to resolve the closest matching method or ctor. */
+    protected static class MethodData
+    {
+        public Method best;
+        public int match;
     }
 
     /** Used to coerce primitive types. */
