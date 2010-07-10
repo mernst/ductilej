@@ -1,37 +1,150 @@
 //
 // $Id$
 
-package org.ductilej.runtime.ops;
+package org.ductilej.runtime;
 
 import java.util.Map;
 
 import com.google.common.collect.ImmutableMap;
 
-import org.ductilej.runtime.BinOps;
-import org.ductilej.runtime.UnOps;
+import org.ductilej.runtime.ops.*;
 
 /**
- * Provides access to the myriad registered operations.
+ * Used to dispatch binary operations at runtime.
  */
-public class OpsUtil
-{
+public enum Binop {
+    EQUAL_TO {
+        public Object invoke (Object lhs, Object rhs) {
+            return isEqualTo(lhs, rhs);
+        }
+    },
+    NOT_EQUAL_TO {
+        public Object invoke (Object lhs, Object rhs) {
+            return !isEqualTo(lhs, rhs);
+        }
+    },
+
+    PLUS {
+        public Object invoke (Object lhs, Object rhs) {
+            if (lhs instanceof String || rhs instanceof String) {
+                return String.valueOf(lhs) + String.valueOf(rhs);
+            } else {
+                return get(lhs, rhs).plus(lhs, rhs);
+            }
+        }
+    },
+    MINUS {
+        public Object invoke (Object lhs, Object rhs) {
+            return get(lhs, rhs).minus(lhs, rhs);
+        }
+    },
+    MULTIPLY {
+        public Object invoke (Object lhs, Object rhs) {
+            return get(lhs, rhs).multiply(lhs, rhs);
+        }
+    },
+    DIVIDE {
+        public Object invoke (Object lhs, Object rhs) {
+            return get(lhs, rhs).divide(lhs, rhs);
+        }
+    },
+    REMAINDER {
+        public Object invoke (Object lhs, Object rhs) {
+            return get(lhs, rhs).remainder(lhs, rhs);
+        }
+    },
+
+    LESS_THAN {
+        public Object invoke (Object lhs, Object rhs) {
+            return get(lhs, rhs).lessThan(lhs, rhs);
+        }
+    },
+    GREATER_THAN {
+        public Object invoke (Object lhs, Object rhs) {
+            return get(lhs, rhs).greaterThan(lhs, rhs);
+        }
+    },
+    LESS_THAN_EQUAL {
+        public Object invoke (Object lhs, Object rhs) {
+            return get(lhs, rhs).lessThanEq(lhs, rhs);
+        }
+    },
+    GREATER_THAN_EQUAL {
+        public Object invoke (Object lhs, Object rhs) {
+            return get(lhs, rhs).greaterThanEq(lhs, rhs);
+        }
+    },
+        
+    OR {
+        public Object invoke (Object lhs, Object rhs) {
+            return get(lhs, rhs).bitOr(lhs, rhs);
+        }
+    },
+    AND {
+        public Object invoke (Object lhs, Object rhs) {
+            return get(lhs, rhs).bitAnd(lhs, rhs);
+        }
+    },
+    XOR {
+        public Object invoke (Object lhs, Object rhs) {
+            return get(lhs, rhs).bitXor(lhs, rhs);
+        }
+    },
+
+    LEFT_SHIFT {
+        public Object invoke (Object lhs, Object rhs) {
+            return get(lhs, rhs).leftShift(lhs, rhs);
+        }
+    },
+    RIGHT_SHIFT {
+        public Object invoke (Object lhs, Object rhs) {
+            return get(lhs, rhs).rightShift(lhs, rhs);
+        }
+    },
+    UNSIGNED_RIGHT_SHIFT {
+        public Object invoke (Object lhs, Object rhs) {
+            return get(lhs, rhs).unsignedRightShift(lhs, rhs);
+        }
+    },
+
+    CONDITIONAL_AND {
+        public Object invoke (Object lhs, Object rhs) {
+            throw new IllegalArgumentException("&& should not be lifted");
+        }
+    },
+    CONDITIONAL_OR {
+        public Object invoke (Object lhs, Object rhs) {
+            throw new IllegalArgumentException("|| should not be lifted");
+        }
+    };
+
+    // conditional and and or are not detyped
+    // CONDITIONAL_AND
+    // CONDITIONAL_OR
+
+    // the assignment operators are transformed into non-assignment versions by the detyper
+    // MULTIPLY_ASSIGNMENT
+    // DIVIDE_ASSIGNMENT
+    // REMAINDER_ASSIGNMENT
+    // PLUS_ASSIGNMENT
+    // MINUS_ASSIGNMENT
+    // LEFT_SHIFT_ASSIGNMENT
+    // RIGHT_SHIFT_ASSIGNMENT
+    // UNSIGNED_RIGHT_SHIFT_ASSIGNMENT
+    // AND_ASSIGNMENT
+    // XOR_ASSIGNMENT
+    // OR_ASSIGNMENT
+
     /**
-     * Returns the {@link UnOps} instance appropriate for the supplied expression argument type.
+     * Executes this operation.
      */
-    public static UnOps get (Object arg)
-    {
-        // TODO: we probably want this check here, though it will hurt performance
-        // if (arg == null) {
-        //     throw new NullPointerException("Unary op (" + opcode + ") on null arg.");
-        // }
-        return UNOPS.get(arg.getClass());
-    }
+    public abstract Object invoke (Object lhs, Object rhs);
 
     /**
      * Returns the {@link BinOps} instance appropriate for the supplied left- and right-hand-sides
      * of a binary expression.
      */
-    public static BinOps get (Object lhs, Object rhs)
+    protected static BinOps get (Object lhs, Object rhs)
     {
         // TODO: we probably want this check here, though it will hurt performance
         // if (lhs == null || rhs == null) {
@@ -46,7 +159,7 @@ public class OpsUtil
      * implicit coercions may be performed on them as appropriate. If either instance is not a
      * coercible primitive type (non-boolean), reference equality is returned.
      */
-    public static boolean isEqualTo (Object lhs, Object rhs)
+    protected static boolean isEqualTo (Object lhs, Object rhs)
     {
         if (lhs != null && rhs != null) {
             Map<Class<?>, BinOps> omap = BINOPS.get(lhs.getClass());
@@ -59,17 +172,6 @@ public class OpsUtil
         }
         return (lhs == rhs);
     }
-
-    protected static final Map<Class<?>, UnOps> UNOPS = ImmutableMap.<Class<?>, UnOps>builder().
-        put(Boolean.class, new BooleanOps()).
-        put(Byte.class, new ByteOps()).
-        put(Short.class, new ShortOps()).
-        put(Character.class, new CharacterOps()).
-        put(Integer.class, new IntegerOps()).
-        put(Long.class, new LongOps()).
-        put(Float.class, new FloatOps()).
-        put(Double.class, new DoubleOps()).
-        build();
 
     protected static final Map<Class<?>, Map<Class<?>, BinOps>> BINOPS =
         ImmutableMap.<Class<?>, Map<Class<?>, BinOps>>builder().
