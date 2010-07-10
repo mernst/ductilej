@@ -144,14 +144,14 @@ public enum Binop {
      * Returns the {@link BinOps} instance appropriate for the supplied left- and right-hand-sides
      * of a binary expression.
      */
-    protected static BinOps get (Object lhs, Object rhs)
+    protected BinOps get (Object lhs, Object rhs)
     {
-        // TODO: we probably want this check here, though it will hurt performance
-        // if (lhs == null || rhs == null) {
-        //     throw new NullPointerException(
-        //         "Binary op (" + opcode + ") on null arg (lhs=" + lhs + ", rhs=" + rhs + ")");
-        // }
-        return BINOPS.get(lhs.getClass()).get(rhs.getClass());
+        try {
+            return BINOPS.get(lhs.getClass()).get(rhs.getClass());
+        } catch (NullPointerException npe) {
+            throw new NullPointerException(
+                "Binary op (" + this + ") on null arg (lhs=" + lhs + ", rhs=" + rhs + ")");
+        }
     }
 
     /**

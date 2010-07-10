@@ -67,13 +67,13 @@ public enum Unop
     /**
      * Returns the {@link UnOps} instance appropriate for the supplied expression argument type.
      */
-    protected static UnOps get (Object arg)
+    protected UnOps get (Object arg)
     {
-        // TODO: we probably want this check here, though it will hurt performance
-        // if (arg == null) {
-        //     throw new NullPointerException("Unary op (" + opcode + ") on null arg.");
-        // }
-        return UNOPS.get(arg.getClass());
+        try {
+            return UNOPS.get(arg.getClass());
+        } catch (NullPointerException npe) {
+            throw new NullPointerException("Unary op (" + this + ") on null arg.");
+        }
     }
 
     protected static final Map<Class<?>, UnOps> UNOPS = ImmutableMap.<Class<?>, UnOps>builder().
