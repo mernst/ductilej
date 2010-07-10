@@ -1250,7 +1250,7 @@ public class RT
         }
 
         public Match lesser (Match other) {
-            return ordinal() < other.ordinal() ? this : other;
+            return isCloser(other) ? other : this;
         }
     };
 
