@@ -35,9 +35,11 @@ import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Name; // Name.Table -> Names in OpenJDK
 import com.sun.tools.javac.util.Names;
 
+import org.ductilej.runtime.Binop;
 import org.ductilej.runtime.Debug;
 import org.ductilej.runtime.RT;
 import org.ductilej.runtime.Transformed;
+import org.ductilej.runtime.Unop;
 import org.ductilej.util.ASTUtil;
 import org.ductilej.util.PathedTreeTranslator;
 
@@ -1204,13 +1206,13 @@ public class Detype extends PathedTreeTranslator
     protected JCMethodInvocation unop (int pos, Tree.Kind op, JCExpression arg)
     {
         return _tmaker.at(pos).Apply(
-            null, mkFA(RT.class.getName() + ".Unop." + op + ".invoke", pos), List.of(arg));
+            null, mkFA(Unop.class.getName() + "." + op + ".invoke", pos), List.of(arg));
     }
 
     protected JCMethodInvocation binop (int pos, Tree.Kind op, JCExpression lhs, JCExpression rhs)
     {
         return _tmaker.at(pos).Apply(
-            null, mkFA(RT.class.getName() + ".Binop." + op + ".invoke", pos), List.of(lhs, rhs));
+            null, mkFA(Binop.class.getName() + "." + op + ".invoke", pos), List.of(lhs, rhs));
     }
 
     /**
