@@ -55,7 +55,7 @@ public class SuperCallTest
     public static class StringList extends ArrayList<String>
     {
         public StringList (Collection<String> values) {
-            super(values); // TODO: picks the wrong static overload
+            super(values);
         }
     }
 
@@ -81,8 +81,8 @@ public class SuperCallTest
 
         assertEquals("Because me", b.why("me"));
 
-//         StringList slist = new StringList(Collections.singleton("Hello"));
-//         assertEquals(slist.get(0), "Hello");
+        StringList slist = new StringList(Collections.singleton("Hello"));
+        assertEquals(slist.get(0), "Hello");
 
         TestButton button = new TestButton("test");
         assertEquals(button.getLabel(), "test");
