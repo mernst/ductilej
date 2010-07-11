@@ -1211,10 +1211,13 @@ public class Detype extends PathedTreeTranslator
     protected boolean isUndetypableMethod (JCMethodDecl meth)
     {
         Name mname = meth.getName();
+        int pcount = meth.params.size();
 
-        // avoid detyping constructors of classes that extend junit.framework.TestCase 
-        if (mname == _names.init &&
-            String.valueOf(_env.enclClass.sym.getSuperclass()).equals(JUNIT_TESTCASE)) {
+        // avoid detyping constructors of classes that extend junit.framework.TestCase that take a
+        // single String argument
+        if (mname == _names.init && pcount == 1 &&
+            String.valueOf(_env.enclClass.sym.getSuperclass()).equals(JUNIT_TESTCASE) &&
+            String.valueOf(meth.params.head.vartype).equals("String")) {
             return true;
         }
 
@@ -1670,10 +1673,12 @@ public class Detype extends PathedTreeTranslator
 
     protected static final int PUBSTATIC = Flags.PUBLIC | Flags.STATIC;
 
-    // some type names needed by inLibraryOverrider()
+    // type names needed by inLibraryOverrider()
     protected static final String OIN_STREAM = "java.io.ObjectInputStream";
     protected static final String OOUT_STREAM = "java.io.ObjectOutputStream";
     protected static final String STRING_ARRAY = "java.lang.String[]";
+
+    // type names needed by isUndetypableMethod()
     protected static final String JUNIT_TESTCASE = "junit.framework.TestCase";
 
     // whether definite assignment relaxation is enabled
