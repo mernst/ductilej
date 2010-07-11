@@ -227,6 +227,13 @@ public class Detype extends PathedTreeTranslator
             // tree.sym.flags_field = chk.checkFlags(tree.pos(), tree.mods.flags, m, tree);
         }
 
+        // in very limited circumstances (currently only for JUnit TestCase constructors) we leave
+        // things completely intact (detyping neither the arguments nor the method body)
+        if (isUndetypableMethod(tree)) {
+            result = tree;
+            return;
+        }
+
         // create a local environment for this method definition
         Env<DetypeContext> oenv = _env;
         _env = _env.dup(tree, oenv.info.dup(oenv.info.scope.dupUnshared()));
@@ -269,7 +276,7 @@ public class Detype extends PathedTreeTranslator
         // value carrying arguments for use in the method body:
         // void someLibMethod (String arg1, int arg2) { ... } becomes
         // void someLibMethod (String arg1$T, int arg2$T) {
-        //     Object arg1 = arg1$T, argg2 = arg2$T; ... }
+        //     Object arg1 = arg1$T, arg2 = arg2$T; ... }
         } else if (!tree.params.isEmpty() && tree.body != null) {
             // we'll never have to insert shadow arguments into a constructor because a constructor
             // is never a library signature overrider; this it will always be safe to jam
@@ -1133,17 +1140,15 @@ public class Detype extends PathedTreeTranslator
         Name mname = _env.enclMethod.getName();
         int pcount = _env.enclMethod.params.size();
         if (mname == _readObjectName && pcount == 1) {
-            return String.valueOf(_env.enclMethod.params.head.sym.type).equals(
-                "java.io.ObjectInputStream");
+            return String.valueOf(_env.enclMethod.params.head.sym.type).equals(OIN_STREAM);
 
         } else if (mname == _writeObjectName && pcount == 1) {
-            return String.valueOf(_env.enclMethod.params.head.sym.type).equals(
-                "java.io.ObjectOutputStream");
+            return String.valueOf(_env.enclMethod.params.head.sym.type).equals(OOUT_STREAM);
 
         // "public static void main (String[] args)" must also remain undetyped
         } else if (mname == _mainName && pcount == 1) {
             return (_env.enclMethod.sym.flags() & PUBSTATIC) == PUBSTATIC &&
-                String.valueOf(_env.enclMethod.params.head.sym.type).equals("java.lang.String[]");
+                String.valueOf(_env.enclMethod.params.head.sym.type).equals(STRING_ARRAY);
         }
 
         // other serialization methods exist: readObjectNoData, readReplace, writeReplace,
@@ -1201,6 +1206,19 @@ public class Detype extends PathedTreeTranslator
             // Debug.temp("Not const? " + expr, "type", expr.getClass().getName());
             return false;
         }
+    }
+
+    protected boolean isUndetypableMethod (JCMethodDecl meth)
+    {
+        Name mname = meth.getName();
+
+        // avoid detyping constructors of classes that extend junit.framework.TestCase 
+        if (mname == _names.init &&
+            String.valueOf(_env.enclClass.sym.getSuperclass()).equals(JUNIT_TESTCASE)) {
+            return true;
+        }
+
+        return false;
     }
 
     protected JCMethodInvocation unop (int pos, Tree.Kind op, JCExpression arg)
@@ -1651,6 +1669,12 @@ public class Detype extends PathedTreeTranslator
     protected static final Context.Key<Detype> DETYPE_KEY = new Context.Key<Detype>();
 
     protected static final int PUBSTATIC = Flags.PUBLIC | Flags.STATIC;
+
+    // some type names needed by inLibraryOverrider()
+    protected static final String OIN_STREAM = "java.io.ObjectInputStream";
+    protected static final String OOUT_STREAM = "java.io.ObjectOutputStream";
+    protected static final String STRING_ARRAY = "java.lang.String[]";
+    protected static final String JUNIT_TESTCASE = "junit.framework.TestCase";
 
     // whether definite assignment relaxation is enabled
     protected static final boolean RELAX_DEFASSIGN = true;
