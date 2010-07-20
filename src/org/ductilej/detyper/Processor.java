@@ -62,6 +62,7 @@ public class Processor extends AbstractProcessor
         Debug.DEBUG = "true".equalsIgnoreCase(procenv.getOptions().get(DEBUG_ARG));
         Resolver.WARNINGS = "true".equalsIgnoreCase(procenv.getOptions().get(WARNINGS_ARG));
         Detype.KEEPIFCS = "true".equalsIgnoreCase(procenv.getOptions().get(KEEPIFCS_ARG));
+        Detype.COERCEALL = "true".equalsIgnoreCase(procenv.getOptions().get(COERCEALL_ARG));
 
         Debug.log("Detyper running", "vers", procenv.getSourceVersion());
     }
@@ -131,4 +132,6 @@ public class Processor extends AbstractProcessor
     protected static final String WARNINGS_ARG = "org.ductilej.warnings";
     // -Aorg.ductilej.keepifcs=true disables removal of interface method declarations (TEMP)
     protected static final String KEEPIFCS_ARG = "org.ductilej.keepifcs";
+    // -Aorg.ductilej.coerceall=true makes primitive narrowing and format coercions implicit
+    protected static final String COERCEALL_ARG = "org.ductilej.coerceall";
 }

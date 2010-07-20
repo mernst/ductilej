@@ -51,6 +51,9 @@ public class Detype extends PathedTreeTranslator
     /** Whether or not to remove methods from interfaces (TEMP). */
     public static boolean KEEPIFCS = Boolean.getBoolean("org.ductilej.keepifcs");
 
+    /** Whether or not to use full coercions in place of implicit widenings. */
+    public static boolean COERCEALL = Boolean.getBoolean("org.ductilej.coerceall");
+
     /**
      * Returns the detyping tree translator.
      */
