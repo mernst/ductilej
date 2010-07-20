@@ -37,6 +37,9 @@ public class RT
     /** A suffix appended to signature mangled method names. */
     public static final String MM_SUFFIX = "$M";
 
+    /** Whether or not to use full coercions in place of implicit widenings. */
+    public static boolean COERCEALL = Boolean.getBoolean("org.ductilej.coerceall");
+
     /**
      * Invokes the constructor of the supplied class, with the specified arguments and returns the
      * newly created instance.
@@ -316,6 +319,26 @@ public class RT
     public static Object atIndex (Object array, Object index)
     {
         return Array.get(array, ((Number)index).intValue());
+    }
+
+    /**
+     * Performs primitive numeric widening on a value.
+     */
+    public static Object widen (Class<?> clazz, Object value)
+    {
+        if (COERCEALL) {
+            return coerce(clazz, value);
+        }
+        if (value == null) {
+            throw new NullPointerException("Cannot widen null to " + clazz.getName());
+        }
+        // TODO: differentiate between coercers and wideners
+        Coercer c = COERCERS.get(Tuple.create(value.getClass(), clazz));
+        if (c == null) {
+            throw new IllegalArgumentException(
+                "Cannot widen " + value.getClass().getName() + " to " + clazz.getName());
+        }
+        return c.coerce(value);
     }
 
     /**
@@ -961,7 +984,7 @@ public class RT
             // which is probably not desirable in the long term)
             int aii = ii-args.length;
             if (margs[aii] != null && margs[ii] != null) {
-                margs[aii] = coerce(ptypes.get(ii), margs[aii]);
+                margs[aii] = widen(ptypes.get(ii), margs[aii]);
             }
         }
         return margs;
