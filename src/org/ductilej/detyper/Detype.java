@@ -1218,10 +1218,13 @@ public class Detype extends PathedTreeTranslator
 
         // avoid detyping constructors of classes that extend junit.framework.TestCase that take a
         // single String argument
-        if (mname == _names.init && pcount == 1 &&
-            String.valueOf(_env.enclClass.sym.getSuperclass()).equals(JUNIT_TESTCASE) &&
-            String.valueOf(meth.params.head.vartype).equals("String")) {
-            return true;
+        for (Type t = _env.enclClass.sym.getSuperclass(); t != _syms.objectType && t.tsym != null;
+             t = ((ClassSymbol)t.tsym).getSuperclass()) {
+            if (mname == _names.init && pcount == 1 &&
+                String.valueOf(t).equals(JUNIT_TESTCASE) &&
+                String.valueOf(meth.params.head.vartype).equals("String")) {
+                return true;
+            }
         }
 
         return false;
