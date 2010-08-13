@@ -1,0 +1,347 @@
+<?xml version="1.0"?>
+<project name="detyper" default="compile" basedir=".">
+  <!-- project metadata -->
+  <property name="lib.name"     value="detyper"/>
+  <property name="doc.packages" value="org.ductilej.detyper.*"/>
+  <property name="doc.overview" value="org/ductilej/detyper/overview.html"/>
+
+  <!-- various directories used when building things -->
+  <property name="src.dir"     value="src"/>
+  <property name="deploy.dir"  value="dist"/>
+  <property name="classes.dir" value="${deploy.dir}/classes"/>
+  <property name="dtclass.dir" value="${deploy.dir}/dtclass"/>
+  <property name="dtdistclass.dir" value="${deploy.dir}/dtdistclass"/>
+  <property name="stclass.dir" value="${deploy.dir}/stclass"/>
+  <property name="javadoc.dir" value="${deploy.dir}/docs"/>
+  <property name="libs.dir"    value="lib"/>
+
+  <!-- read in the desired configuration local configuration -->
+  <property file="build.properties"/>
+  <!-- if build.properties does not specify javac.home we provide a default -->
+  <property name="javac.home"  value="${java.home}/.."/>
+  <property name="javac.jar"  value="tools.jar"/>
+
+  <!-- we need this for <if> -->
+  <taskdef resource="net/sf/antcontrib/antlib.xml">
+    <classpath><pathelement location="lib/ant-contrib.jar"/></classpath>
+  </taskdef>
+
+  <!-- defines our classpath -->
+  <path id="base.classpath">
+    <pathelement location="${classes.dir}"/>
+    <fileset dir="${deploy.dir}/lib" includes="*.jar"/>
+  </path>
+  <path id="build.classpath">
+    <path refid="base.classpath"/>
+  </path>
+  <path id="dist.classpath">
+    <pathelement location="${deploy.dir}/detyper.jar"/>
+    <pathelement location="${dtclass.dir}"/>
+    <path refid="build.classpath"/>
+  </path>
+
+  <!-- defines our runtime library dependencies -->
+  <fileset dir="${libs.dir}" id="runtime.libs">
+    <include name="guava.jar"/>
+  </fileset>
+
+  <!-- defines our build-time library dependencies -->
+  <fileset dir="${libs.dir}" id="build.libs">
+    <!--<include name="ant.jar"/>-->
+    <include name="junit4.jar"/>
+  </fileset>
+
+  <!-- prepares the application directories -->
+  <target name="prepare">
+    <mkdir dir="${deploy.dir}"/>
+    <mkdir dir="${deploy.dir}/lib"/>
+    <mkdir dir="${classes.dir}"/>
+    <mkdir dir="${javadoc.dir}"/>
+    <copy todir="${deploy.dir}/lib" flatten="true">
+      <fileset refid="build.libs"/>
+      <fileset refid="runtime.libs"/>
+    </copy>
+  </target>
+
+  <!-- cleans out the intermediate build files -->
+  <target name="clean" description="Cleans out build results.">
+    <delete dir="${classes.dir}"/>
+    <delete dir="${stclass.dir}"/>
+    <delete dir="${dtclass.dir}"/>
+    <delete dir="${deploy.dir}/docs"/>
+    <delete failonerror="false"><fileset dir="${deploy.dir}" includes="*.jar"/></delete>
+  </target>
+
+  <!-- wipes the entire build directory clean -->
+  <target name="distclean" description="Completely removes build result directory.">
+    <delete dir="${deploy.dir}"/>
+  </target>
+
+  <!-- builds the java class files -->
+  <target name="compile" depends="prepare" description="Compiles the code.">
+    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
+           source="1.6" target="1.6" encoding="utf-8"
+           srcdir="${src.dir}" destdir="${classes.dir}">
+      <classpath refid="build.classpath"/>
+      <exclude name="org/ductilej/tests/**"/>
+      <exclude name="org/ductilej/dtests/**"/>
+      <compilerarg value="-Xlint"/>
+      <compilerarg value="-Xlint:-serial"/>
+    </javac>
+  </target>
+
+  <!-- builds the javadoc documentation -->
+  <target name="javadoc" depends="prepare" description="Generates javadoc documentation.">
+    <javadoc windowtitle="${lib.name} API" doctitle="${lib.name} API"
+             overview="${src.dir}/${doc.overview}" destdir="${javadoc.dir}"
+             additionalparam="-breakiterator">
+      <packageset dir="${src.dir}">
+        <exclude name="org/ductilej/detyper/tests/**"/>
+      </packageset>
+      <classpath refid="build.classpath"/>
+      <link href="http://java.sun.com/javase/6/docs/api/"/>
+    </javadoc>
+  </target>
+
+  <!-- rebuilds everything -->
+  <target name="all" depends="clean,prepare,compile,javadoc,dist"
+          description="Cleans and rebuilds everything including documentation."/>
+
+  <!-- runs all test -->
+  <target name="all-tests" description="Runs all tests.">
+    <antcall target="stock-tests"/>
+    <antcall target="dist-tests"/>
+    <antcall target="tests"/>
+    <antcall target="dtests"/>
+  </target>
+
+  <!-- builds our distribution jar file -->
+  <target name="dist" depends="prepare,compile"
+          description="Compiles the code and builds our jar file.">
+    <taskdef name="jarjar" classname="com.tonicsystems.jarjar.JarJarTask"
+             classpath="lib/jarjar-1.0.jar"/>
+    <jarjar destfile="${deploy.dir}/${lib.name}.jar" basedir="${classes.dir}">
+      <service type="javax.annotation.processing.Processor"
+               provider="org.ductilej.detyper.Processor"/>
+      <exclude name="**/tests/**"/>
+      <zipfileset src="${deploy.dir}/lib/guava.jar"/>
+      <rule pattern="com.google.**" result="gc.@1"/>
+    </jarjar>
+  </target>
+
+  <!-- compiles our unit tests with the detyper and runs them -->
+  <target name="tests" depends="prepare,compile"
+          description="Compiles and runs the unit tests (with detyper).">
+    <delete dir="${dtclass.dir}"/>
+    <mkdir dir="${dtclass.dir}"/>
+
+    <!-- compile our helper classes, let them be treated like lib classes -->
+    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
+           source="1.6" target="1.6" encoding="utf-8"
+           srcdir="${src.dir}" destdir="${dtclass.dir}">
+      <classpath>
+        <pathelement location="${dtclass.dir}"/>
+        <path refid="build.classpath"/>
+      </classpath>
+      <compilerarg value="-Xlint"/>
+      <compilerarg value="-Xlint:-serial"/>
+      <include name="**/tests/helper/**"/>
+    </javac>
+
+    <!-- allows passing -Dtest=NamePrefix to restrict to subset of tests -->
+    <property name="test" value=""/>
+    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
+           source="1.6" target="1.6" encoding="utf-8"
+           srcdir="${src.dir}" destdir="${dtclass.dir}">
+      <classpath>
+        <pathelement location="${dtclass.dir}"/>
+        <path refid="build.classpath"/>
+      </classpath>
+      <compilerarg value="-J-ea"/>
+      <compilerarg value="-Xlint"/>
+      <compilerarg value="-Xlint:-serial"/>
+      <!--<compilerarg value="-XprintProcessorInfo"/>-->
+      <compilerarg value="-implicit:class"/>
+      <compilerarg value="-processor"/>
+      <compilerarg value="org.ductilej.detyper.Processor"/>
+      <compilerarg value="-Aorg.ductilej.warnings=true"/>
+      <compilerarg value="-Aorg.ductilej.keepifcs=true"/> <!-- TEMP -->
+      <compilerarg value="-Aorg.ductilej.showclass=${showclass}"/>
+      <compilerarg value="-Aorg.ductilej.debug=${debug}"/>
+      <include name="**/tests/${test}*Test.java"/>
+    </javac>
+
+    <!-- now run the tests (that match the 'test' property) -->
+    <antcall target="runtests">
+      <param name="tclass.dir" value="${dtclass.dir}"/>
+    </antcall>
+  </target>
+
+  <!-- compiles our dist unit tests with the detyper and runs them -->
+  <target name="dist-tests" depends="dist">
+    <delete dir="${dtdistclass.dir}"/>
+    <mkdir dir="${dtdistclass.dir}"/>
+    <javac sourcepath="" srcdir="${src.dir}" destdir="${dtdistclass.dir}">
+      <classpath refid="dist.classpath"/>
+      <include name="**/ConstructorPackageTest*.java"/>
+    </javac>
+    <javac sourcepath="" srcdir="${src.dir}" destdir="${dtdistclass.dir}">
+      <classpath refid="dist.classpath"/>
+      <include name="**/ConstructorPackageTest*.java"/>
+    </javac>
+  </target>
+
+  <!-- compiles our unit tests with the stock compiler and runs them -->
+  <target name="stock-tests" depends="prepare,compile"
+          description="Compiles and runs the unit tests (without detyper).">
+    <delete dir="${stclass.dir}"/>
+    <mkdir dir="${stclass.dir}"/>
+
+    <!-- allows passing -Dtest=NamePrefix to restrict to subset of tests -->
+    <property name="test" value=""/>
+    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
+           source="1.6" target="1.6" encoding="utf-8"
+           srcdir="${src.dir}" destdir="${stclass.dir}">
+      <classpath>
+        <pathelement location="${stclass.dir}"/>
+        <path refid="build.classpath"/>
+      </classpath>
+      <compilerarg value="-J-ea"/>
+      <compilerarg value="-Xlint"/>
+      <compilerarg value="-Xlint:-serial"/>
+      <include name="**/tests/${test}*Test.java"/>
+    </javac>
+
+    <!-- now run the tests (that match the 'test' property) -->
+    <antcall target="runtests">
+      <param name="tclass.dir" value="${stclass.dir}"/>
+    </antcall>
+  </target>
+
+  <!-- compiles our Ductile-only unit tests with the detyper and runs them -->
+  <target name="dtests" depends="prepare,compile"
+          description="Compiles and runs the Ductile-only unit tests.">
+    <delete dir="${dtclass.dir}"/>
+    <mkdir dir="${dtclass.dir}"/>
+
+    <!-- allows passing -Dtest=NamePrefix to restrict to subset of tests -->
+    <property name="test" value=""/>
+    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
+           source="1.6" target="1.6" encoding="utf-8"
+           srcdir="${src.dir}" destdir="${dtclass.dir}">
+      <classpath>
+        <pathelement location="${dtclass.dir}"/>
+        <path refid="build.classpath"/>
+      </classpath>
+      <compilerarg value="-J-ea"/>
+      <compilerarg value="-Xlint"/>
+      <compilerarg value="-Xlint:-serial"/>
+      <!--<compilerarg value="-XprintProcessorInfo"/>-->
+      <compilerarg value="-implicit:class"/>
+      <compilerarg value="-processor"/>
+      <compilerarg value="org.ductilej.detyper.Processor"/>
+      <compilerarg value="-Aorg.ductilej.warnings=${warnings}"/>
+      <compilerarg value="-Aorg.ductilej.keepifcs=true"/> <!-- TEMP -->
+      <compilerarg value="-Aorg.ductilej.showclass=${showclass}"/>
+      <compilerarg value="-Aorg.ductilej.debug=${debug}"/>
+      <include name="**/dtests/${test}*Test.java"/>
+    </javac>
+
+    <!-- now run the tests (that match the 'test' property) -->
+    <junit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
+      <classpath>
+        <pathelement location="${classes.dir}"/>
+        <pathelement location="${dtclass.dir}"/>
+        <path refid="build.classpath"/>
+      </classpath>
+      <assertions><enable/></assertions>
+      <jvmarg value="-Dorg.ductilej.debug=${debug}"/>
+      <formatter type="brief" usefile="false"/>
+      <batchtest>
+        <fileset dir="${src.dir}">
+          <include name="**/dtests/${test}*Test.java"/>
+        </fileset>
+      </batchtest>
+    </junit>
+  </target>
+
+  <!-- a helper for the tests and stock-tests targets -->
+  <target name="runtests">
+    <junit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
+      <classpath>
+        <pathelement location="${classes.dir}"/>
+        <pathelement location="${tclass.dir}"/>
+        <path refid="build.classpath"/>
+      </classpath>
+      <assertions><enable/></assertions>
+      <jvmarg value="-Dorg.ductilej.debug=${debug}"/>
+      <formatter type="brief" usefile="false"/>
+      <batchtest>
+        <fileset dir="${src.dir}">
+          <include name="**/tests/${test}*Test.java"/>
+          <exclude name="**/ConstructorPackageTest*.java"/>
+          <exclude name="**/tests/StaticMethod*.java"/>
+        </fileset>
+      </batchtest>
+    </junit>
+    <!-- these tests require special package naming conventions and must
+         handled in separate <unit> blocks which can run (or not) depending
+         on the value of the "test" property -->
+    <antcall target="runspecial">
+      <param name="testpkg" value="OtherPackage"/>
+      <param name="testname" value="ConstructorPackage"/>
+    </antcall>
+    <antcall target="runspecial">
+      <param name="testpkg" value="StaticMethodResolutionTestPackage"/>
+      <param name="testname" value="StaticMethodResolution"/>
+    </antcall>
+    <antcall target="runspecial">
+      <param name="testpkg" value="MyInterfaceTest"/>
+      <param name="testname" value="StaticMethodAmbiguousInterface"/>
+    </antcall>
+  </target>
+
+  <!-- a helper for the runtests target -->
+  <target name="runspecial">
+    <if><or><equals arg1="${test}" arg2="${testname}"/>
+            <equals arg1="${test}" arg2=""/></or>
+      <then>
+        <junit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
+          <classpath>
+            <pathelement location="${classes.dir}"/>
+            <pathelement location="${tclass.dir}"/>
+            <path refid="build.classpath"/>
+          </classpath>
+          <assertions><enable/></assertions>
+          <formatter type="brief" usefile="false"/>
+          <test name="${testpkg}.${testname}Test"/>
+        </junit>
+      </then>
+    </if>
+  </target>
+
+  <!-- runs the compiler on a test class with the astviz processor active -->
+  <target name="astviz" depends="prepare,compile"
+          description="Compiles the test code with the astviz processor.">
+    <delete dir="${stclass.dir}"/>
+    <mkdir dir="${stclass.dir}"/>
+
+    <property name="test" value=""/>
+    <echo>--- Compiling ${test}* with astviz:</echo>
+    <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
+           source="1.6" target="1.6" encoding="utf-8"
+           srcdir="${src.dir}" destdir="${stclass.dir}">
+      <classpath>
+        <path refid="build.classpath"/>
+        <pathelement location="${stclass.dir}"/>
+      </classpath>
+      <compilerarg value="-Xlint"/>
+      <compilerarg value="-Xlint:-serial"/>
+      <!--<compilerarg value="-XprintProcessorInfo"/>-->
+      <compilerarg value="-processor"/>
+      <compilerarg value="org.ductilej.astviz.Processor"/>
+      <include name="org/ductilej/tests/${test}**"/>
+    </javac>
+  </target>
+</project>
+

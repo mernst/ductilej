@@ -1,0 +1,33 @@
+//
+// $Id$
+
+package org.ductilej.runtime.ops;
+
+import org.ductilej.runtime.UnOps;
+
+/**
+ * Implements unary operations for {ARG}.
+ */
+public class {ARG}Ops implements UnOps
+{
+    public Object plus (Object arg) {
+        return +(({ARG})arg).{arg}Value();
+    }
+    public Object minus (Object arg) {
+        return -(({ARG})arg).{arg}Value();
+    }
+    public Object increment (Object arg) {
+	{arg} tmp = (({ARG})arg).{arg}Value();
+        return ++tmp;
+    }
+    public Object decrement (Object arg) {
+	{arg} tmp = (({ARG})arg).{arg}Value();
+        return --tmp;
+    }
+    public Object bitComp (Object arg) {
+        return ~(({ARG})arg).{arg}Value();
+    }
+    public Object logicalComp (Object arg) {
+        throw new IllegalArgumentException("Logical complement illegal on {arg}");
+    }
+}
