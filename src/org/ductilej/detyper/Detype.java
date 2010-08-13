@@ -1413,7 +1413,13 @@ public class Detype extends PathedTreeTranslator
 
     protected JCExpression typeToTree (Type type, final int pos)
     {
-        JCExpression expr = _tmaker.at(pos).Type(type);
+        // note: we use _rootmaker here instead of _tmaker because _tmaker will try to generate
+        // unqualified names for classes that are imported, but this opens us up to name collisions
+        // when we are resolving the name of a type that does not normally appear in the source
+        // file but we happen to need, and said type happens to be shadowed by a local type name;
+        // _tmaker will assume the imported name can be referenced unqualified, but that will
+        // resolve to the incorrect shadowing type
+        JCExpression expr = _rootmaker.at(pos).Type(type);
 
         // there's a pesky bug in TreeMaker.Type that puts java.lang.Object as the "inner" field of
         // a JCWildcard for unbound declarations (i.e. Class<?>) which later causes havoc to be
