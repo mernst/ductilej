@@ -972,7 +972,7 @@ public class Detype extends PathedTreeTranslator
         // insert an inner try/catch that catches WrappedException, dynamically checks whether its
         // cause is the caught type and casts and rethrows the cause if so
         if (!tree.catchers.isEmpty()) {
-            Name cvname = _names.fromString("_rt_" + tree.catchers.head.param.name);
+            Name cvname = _names.fromString(tree.catchers.head.param.name + "$W");
             JCCatch catcher = _tmaker.Catch(
                 _tmaker.VarDef(_tmaker.Modifiers(0L), cvname,
                                mkFA("org.ductilej.runtime.WrappedException", 0), null),
