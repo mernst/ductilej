@@ -169,9 +169,10 @@ public class RT
                 m = getMethod(cclass, mname, atypes);
                 if (m == null) {
                     if (!isInnerInNonStaticContext(cclass)) {
-                        cclass = cclass.getEnclosingClass();
-                        receiver = getEnclosingReference(cclass, receiver);
+                        break;
                     }
+                    cclass = cclass.getEnclosingClass();
+                    receiver = getEnclosingReference(cclass, receiver);
                 }
             } while (m == null);
 
@@ -191,7 +192,7 @@ public class RT
             } while (m == null);
         }
 
-        return invoke(checkMethod(m, mname, rclass, args), receiver, args);
+        return invoke(checkMethod(m, mname, rclass, atypes, args), receiver, args);
     }
 
     /**
@@ -206,7 +207,7 @@ public class RT
         Method m = (atypes != null) ? getMethod(clazz, mname, atypes) :
             // otherwise we've got to do an expensive search using the runtime argument types
             resolveMethod(clazz, mname, toArgTypes(args));
-        return invoke(checkMethod(m, mname, clazz, args), null, args);
+        return invoke(checkMethod(m, mname, clazz, atypes, args), null, args);
     }
 
     /**
@@ -765,12 +766,13 @@ public class RT
     /**
      * Helper for {@link #invokeStatic} and {@link #invoke}.
      */
-    protected static Method checkMethod (Method m, String mname, Class<?> clazz, Object[] args)
+    protected static Method checkMethod (
+        Method m, String mname, Class<?> clazz, Class<?>[] atypes, Object[] args)
     {
         if (m == null) {
             // TODO: if argument mismatch, clarify that, if total method lacking, clarify that
             throw new NoSuchMethodError(
-                Debug.format(clazz + "." + mname, "atypes", toArgTypes(args)));
+                Debug.format(clazz + "." + mname, "ftypes", atypes, "atypes", toArgTypes(args)));
         } else {
             return m;
         }
