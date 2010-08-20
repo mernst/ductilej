@@ -5,6 +5,7 @@ package org.ductilej.tests;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.zip.Deflater;
 
 import org.junit.Test;
@@ -29,6 +30,18 @@ public class ImplInheritTest
         @Override // @Override will need to be stripped away
         public int progress () {
             return 0;
+        }
+    }
+
+    public interface Cache {
+        public int size ();
+    }
+
+    public class MyCache extends HashMap<String, String> implements Cache {
+        // this will not be detyped because it overrides an implementation in Map, but it needs to
+        // be detyped because it's supposed to implement Cache.size, which has itself been detyped
+        @Override public int size () {
+            return super.size();
         }
     }
 
