@@ -78,7 +78,6 @@
           description="Runs all tests.">
   </target>
 
-  <!-- builds our distribution jar file -->
   <target name="dist" depends="compile"
           description="Compiles the code and builds our jar file.">
     <taskdef name="jarjar" classname="com.tonicsystems.jarjar.JarJarTask"
@@ -92,7 +91,6 @@
     </jarjar>
   </target>
 
-  <!-- compiles our unit tests with the detyper and runs them -->
   <target name="test-ductile" depends="compile"
           description="Compiles and runs the unit tests (with detyper).">
     <delete dir="${dtclass.dir}"/>
