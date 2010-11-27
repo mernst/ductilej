@@ -188,6 +188,7 @@ public class Resolver
                 // Debug.temp("Resolving " + mname + "<" + mi.tatypes + ">(" + mi.atypes + ")");
                 mi.msym = invoke(env, Backdoor.resolveConstructor, _resolve, mexpr.pos(),
                                  aenv, mi.site, mi.atypes, mi.tatypes);
+                // TODO: if the type-correct resolver failed, fall back to looser resolution
                 mi.varArgs = Backdoor.varArgs.get(aenv.info);
 
             } else {
@@ -209,6 +210,7 @@ public class Resolver
                         steps = steps.tail;
                     }
                 }
+                // TODO: if the type-correct resolver failed, fall back to looser resolution
             }
             if (mi.msym.kind >= Kinds.ERR) {
                 Debug.log("Unable to resolve method", "expr", mexpr, "site", mi.site,
