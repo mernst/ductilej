@@ -4,7 +4,6 @@
   <property name="tsrc.dir"    value="src/test/java"/>
   <property name="deploy.dir"  value="dist"/>
   <property name="classes.dir" value="${deploy.dir}/classes"/>
-  <property name="dtclass.dir" value="${deploy.dir}/dtclass"/>
 
   <!-- read in the desired configuration local configuration -->
   <property file="build.properties"/>
@@ -89,6 +88,7 @@
 
   <target name="test-ductile" depends="compile"
           description="Compiles and runs the unit tests (with detyper).">
+    <property name="dtclass.dir" value="${deploy.dir}/dtclass"/>
     <delete dir="${dtclass.dir}"/>
     <mkdir dir="${dtclass.dir}"/>
 
@@ -163,16 +163,17 @@
 
   <target name="test-ductile-only" depends="compile"
           description="Compiles and runs the Ductile-only unit tests.">
-    <delete dir="${dtclass.dir}"/>
-    <mkdir dir="${dtclass.dir}"/>
+    <property name="dotclass.dir" value="${deploy.dir}/dtclass"/>
+    <delete dir="${dotclass.dir}"/>
+    <mkdir dir="${dotclass.dir}"/>
 
     <!-- allows passing -Dtest=NamePrefix to restrict to subset of tests -->
     <property name="test" value=""/>
     <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
            source="1.6" target="1.6" encoding="utf-8" includeAntRuntime="no"
-           srcdir="${tsrc.dir}" destdir="${dtclass.dir}">
+           srcdir="${tsrc.dir}" destdir="${dotclass.dir}">
       <classpath>
-        <pathelement location="${dtclass.dir}"/>
+        <pathelement location="${dotclass.dir}"/>
         <path refid="build.classpath"/>
       </classpath>
       <compilerarg value="-J-ea"/>
@@ -193,7 +194,7 @@
     <junit printsummary="off" haltonfailure="yes" fork="${junit.fork}">
       <classpath>
         <pathelement location="${classes.dir}"/>
-        <pathelement location="${dtclass.dir}"/>
+        <pathelement location="${dotclass.dir}"/>
         <path refid="build.classpath"/>
       </classpath>
       <assertions><enable/></assertions>
