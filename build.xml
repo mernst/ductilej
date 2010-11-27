@@ -1,6 +1,7 @@
 <?xml version="1.0"?>
 <project name="detyper" default="compile" basedir=".">
-  <property name="src.dir"     value="src"/>
+  <property name="src.dir"     value="src/main/java"/>
+  <property name="tsrc.dir"    value="src/test/java"/>
   <property name="deploy.dir"  value="dist"/>
   <property name="classes.dir" value="${deploy.dir}/classes"/>
   <property name="dtclass.dir" value="${deploy.dir}/dtclass"/>
@@ -52,20 +53,28 @@
            source="1.6" target="1.6" encoding="utf-8" includeAntRuntime="no"
            srcdir="${src.dir}" destdir="${classes.dir}">
       <classpath refid="build.classpath"/>
-      <exclude name="org/ductilej/tests/**"/>
-      <exclude name="org/ductilej/dtests/**"/>
       <compilerarg value="-Xlint"/>
       <compilerarg value="-Xlint:-serial"/>
     </javac>
+  </target>
+
+  <target name="dist" depends="compile"
+          description="Compiles the code and builds our jar file.">
+    <taskdef name="jarjar" classname="com.tonicsystems.jarjar.JarJarTask"
+             classpath="lib/jarjar-1.0.jar"/>
+    <jarjar destfile="${deploy.dir}/${ant.project.name}.jar" basedir="${classes.dir}">
+      <service type="javax.annotation.processing.Processor"
+               provider="org.ductilej.detyper.Processor"/>
+      <zipfileset src="${deploy.dir}/lib/guava.jar"/>
+      <rule pattern="com.google.**" result="gc.@1"/>
+    </jarjar>
   </target>
 
   <target name="javadoc" depends="-prepare" description="Generates javadoc documentation.">
     <mkdir dir="${deploy.dir}/docs"/>
     <javadoc windowtitle="${ant.project.name} API" doctitle="${ant.project.name} API"
              destdir="${deploy.dir}/docs" additionalparam="-breakiterator">
-      <packageset dir="${src.dir}">
-        <exclude name="org/ductilej/detyper/tests/**"/>
-      </packageset>
+      <packageset dir="${src.dir}"/>
       <classpath refid="build.classpath"/>
       <link href="http://java.sun.com/javase/6/docs/api/"/>
     </javadoc>
@@ -78,19 +87,6 @@
           description="Runs all tests.">
   </target>
 
-  <target name="dist" depends="compile"
-          description="Compiles the code and builds our jar file.">
-    <taskdef name="jarjar" classname="com.tonicsystems.jarjar.JarJarTask"
-             classpath="lib/jarjar-1.0.jar"/>
-    <jarjar destfile="${deploy.dir}/${ant.project.name}.jar" basedir="${classes.dir}">
-      <service type="javax.annotation.processing.Processor"
-               provider="org.ductilej.detyper.Processor"/>
-      <exclude name="**/tests/**"/>
-      <zipfileset src="${deploy.dir}/lib/guava.jar"/>
-      <rule pattern="com.google.**" result="gc.@1"/>
-    </jarjar>
-  </target>
-
   <target name="test-ductile" depends="compile"
           description="Compiles and runs the unit tests (with detyper).">
     <delete dir="${dtclass.dir}"/>
@@ -99,7 +95,7 @@
     <!-- compile our helper classes, let them be treated like lib classes -->
     <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
            source="1.6" target="1.6" encoding="utf-8" includeAntRuntime="no"
-           srcdir="${src.dir}" destdir="${dtclass.dir}">
+           srcdir="${tsrc.dir}" destdir="${dtclass.dir}">
       <classpath>
         <pathelement location="${dtclass.dir}"/>
         <path refid="build.classpath"/>
@@ -113,7 +109,7 @@
     <property name="test" value=""/>
     <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
            source="1.6" target="1.6" encoding="utf-8" includeAntRuntime="no"
-           srcdir="${src.dir}" destdir="${dtclass.dir}">
+           srcdir="${tsrc.dir}" destdir="${dtclass.dir}">
       <classpath>
         <pathelement location="${dtclass.dir}"/>
         <path refid="build.classpath"/>
@@ -148,7 +144,7 @@
     <property name="test" value=""/>
     <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
            source="1.6" target="1.6" encoding="utf-8" includeAntRuntime="no"
-           srcdir="${src.dir}" destdir="${stclass.dir}">
+           srcdir="${tsrc.dir}" destdir="${stclass.dir}">
       <classpath>
         <pathelement location="${stclass.dir}"/>
         <path refid="build.classpath"/>
@@ -174,7 +170,7 @@
     <property name="test" value=""/>
     <javac fork="yes" executable="${javac.home}/bin/javac" debug="on"
            source="1.6" target="1.6" encoding="utf-8" includeAntRuntime="no"
-           srcdir="${src.dir}" destdir="${dtclass.dir}">
+           srcdir="${tsrc.dir}" destdir="${dtclass.dir}">
       <classpath>
         <pathelement location="${dtclass.dir}"/>
         <path refid="build.classpath"/>
@@ -204,7 +200,7 @@
       <jvmarg value="-Dorg.ductilej.debug=${debug}"/>
       <formatter type="brief" usefile="false"/>
       <batchtest>
-        <fileset dir="${src.dir}">
+        <fileset dir="${tsrc.dir}">
           <include name="**/dtests/${test}*Test.java"/>
         </fileset>
       </batchtest>
@@ -223,7 +219,7 @@
       <jvmarg value="-Dorg.ductilej.debug=${debug}"/>
       <formatter type="brief" usefile="false"/>
       <batchtest>
-        <fileset dir="${src.dir}">
+        <fileset dir="${tsrc.dir}">
           <include name="**/tests/${test}*Test.java"/>
           <exclude name="**/ConstructorPackageTest*.java"/>
           <exclude name="**/tests/StaticMethod*.java"/>
