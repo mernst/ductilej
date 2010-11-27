@@ -815,6 +815,7 @@ public class Detype extends PathedTreeTranslator
         String invokeName;
         JCExpression recv;
         if (!mi.isValid()) {
+            Debug.temp("Coping with invalid method invocation", "site", mi.site, "msym", mi.msym);
             // if we were unable to resolve the target method, try some fallback heuristics to
             // determine whether it has a static or non-static receiver
             if (tree.meth instanceof JCFieldAccess) {
@@ -827,8 +828,13 @@ public class Detype extends PathedTreeTranslator
                     invokeName = "invoke";
                 }
             } else {
-                recv = _tmaker.at(tree.pos).Ident(_names._this);
-                invokeName = "invoke";
+                if (inStatic()) {
+                    recv = classLiteral(mkFA(fqName, tree.pos), tree.pos);
+                    invokeName = "invokeStatic";
+                } else {
+                    recv = _tmaker.at(tree.pos).Ident(_names._this);
+                    invokeName = "invoke";
+                }
             }
 
         } else if (Flags.isStatic(mi.msym)) {
