@@ -163,7 +163,7 @@
 
   <target name="test-ductile-only" depends="compile"
           description="Compiles and runs the Ductile-only unit tests.">
-    <property name="dotclass.dir" value="${deploy.dir}/dtclass"/>
+    <property name="dotclass.dir" value="${deploy.dir}/dotclass"/>
     <delete dir="${dotclass.dir}"/>
     <mkdir dir="${dotclass.dir}"/>
 
