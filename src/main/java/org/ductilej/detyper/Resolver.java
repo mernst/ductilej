@@ -864,10 +864,10 @@ public class Resolver
                 // then, check for a star-imported method that matches this name
                 env.toplevel.starImportScope.lookup(name)
         }) {
-            for (Scope.Entry e = scope;
-                 e.scope != null; e = e.next()) {
+            for (Scope.Entry e = scope; e.scope != null; e = e.next()) {
                 sym = e.sym;
                 Type origin = e.getOrigin().owner.type;
+                // TODO: should we skip synthetic methods here? javac doesn't...
                 if (sym.kind == Kinds.MTH) {
                     if (e.sym.owner.type != origin) {
                         sym = sym.clone(e.getOrigin().owner);
