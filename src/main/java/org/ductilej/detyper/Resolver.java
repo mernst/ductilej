@@ -10,6 +10,7 @@ import javax.tools.JavaFileObject;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Kinds;
+import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol.*;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
@@ -149,7 +150,7 @@ public class Resolver
         mi.msym = invoke(env, Backdoor.resolveConstructor, _resolve, clazz.pos(),
                          aenv, site, mi.atypes, mi.tatypes);
         mi.varArgs = Backdoor.varArgs.get(aenv.info);
-        if (mi.msym.kind >= Kinds.ERR) {
+        if (!mi.isValid()) {
             Debug.log("Unable to resolve ctor", "clazz", clazz, "args", args, "targrs", typeargs);
         }
         // Debug.temp("Asked javac to resolve ctor " + clazz + " got " + mi.msym);
@@ -188,8 +189,10 @@ public class Resolver
                 // Debug.temp("Resolving " + mname + "<" + mi.tatypes + ">(" + mi.atypes + ")");
                 mi.msym = invoke(env, Backdoor.resolveConstructor, _resolve, mexpr.pos(),
                                  aenv, mi.site, mi.atypes, mi.tatypes);
-                // TODO: if the type-correct resolver failed, fall back to looser resolution
                 mi.varArgs = Backdoor.varArgs.get(aenv.info);
+                if (!mi.isValid()) {
+                    // TODO: the type-correct resolver failed, fall back to looser resolution
+                }
 
             } else {
                 // Debug.temp("Resolving " + mname + "<" + mi.tatypes + ">(" + mi.atypes + ")");
@@ -209,6 +212,10 @@ public class Resolver
                                          steps.head.isBoxingRequired, steps.head.isVarargsRequired);
                         steps = steps.tail;
                     }
+                }
+                if (!mi.isValid()) {
+                    mi.msym = findFunLenient(aenv, mname, mi.atypes, mi.tatypes);
+                    mi.varArgs = Backdoor.varArgs.get(aenv.info);
                 }
                 // TODO: if the type-correct resolver failed, fall back to looser resolution
             }
@@ -271,7 +278,13 @@ public class Resolver
                     steps = steps.tail;
                 }
             }
-            if (mi.msym.kind >= Kinds.ERR) {
+            if (!mi.isValid()) {
+                // the type-correct resolver failed, fall back to looser resolution
+                mi.msym = findMethodLenient(
+                    aenv, mi.site, mname, mi.atypes, mi.tatypes, mi.site.tsym.type);
+                mi.varArgs = Backdoor.varArgs.get(aenv.info);
+            }
+            if (!mi.isValid()) {
                 Debug.log("Unable to resolve method", "expr", mexpr, "site", mi.site);
             }
             // Debug.temp("Asked javac to resolve method " + mexpr + " got " + mi.msym);
@@ -393,7 +406,7 @@ public class Resolver
             final Env<DetypeContext> fenv = env;
             JCMethodInvocation app = (JCMethodInvocation)expr;
             MethInfo mi = resolveMethod(env, app);
-            if (mi.msym.kind >= Kinds.ERR) {
+            if (!mi.isValid()) {
                 return null;
             }
 
@@ -805,6 +818,158 @@ public class Resolver
         return rtype;
     }
 
+    protected Symbol findFunLenient (Env<AttrContext> env, Name name,
+                                     List<Type> atypes, List<Type> tatypes)
+    {
+        Symbol bestSoFar = ABSENT_MTH;
+
+        // search the method in question in this class, then its enclosing class, and so forth up
+        // the chain of enclosing classes
+        boolean staticOnly = false;
+        for (Env<AttrContext> env1 = env; env1.outer != null; env1 = env1.outer) {
+            // TODO
+            // if (isStatic(env1)) staticOnly = true;
+
+            // call findMethodLenient for this class, which searchs up the supertype chain
+            Type site = env1.enclClass.sym.type;
+            Symbol sym = findMethodLenient(env1, site, name, atypes, tatypes, site.tsym.type);
+            // if we found a concrete method, call it
+            if (sym.exists()) {
+                // TODO: should we just skip over non-static methods when seen in a static context?
+                // if (staticOnly && sym.kind == Kinds.MTH && sym.owner.kind == Kinds.TYP &&
+                //     (sym.flags() & Flags.STATIC) == 0) return new StaticError(sym);
+                // else
+                    return sym;
+            } else if (sym.kind < bestSoFar.kind) {
+                bestSoFar = sym;
+            }
+            if ((env1.enclClass.sym.flags() & Flags.STATIC) != 0) staticOnly = true;
+            env1 = env1.outer;
+        }
+
+        // look for a match in the predef class (TODO: I don't think any methods are entered into
+        // the predef class, so I'm not sure why javac does this)
+        Type site = _syms.predefClass.type;
+        Symbol sym = findMethodLenient(env, site, name, atypes, tatypes, site.tsym.type);
+        if (sym.exists()) {
+            return sym;
+        }
+
+        // check for a named-imported method that matches this name
+        for (Scope.Entry e = env.toplevel.namedImportScope.lookup(name);
+             e.scope != null; e = e.next()) {
+            sym = e.sym;
+            Type origin = e.getOrigin().owner.type;
+            if (sym.kind == Kinds.MTH) {
+                if (e.sym.owner.type != origin) {
+                    sym = sym.clone(e.getOrigin().owner);
+                }
+                // TODO: for now we're ignoring access controls; we could in theory choose
+                // accessible methods over inaccessible methods in the event of collision
+                // if (!_resolve.isAccessible(aenv, origin, sym)) {
+                //     sym = new AccessError(env, origin, sym);
+                // }
+                bestSoFar = selectBest(env, origin, atypes, tatypes, sym, bestSoFar);
+            }
+        }
+        if (bestSoFar.exists()) {
+            return bestSoFar;
+        }
+
+        // check for a star-imported method that matches this name
+        for (Scope.Entry e = env.toplevel.starImportScope.lookup(name);
+             e.scope != null; e = e.next()) {
+            sym = e.sym;
+            Type origin = e.getOrigin().owner.type;
+            if (sym.kind == Kinds.MTH) {
+                if (e.sym.owner.type != origin) {
+                    sym = sym.clone(e.getOrigin().owner);
+                }
+                // TODO: for now we're ignoring access controls; we could in theory choose
+                // accessible methods over inaccessible methods in the event of collision
+                // if (!_resolve.isAccessible(aenv, origin, sym)) {
+                //     sym = new AccessError(env, origin, sym);
+                // }
+                bestSoFar = selectBest(env, origin, atypes, tatypes, sym, bestSoFar);
+            }
+        }
+
+        return bestSoFar;
+    }
+
+    protected Symbol findMethodLenient (Env<AttrContext> env, Type site, Name name,
+                                        List<Type> atypes, List<Type> tatypes, Type intype)
+    {
+        // TODO: handle varargs; first search for non-varargs matches, then varargs matches
+
+        // consider all supertypes of the type in which we're seeking the method, from nearest
+        // supertype to most distant (i.e. Object)
+        Symbol bestSoFar = ABSENT_MTH;
+        boolean checkifcs = true;
+        for (Type ct = intype; ct.tag == TypeTags.CLASS || ct.tag == TypeTags.TYPEVAR;
+             ct = _types.supertype(ct)) {
+            // if the candidate type is a type variable, erase it to its upper bound
+            while (ct.tag == TypeTags.TYPEVAR) {
+                ct = ct.getUpperBound();
+            }
+
+            // if the candidate type is an abstract class, interface or enum, don't check its
+            // interfaces for the method (TODO: why not?)
+            ClassSymbol c = (ClassSymbol)ct.tsym;
+            if ((c.flags() & (Flags.ABSTRACT | Flags.INTERFACE | Flags.ENUM)) == 0) {
+                checkifcs = false;
+            }
+
+            // now check all members of the candidate type which have the sought name
+            for (Scope.Entry e = c.members().lookup(name); e.scope != null; e = e.next()) {
+                // if the member is a method, and is non-synthetic, check whether it's better than
+                // our current best match, and if so, use it as our new best match
+                if (e.sym.kind == Kinds.MTH && (e.sym.flags_field & Flags.SYNTHETIC) == 0) {
+                    MethodSymbol msym = (MethodSymbol)e.sym;
+                    if (msym.params.length() == atypes.length()) {
+                        bestSoFar = selectBest(env, site, atypes, tatypes, msym, bestSoFar);
+                    }
+                }
+            }
+            //- System.out.println(" - " + bestSoFar);
+
+            // TODO: recurse over interfaces, if appropriate
+            // if (checkifcs) {
+            //     Symbol concrete = methodNotFound;
+            //     if ((bestSoFar.flags() & Flags.ABSTRACT) == 0)
+            //         concrete = bestSoFar;
+            //     for (List<Type> l = types.interfaces(c.type);
+            //          l.nonEmpty();
+            //          l = l.tail) {
+            //         bestSoFar = findMethod(env, site, name, argtypes,
+            //                                typeargtypes,
+            //                                l.head, bestSoFar,
+            //                                allowBoxing, useVarargs, operator);
+            //     }
+            //     if (concrete != bestSoFar &&
+            //         concrete.kind < ERR  && bestSoFar.kind < ERR &&
+            //         types.isSubSignature(concrete.type, bestSoFar.type))
+            //         bestSoFar = concrete;
+            // }
+        }
+
+        return bestSoFar;
+    }
+
+    protected Symbol selectBest (Env<AttrContext> env, Type site, List<Type> atypes,
+                                 List<Type> tatypes, Symbol candidate, Symbol bestSoFar)
+    {
+        if (bestSoFar == AMBIGUOUS) {
+            return bestSoFar;
+        } else if (candidate.kind < bestSoFar.kind) {
+            return candidate;
+        } else {
+            // check whether candidate is overridden by bestSoFar, otherwise return AMBIGUOUS
+            Debug.warn("NOTE: need to compare '" + bestSoFar + " with '" + candidate + "'");
+            return bestSoFar;
+        }
+    }
+
     protected Type numericPromote (Env<DetypeContext> env, JCTree arg)
     {
         return numericPromote(resolveType(env, arg, Kinds.VAL));
@@ -891,6 +1056,11 @@ public class Resolver
         MethodResolutionPhase.BASIC, MethodResolutionPhase.BOX, MethodResolutionPhase.VARARITY);
 
     protected static final Symbol ABSENT_MTH = new Symbol(Kinds.ABSENT_MTH, 0, null, null, null) {
+        @Override public <R, P> R accept(ElementVisitor<R, P> v, P p) {
+            throw new AssertionError();
+        }
+    };
+    protected static final Symbol AMBIGUOUS = new Symbol(Kinds.AMBIGUOUS, 0, null, null, null) {
         @Override public <R, P> R accept(ElementVisitor<R, P> v, P p) {
             throw new AssertionError();
         }
