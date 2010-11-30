@@ -3,6 +3,8 @@
 
 package org.ductilej.dtests;
 
+import static java.lang.Integer.valueOf;
+
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -39,5 +41,13 @@ public class FindStaticMethodTest
     @Test public void testStaticFinding ()
     {
         callStaticTests();
+    }
+
+    @Test public void testNamedImportFinding ()
+    {
+        Object number = "FFCC";
+        // valueOf takes a string (and has two single argument overloaded variants), but we should
+        // find the two argument variant even though one of its argument types is invalid
+        assertEquals(0xFFCC, valueOf(number, 16));
     }
 }
