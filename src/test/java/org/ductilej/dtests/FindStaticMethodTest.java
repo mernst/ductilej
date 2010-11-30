@@ -33,7 +33,7 @@ public class FindStaticMethodTest
         assertEquals("test!", rv);
         // TODO: the following breaks because dbGet() fails to resolve, and thus we fail to resolve
         // the correct assertEquals()
-        // assertEquals("test!", dbGet(new TestDatabase(), "test"));
+        assertEquals("test!", dbGet(new TestDatabase(), "test"));
     }
 
     @Test public void testStaticFinding ()
