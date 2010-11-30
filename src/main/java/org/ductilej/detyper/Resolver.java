@@ -52,6 +52,10 @@ public class Resolver
         // were varargs used at this call site? (needed by Resolve.instantiate)
         public boolean varArgs;
 
+        // TODO: add a flag indicating whether this is a lenient resolution, in which case we
+        // should perhaps not emit precise runtime types for the target method and instead allow
+        // additional runtime resolution based on runtime actual argument types...
+
         /** Returns true if we were able to resolve the method, false if not. */
         public boolean isValid () {
             return msym.kind < Kinds.ERR;
@@ -844,7 +848,6 @@ public class Resolver
                 bestSoFar = sym;
             }
             if ((env1.enclClass.sym.flags() & Flags.STATIC) != 0) staticOnly = true;
-            env1 = env1.outer;
         }
 
         // look for a match in the predef class (TODO: I don't think any methods are entered into
@@ -855,42 +858,30 @@ public class Resolver
             return sym;
         }
 
-        // check for a named-imported method that matches this name
-        for (Scope.Entry e = env.toplevel.namedImportScope.lookup(name);
-             e.scope != null; e = e.next()) {
-            sym = e.sym;
-            Type origin = e.getOrigin().owner.type;
-            if (sym.kind == Kinds.MTH) {
-                if (e.sym.owner.type != origin) {
-                    sym = sym.clone(e.getOrigin().owner);
+        for (Scope.Entry scope : new Scope.Entry[] {
+                // first, check for a named-imported method that matches this name
+                env.toplevel.namedImportScope.lookup(name),
+                // then, check for a star-imported method that matches this name
+                env.toplevel.starImportScope.lookup(name)
+        }) {
+            for (Scope.Entry e = scope;
+                 e.scope != null; e = e.next()) {
+                sym = e.sym;
+                Type origin = e.getOrigin().owner.type;
+                if (sym.kind == Kinds.MTH) {
+                    if (e.sym.owner.type != origin) {
+                        sym = sym.clone(e.getOrigin().owner);
+                    }
+                    // TODO: for now we're ignoring access controls; we could in theory choose
+                    // accessible methods over inaccessible methods in the event of collision
+                    // if (!_resolve.isAccessible(aenv, origin, sym)) {
+                    //     sym = new AccessError(env, origin, sym);
+                    // }
+                    bestSoFar = selectBest(env, origin, atypes, tatypes, sym, bestSoFar);
                 }
-                // TODO: for now we're ignoring access controls; we could in theory choose
-                // accessible methods over inaccessible methods in the event of collision
-                // if (!_resolve.isAccessible(aenv, origin, sym)) {
-                //     sym = new AccessError(env, origin, sym);
-                // }
-                bestSoFar = selectBest(env, origin, atypes, tatypes, sym, bestSoFar);
             }
-        }
-        if (bestSoFar.exists()) {
-            return bestSoFar;
-        }
-
-        // check for a star-imported method that matches this name
-        for (Scope.Entry e = env.toplevel.starImportScope.lookup(name);
-             e.scope != null; e = e.next()) {
-            sym = e.sym;
-            Type origin = e.getOrigin().owner.type;
-            if (sym.kind == Kinds.MTH) {
-                if (e.sym.owner.type != origin) {
-                    sym = sym.clone(e.getOrigin().owner);
-                }
-                // TODO: for now we're ignoring access controls; we could in theory choose
-                // accessible methods over inaccessible methods in the event of collision
-                // if (!_resolve.isAccessible(aenv, origin, sym)) {
-                //     sym = new AccessError(env, origin, sym);
-                // }
-                bestSoFar = selectBest(env, origin, atypes, tatypes, sym, bestSoFar);
+            if (bestSoFar.exists()) {
+                return bestSoFar;
             }
         }
 
@@ -925,10 +916,7 @@ public class Resolver
                 // if the member is a method, and is non-synthetic, check whether it's better than
                 // our current best match, and if so, use it as our new best match
                 if (e.sym.kind == Kinds.MTH && (e.sym.flags_field & Flags.SYNTHETIC) == 0) {
-                    MethodSymbol msym = (MethodSymbol)e.sym;
-                    if (msym.params.length() == atypes.length()) {
-                        bestSoFar = selectBest(env, site, atypes, tatypes, msym, bestSoFar);
-                    }
+                    bestSoFar = selectBest(env, site, atypes, tatypes, e.sym, bestSoFar);
                 }
             }
             //- System.out.println(" - " + bestSoFar);
@@ -959,7 +947,12 @@ public class Resolver
     protected Symbol selectBest (Env<AttrContext> env, Type site, List<Type> atypes,
                                  List<Type> tatypes, Symbol candidate, Symbol bestSoFar)
     {
-        if (bestSoFar == AMBIGUOUS) {
+        // if the arity of the candidate does not match the supplied parameters, or...
+        // (TODO: handle varargs)
+        if (candidate.type.asMethodType().argtypes.length() != atypes.length() ||
+            // ...we've already matched too many methods
+            bestSoFar == AMBIGUOUS) {
+            // return our existing best candidate (which may be the AMBIGUOUS failure symbol)
             return bestSoFar;
         } else if (candidate.kind < bestSoFar.kind) {
             return candidate;
@@ -1059,10 +1052,16 @@ public class Resolver
         @Override public <R, P> R accept(ElementVisitor<R, P> v, P p) {
             throw new AssertionError();
         }
+        @Override public boolean exists() {
+            return false;
+        }
     };
     protected static final Symbol AMBIGUOUS = new Symbol(Kinds.AMBIGUOUS, 0, null, null, null) {
         @Override public <R, P> R accept(ElementVisitor<R, P> v, P p) {
             throw new AssertionError();
+        }
+        @Override public boolean exists() {
+            return false;
         }
     };
 }
