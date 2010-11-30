@@ -214,10 +214,10 @@ public class Resolver
                     }
                 }
                 if (!mi.isValid()) {
+                    // the type-correct resolver failed, fall back to looser resolution
                     mi.msym = findFunLenient(aenv, mname, mi.atypes, mi.tatypes);
                     mi.varArgs = Backdoor.varArgs.get(aenv.info);
                 }
-                // TODO: if the type-correct resolver failed, fall back to looser resolution
             }
             if (mi.msym.kind >= Kinds.ERR) {
                 Debug.log("Unable to resolve method", "expr", mexpr, "site", mi.site,
