@@ -362,7 +362,7 @@ public class Resolver
             return expr.type;
         }
 
-        // Debug.temp("Resolving type", "expr", expr, "pkind", pkind);
+        // Debug.temp("Resolving type", "expr", expr, "tag", expr.getTag(), "pkind", pkind);
         switch (expr.getTag()) {
         case JCTree.IDENT: {
             Symbol sym = resolveSymbol(env, expr, pkind);
@@ -970,6 +970,9 @@ public class Resolver
 
     protected Type numericPromote (Type arg)
     {
+        if (arg == null) {
+            return null; // type resolution failed, so just propagate lack of type
+        }
         if (arg.tag == TypeTags.CLASS) {
             arg = _types.unboxedType(arg);
         }
@@ -994,6 +997,12 @@ public class Resolver
 
     protected Type numericPromote (Type lhs, Type rhs)
     {
+        if (lhs == null) {
+            return rhs; // return either the known type or null
+        } else if (rhs == null) {
+            return lhs; // return either the known type or null
+        }
+
         if (lhs.tag == TypeTags.CLASS) {
             lhs = _types.unboxedType(lhs);
         }
