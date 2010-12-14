@@ -387,7 +387,7 @@ public class Detype extends PathedTreeTranslator
         } else if (isPrimitive && tree.init != null) {
             int vtag = ((JCPrimitiveTypeTree)tree.vartype).typetag;
             // TODO: only implicitly narrow when RHS is a constant expr?
-            if (vtag != itype.tag &&
+            if (itype != null && vtag != itype.tag &&
                 !_types.isSameType(_types.boxedClass(_syms.typeOfTag[vtag]).type, itype)) {
                 tree.init = callRT("coerce", tree.init.pos,
                                    classLiteral(tree.vartype, tree.init.pos), tree.init);
