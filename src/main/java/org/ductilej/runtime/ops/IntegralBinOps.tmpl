@@ -1,0 +1,64 @@
+//
+// $Id$
+
+package org.ductilej.runtime.ops;
+
+import org.ductilej.runtime.BinOps;
+
+/**
+ * Implements binary operations for lhs of {LEFT} and rhs of {RIGHT}.
+ */
+public class {LEFT}{RIGHT}Ops implements BinOps
+{
+    public Object plus (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() + (({RIGHT})rhs).{right}Value();
+    }
+    public Object minus (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() - (({RIGHT})rhs).{right}Value();
+    }
+    public Object multiply (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() * (({RIGHT})rhs).{right}Value();
+    }
+    public Object divide (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() / (({RIGHT})rhs).{right}Value();
+    }
+    public Object remainder (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() % (({RIGHT})rhs).{right}Value();
+    }
+
+    public Object bitOr (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() | (({RIGHT})rhs).{right}Value();
+    }
+    public Object bitAnd (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() & (({RIGHT})rhs).{right}Value();
+    }
+    public Object bitXor (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() ^ (({RIGHT})rhs).{right}Value();
+    }
+
+    public Object leftShift (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() << (({RIGHT})rhs).{right}Value();
+    }
+    public Object rightShift (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() >> (({RIGHT})rhs).{right}Value();
+    }
+    public Object unsignedRightShift (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() >>> (({RIGHT})rhs).{right}Value();
+    }
+
+    public boolean equalTo (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() == (({RIGHT})rhs).{right}Value();
+    }
+    public boolean lessThan (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() < (({RIGHT})rhs).{right}Value();
+    }
+    public boolean lessThanEq (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() <= (({RIGHT})rhs).{right}Value();
+    }
+    public boolean greaterThan (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() > (({RIGHT})rhs).{right}Value();
+    }
+    public boolean greaterThanEq (Object lhs, Object rhs) {
+        return (({LEFT})lhs).{left}Value() >= (({RIGHT})rhs).{right}Value();
+    }
+}

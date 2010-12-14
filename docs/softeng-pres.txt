@@ -1,0 +1,106 @@
+TJ Presentation Notes
+---------------------
+
+The schism: static vs. dynamic
+- We love type systems, why doesn't everyone else?
+- They aren't just great way to prove properties of your programs, they provide
+  practical benefits as well:
+  + documentation, performance, earlier detection of errors, better automated
+    refactoring, enforce abstractions/modularity
+- What's not to love?
+
+Why developers jump ship
+1. Too much typing (program verbosity)
+2. Type systems reject some useful programs
+   + they make metaprogramming hard
+3. Too much thinking
+   + expressing what you mean via types can be tough
+   + cryptic or verbose errors messages hard to decipher
+4. They are too rigid
+   + they slow down program change
+
+[Animated additions of what these problems are addressed by]
+1. Type inference
+2. Fancier type systems
+3. Find smarter developers?
+4. Our topic for today
+
+Existing Approaches
+- "Gradual" typing
+  + supports both dynamic and static types
+  + allows migration from dynamic to static types
+This helps with some things, but not all, let's look at some use cases
+
+Prototyping
+- Poster child for dynamic languagse
+- Poster child for migrated typing
+- Start with untyped code, then go back and add types later
+
+Very compelling, but not quite perfect
+- If your goal is to be fully typed, you eventually have to revisit your entire
+  code base later and figure out what types you meant
+- When do you do that?
+  + The longer you wait, the more you've forgotted what earlier code does
+  + The sooner you switch to static types, the quicker your code becomes fragile
+
+Evolution
+- Large type breaking changes
+- Marius told us about one two weeks ago: changing libraries
+- Promoting primitive types (String -> Buddy)
+- Exploratory changes that break types
+
+We want to "test as we go" but we can't
+
+Gradual typing doesn't help here
+- we already have a bunch of well-typed code and we want to change it
+- removing all types, then doing our changes, then adding them back is a lot of
+  trouble
+
+What if we just give you a switch for turning off the type system?
+[Comic of turning off runway lights?]
+
+Prototyping
+- Add types as you go, without reducing flexibility
+Evolution
+- Test your LTBC as you go
+
+Sidesteps issues of performance because we don't want to "ship" dynamically
+typed code
+
+Can we do this?
+- Depends on the language
+- If types have no semantic effects, no problem!
+- Most languages allow types to influence semantics
+  + widenings/coercions: not a big deal, do them at runtime
+  + static overloading: more of a PITA (later)
+- Part of the research: survey the type features of popular languages,
+  determine what is problematic and what is OK
+
+Assuming we can, how to evaluate?
+- Experiments:
+  + prototyping task with and without the tool
+  + evolution task with and without the tool
+
+- Give it to developers
+  + measure frequency of use
+  Can we measure whether we're being useful?
+  + masked type inconsistencies yet program ran to completion (sounds good)
+  + dynamic compilation failed (maybe good, maybe bad)
+  + encountered runtime type error (maybe good, maybe bad)
+
+What else could we do?
+- If we're opening the door to "experimental mode" versus "strict mode" maybe
+we can relax other things
+- Anything performance related can go
+  + don't complain about lack of definite assignment
+- Can we fix syntax errors
+  + use heuristics to guess what the programmer meant
+
+Technical Addendum
+------------------
+
+Type mangling: 
+- foo (int bar, String baz) ->
+  foo (Object bar, Object baz, int barType, String bazType)
+- Make use of as much type information as we have to pick the resolver "tokens"
+- Still might encounter ambiguity at compile time
