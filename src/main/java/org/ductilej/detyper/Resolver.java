@@ -114,7 +114,7 @@ public class Resolver
         }
 
         if (sym.kind >= Kinds.ERR) {
-            Debug.warn("Symbol resolution failed", "expr", expr, "sym", sym);
+            Debug.log("Symbol resolution failed", "expr", expr, "sym", sym);
         }
         return sym;
     }
@@ -138,7 +138,7 @@ public class Resolver
 
         mi.site = resolveType(env, clazz, Kinds.TYP);
         if (mi.site == null) {
-            Debug.warn("Can't resolve class for ctor", "expr", clazz);
+            Debug.log("Can't resolve class for ctor", "expr", clazz);
             return mi;
         }
 
@@ -238,7 +238,7 @@ public class Resolver
             JCExpression selexp = ((JCFieldAccess)mexpr.meth).selected;
             mi.site = resolveType(env, selexp, Kinds.VAL | Kinds.TYP);
             if (mi.site == null) {
-                Debug.warn("Can't resolve receiver type", "expr", mexpr);
+                Debug.log("Can't resolve receiver type", "expr", mexpr);
                 return mi;
             }
             // Debug.temp("Resolved method receiver", "expr", mexpr, "site", mi.site);
@@ -362,12 +362,12 @@ public class Resolver
             return expr.type;
         }
 
-        // Debug.temp("Resolving type", "expr", expr, "pkind", pkind);
+        // Debug.temp("Resolving type", "expr", expr, "tag", expr.getTag(), "pkind", pkind);
         switch (expr.getTag()) {
         case JCTree.IDENT: {
             Symbol sym = resolveSymbol(env, expr, pkind);
             if (sym.kind >= Kinds.ERR) {
-                Debug.warn("Unable to resolve type", "expr", expr, "pkind", pkind);
+                Debug.log("Unable to resolve type", "expr", expr, "pkind", pkind);
                 return null;
             }
 
@@ -576,6 +576,9 @@ public class Resolver
         case JCTree.TYPEAPPLY: {
             JCTypeApply tapp = (JCTypeApply)expr;
             Type clazz = resolveType(env, tapp.clazz, Kinds.TYP);
+            if (clazz == null) {
+                return null;
+            }
             List<Type> actuals = resolveTypes(env, tapp.arguments, Kinds.TYP);
             Type clazzOuter = clazz.getEnclosingType();
             return new Type.ClassType(clazzOuter, actuals, clazz.tsym);
@@ -970,6 +973,9 @@ public class Resolver
 
     protected Type numericPromote (Type arg)
     {
+        if (arg == null) {
+            return null; // type resolution failed, so just propagate lack of type
+        }
         if (arg.tag == TypeTags.CLASS) {
             arg = _types.unboxedType(arg);
         }
@@ -983,7 +989,8 @@ public class Resolver
         case TypeTags.FLOAT: return _syms.floatType;
         case TypeTags.DOUBLE: return _syms.doubleType;
         default:
-            throw new IllegalArgumentException("Cannot promote non-numeric type " + arg);
+            Debug.warn("Cannot promote non-numeric type", "arg", arg);
+            return _syms.botType;
         }
     }
 
@@ -994,6 +1001,12 @@ public class Resolver
 
     protected Type numericPromote (Type lhs, Type rhs)
     {
+        if (lhs == null || lhs.tag >= TypeTags.NONE) {
+            return rhs; // return either the known type or null
+        } else if (rhs == null || rhs.tag >= TypeTags.NONE) {
+            return lhs; // return either the known type or null
+        }
+
         if (lhs.tag == TypeTags.CLASS) {
             lhs = _types.unboxedType(lhs);
         }
@@ -1010,8 +1023,8 @@ public class Resolver
         case TypeTags.FLOAT: return _syms.floatType;
         case TypeTags.DOUBLE: return _syms.doubleType;
         default:
-            throw new IllegalArgumentException(
-                "Cannot promote non-numeric type [lhs=" + lhs + ", rhs=" + rhs + "]");
+            Debug.warn("Cannot promote non-numeric type", "lhs", lhs, "rhs", rhs);
+            return _syms.botType;
         }
     }
 
