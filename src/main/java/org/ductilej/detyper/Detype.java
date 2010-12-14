@@ -602,7 +602,15 @@ public class Detype extends PathedTreeTranslator
                     // enclosing types looking for the type that is a subtype of the owner
                     Type etype = getEnclosingSubtype(
                         otype, _types.erasure(_env.enclClass.sym.type));
-                    thisex = _tmaker.at(tree.pos).Select(typeToTree(etype, tree.pos), _names._this);
+                    if (etype == null) {
+                        // we failed to find an enclosing subtype, so we're looking at illegal code
+                        // (i.e. instantiation of non-static inner type without valid outer type);
+                        // pass null as the outer reference and hope for the best
+                        thisex = _tmaker.at(tree.pos).Literal(TypeTags.BOT, null);
+                    } else {
+                        thisex = _tmaker.at(tree.pos).Select(
+                            typeToTree(etype, tree.pos), _names._this);
+                    }
                 }
             }
 
@@ -870,6 +878,7 @@ public class Detype extends PathedTreeTranslator
                 //     foo(); // --> RT.invoke("foo", B.this); not A.this
                 // }}}
                 etype = getEnclosingSubtype(otype, etype);
+                // TODO: will etype ever be null here? if so, what to do?
                 recv = _tmaker.at(tree.pos).Select(typeToTree(etype, tree.pos), _names._this);
             }
             // convert to RT.invoke("method", this, args)
@@ -1634,6 +1643,10 @@ public class Detype extends PathedTreeTranslator
     protected Type getEnclosingSubtype (Type otype, Type etype)
     {
         do {
+            Type eetype = etype.getEnclosingType();
+            if (eetype.tag >= TypeTags.NONE) {
+                return null;
+            }
             etype = _types.erasure(etype.getEnclosingType());
         } while (!_types.isSubtype(etype, otype));
         return etype;
