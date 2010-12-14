@@ -1080,7 +1080,7 @@ public class Detype extends PathedTreeTranslator
             // in-place modifications to the AST
             JCExpression trhs = translate(tree.rhs);
             // TODO: only implicitly narrow when RHS is a constant expr?
-            if (ltype.isPrimitive() && ltype.tag != rtype.tag) {
+            if (ltype != null && rtype != null && ltype.isPrimitive() && ltype.tag != rtype.tag) {
                 trhs = callRT("coerce", tree.rhs.pos, classLiteral(ltype, tree.rhs.pos), trhs);
             }
             result = mkAssign(tree.lhs, trhs, tree.pos);
@@ -1175,10 +1175,10 @@ public class Detype extends PathedTreeTranslator
 
     protected boolean isConstDecl (JCVariableDecl tree)
     {
-        // the declared type must be a primitive or a string
-        if (tree.vartype.getTag() != JCTree.TYPEIDENT &&
-            !_types.isSameType(_resolver.resolveType(_env, tree.vartype, Kinds.TYP),
-                               _syms.stringType)) {
+        // the declared type must be (resolvable and) a primitive or a string
+        Type vtype = _resolver.resolveType(_env, tree.vartype, Kinds.TYP);
+        if (vtype != null && tree.vartype.getTag() != JCTree.TYPEIDENT &&
+            !_types.isSameType(vtype, _syms.stringType)) {
             return false;
         }
 
