@@ -1184,11 +1184,14 @@ public class Detype extends PathedTreeTranslator
 
     protected boolean isConstDecl (JCVariableDecl tree)
     {
-        // the declared type must be (resolvable and) a primitive or a string
-        Type vtype = _resolver.resolveType(_env, tree.vartype, Kinds.TYP);
-        if (vtype != null && tree.vartype.getTag() != JCTree.TYPEIDENT &&
-            !_types.isSameType(vtype, _syms.stringType)) {
-            return false;
+        // if the type of the RHS is not a primitive...
+        if (tree.vartype.getTag() != JCTree.TYPEIDENT) {
+            // ...then the only other possible const expression is a string
+            Type vtype = _resolver.resolveType(_env, tree.vartype, Kinds.TYP);
+            // if we could not resolve the type of the RHS, it's definitely not a string literal
+            if (vtype == null || !_types.isSameType(vtype, _syms.stringType)) {
+                return false;
+            }
         }
 
         // it must be explicitly declared final or be an interface field member (which is
