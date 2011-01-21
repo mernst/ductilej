@@ -20,6 +20,7 @@
   <path id="base.classpath">
     <pathelement location="${classes.dir}"/>
     <fileset dir="${deploy.dir}/lib" includes="*.jar"/>
+    <fileset dir="${javac.home}/lib" includes="${javac.jar}"/>
   </path>
   <path id="build.classpath">
     <path refid="base.classpath"/>
