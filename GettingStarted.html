@@ -1,0 +1,103 @@
+<!DOCTYPE html 
+     PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+  <title>Getting Started</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+</head>
+<body>
+
+<h1 id="general-advice">General Advice</h1>
+
+<p>We find that the best way to use Ductile is to set up a separate compilation target that compiles with Ductile enabled. That way you can fluidly switch between compiling your program with the type checker and without. The same goes for unit tests. Often you'll want to run some particular unit test via Ductile so that you can check some particular code path even though the rest of your code isn't currently type checking. Thus the examples below target such a configuration.</p>
+
+<h2 id="compiler-plugin">Compiler Plugin</h2>
+
+<p>Ductile is a javac compiler plugin. You can build the plugin from source, or you can download <a href="http://ductilej.googlecode.com/files/detyper.jar">detyper.jar</a>, the pre-built plugin.</p>
+
+<h2 id="limitations">Limitations</h2>
+
+<p>There are a couple of limitations of Ductile that we want to own up to straight away:</p>
+
+<ul>
+<li>You have to use the 1.7 javac to compile code with Ductile. You can still use the 1.6 javac to compile your program normally and you can use a 1.6 JVM to run everything. We require the 1.7 compiler because the 1.6 compiler has some bugs in its compiler plugin support. <a href="http://dlc.sun.com.edgesuite.net/jdk7/binaries/index.html">Download a JDK 1.7 snapshot here.</a>
+</li>
+<li>Ductile doesn't always do the right thing with incremental compilation, so it's generally best to delete previous compilation results before compiling with Ductile. This is something we're working on improving.</li>
+</ul>
+
+<h1 id="ant-integration">Ant Integration</h1>
+
+<p>Suppose you have a compilation task that looks something like the following:</p>
+
+<pre><code>&lt;target name="compile" depends="..."&gt;
+  &lt;javac srcdir="${src.dir}" destdir="${classes.dir}"&gt;
+    &lt;classpath refid="classpath"/&gt;
+  &lt;/javac&gt;
+&lt;/target&gt;
+</code></pre>
+
+<p>Creating a target that compiles using Ductile requires just a few simple changes:</p>
+
+<ul>
+<li>Add <code>detyper.jar</code> to the classpath of the compiler</li>
+<li>Use the 1.7 javac compiler</li>
+<li>Create a separate directory in which to store Ductile compilation results (mixing Ductile compiled classes and normal javac compiled classes will confuse both parties)</li>
+</ul>
+
+<pre><code>&lt;target name="dcompile" depends="..."&gt;
+  &lt;delete dir="${classes.dir}/detyped"/&gt;
+  &lt;mkdir dir="${classes.dir}/detyped"/&gt;
+  &lt;javac executable="PATH/TO/1.7/javac" fork="true"
+         srcdir="${src.dir}" destdir="${classes.dir}/detyped"&gt;
+    &lt;classpath&gt;
+      &lt;path refid="classpath"/&gt;
+      &lt;fileset dir="SOMEWHERE" includes="detyper.jar"/&gt;
+    &lt;/classpath&gt;
+  &lt;/javac&gt;
+&lt;/target&gt;
+</code></pre>
+
+<p>Configuring a separate JUnit task to run with your Ductile compiled code is also easy. Here's an example JUnit task configuration:</p>
+
+<pre><code>&lt;target name="tests" depends="compile"&gt;
+  &lt;junit printsummary="yes" haltonfailure="yes"&gt;
+    &lt;classpath&gt;
+      &lt;pathelement location="${classes.dir}"/&gt;
+      &lt;pathelement path="${java.class.path}"/&gt;
+    &lt;/classpath&gt;
+    &lt;formatter type="plain"/&gt;
+    &lt;test name="my.test.TestCase" haltonfailure="no" outfile="result"/&gt;
+  &lt;/junit&gt;
+&lt;/target&gt;
+</code></pre>
+
+<p>Just a few small changes are necessary:</p>
+
+<ul>
+<li>Add <code>detyper.jar</code> to the classpath</li>
+<li>Change the task to depend on <code>dcompile</code> instead of <code>compile</code>
+</li>
+<li>Change the classpath to reference <code>${classes.dir}/detyped</code> instead of <code>${classes.dir}</code>
+</li>
+</ul>
+
+<pre><code>&lt;target name="dtests" depends="dcompile"&gt;
+  &lt;junit printsummary="yes" haltonfailure="yes"&gt;
+    &lt;classpath&gt;
+      &lt;pathelement location="${classes.dir}/detyped"/&gt;
+      &lt;pathelement path="${java.class.path}"/&gt;
+      &lt;fileset dir="SOMEWHERE" includes="detyper.jar"/&gt;
+    &lt;/classpath&gt;
+    &lt;formatter type="plain"/&gt;
+    &lt;test name="my.test.TestCase" haltonfailure="no" outfile="result"/&gt;
+  &lt;/junit&gt;
+&lt;/target&gt;
+</code></pre>
+
+<h1 id="other-build-systems">Other Build Systems</h1>
+
+<p>We don't currently have detailed instructions on how to integrate Ductile with other build systems, but hopefully the Ant instructions give you an idea of the necessary steps. Simply set up a target where you compile with the 1.7 javac and where <code>detyper.jar</code> is on the classpath during compilation. Then execute that code directly or instruct JUnit (or any other testing framework) to reference that code when running unit tests. <code>detyper.jar</code> must be on your classpath when executing the code either standalone or via a testing framework.</p>
+
+</body>
+</html>

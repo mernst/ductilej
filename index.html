@@ -1,0 +1,58 @@
+<!DOCTYPE html 
+     PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+  <title>DuctileJ Homepage</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1" />
+</head>
+<body>
+
+<h2 id="what-is-ductilej">What is DuctileJ?</h2>
+
+<p>DuctileJ is a tool (for Java) that allows you to run your program or unit tests at any time -- even when your program does not type check or is otherwise "broken". It currently accommodates type errors, but future work will also look into accommodating syntax errors and any other form of "broken" that we can meaningfully cope with while still trying to run whatever part of your program that works. If a type error is encountered at runtime, then your program will fail there, but all of the type errors in the code that you <em>don't</em> execute won't get in your way.</p>
+
+<h2 id="why-would-i-want-to-use-it">Why would I want to use it?</h2>
+
+<p>In a nutshell: to obtain (some of) the benefits of dynamic typing without giving up the benefits of static typing.</p>
+
+<p>When you're prototyping, you may not want the compiler bothering you about broken code that you don't care about. Or you may want to use <a href="http://en.wikipedia.org/wiki/Duck_typing">duck typing</a> while you're fleshing out the design of your interfaces.</p>
+
+<p>When you're doing a big refactor, you may want to run partially broken code, just to make sure your in-progress refactor is working like you intended.</p>
+
+<p>There are a variety of useful things you can do with DuctileJ, which are <a href="OtherUses.html">described here</a>. You can also download the <a href="http://code.google.com/p/ductilej/downloads/detail?name=duckpond.zip">Duckpond</a> demo project and play around with DuctileJ.</p>
+
+<h2 id="how-does-it-work">How does it work?</h2>
+
+<p>Ductile works by translating your program into a semantically equivalent program where everything has type <code>Object</code>. All methods are invoked reflectively, all fields are accessed reflectively and all primitive operations (addition, etc.) are computed using a tiny runtime library.</p>
+
+<p>You're probably thinking that this sounds pretty slow. It is a bit slow, but it turns out that when you're prototyping or just running some tests (even on a large codebase), speed isn't usually a big issue. You wouldn't <em>ship</em> code compiled with Ductile, but it's very handy while you're developing.</p>
+
+<p>If you want all the gory details, check out our <a href="http://www.cs.washington.edu/homes/mernst/pubs/ductile-icse2011-abstract.html">forthcoming paper</a> which will be presented at <a href="http://2011.icse-conferences.org/">ICSE 2011</a>.</p>
+
+<h2 id="why-not-just-use-insert-your-favorite-dynamically-typed-language-here">Why not just use (insert your favorite dynamically-typed language here)?</h2>
+
+<p>One very popular reason to use a dynamically-typed language (e.g. Perl, Python, Ruby, Groovy, etc.) is to solve these kinds of problems. That's great if you want your whole project to be written in that dynamically-typed language forever. But if you want the benefits of dynamic typing while developing and testing, and the benefits of static typing when shipping production code, then try DuctileJ.</p>
+
+<p>You write your code in Java, but you can play things fast and loose when you're prototyping, just as you would in a dynamically-typed language. When its time to tighten things up for shipping, fire up the normal Java compiler and let it tell you all the places where you need to clean things up. Your code still ends up statically type-safe and fast.</p>
+
+<h2 id="im-sold-how-do-i-use-it">I'm sold. How do I use it?</h2>
+
+<p>Integrating Ductile into your project is easy. It is written as a javac compiler plugin which you simply stick on the classpath when you're compiling. Check out the <a href="GettingStarted.html">Getting Started</a> page for all the juicy details.</p>
+
+<h2 id="who-was-crazy-enough-to-do-this">Who was crazy enough to do this?</h2>
+
+<p>Ductile is a research project being undertaken by <a href="http://www.cs.washington.edu/homes/mdb/">Michael Bayne</a>, <a href="http://www.cs.washington.edu/homes/rcook/">Richard Cook</a> and <a href="http://www.cs.washington.edu/homes/mernst/">Michael Ernst</a> at the <a href="http://www.cs.washington.edu/">University of Washington</a>.</p>
+
+<p>Questions, comments and discussion are best directed to the <a href="http://groups.google.com/group/ductile-java">Ductile Java Google Group</a>.</p>
+
+<h2 id="publications">Publications</h2>
+
+<p>A paper about the Ductile approach, implementation, and preliminary experience appeared at ICSE 2011:  <a href="http://www.cs.washington.edu/homes/mernst/pubs/ductile-icse2011-abstract.html">Always-available static and dynamic feedback</a>, by Michael Bayne, Richard Cook, and Michael D. Ernst.</p>
+
+<h2 id="related-projects">Related Projects</h2>
+
+<p>Richard is also working on a <a href="http://code.google.com/p/ductilesharp/">Ductile compiler for C#</a>.</p>
+
+</body>
+</html>
