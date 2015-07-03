@@ -1,4 +1,3 @@
-syntax: glob
 build.properties
 dist
 docs/proposal
